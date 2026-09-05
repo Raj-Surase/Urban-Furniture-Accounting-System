@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Payment extends Model
 {
@@ -33,6 +34,38 @@ class Payment extends Model
         "payment_date" => "date",
         "reconciled_at" => "datetime",
     ];
+
+    protected $appends = [
+        "payment_type",
+        "customer",
+        "vendor",
+    ];
+
+    public function party(): MorphTo
+    {
+        return $this->morphTo(__FUNCTION__, "party_type", "party_id");
+    }
+
+    public function getPaymentTypeAttribute(): string
+    {
+        return $this->type === "received" ? "customer_receipt" : "vendor_payment";
+    }
+
+    public function getCustomerAttribute(): ?Customer
+    {
+        if ($this->party_type === "customer") {
+            return $this->relationLoaded("party") ? $this->getRelation("party") : Customer::find($this->party_id);
+        }
+        return null;
+    }
+
+    public function getVendorAttribute(): ?Vendor
+    {
+        if ($this->party_type === "vendor") {
+            return $this->relationLoaded("party") ? $this->getRelation("party") : Vendor::find($this->party_id);
+        }
+        return null;
+    }
 
     public function invoice(): BelongsTo
     {

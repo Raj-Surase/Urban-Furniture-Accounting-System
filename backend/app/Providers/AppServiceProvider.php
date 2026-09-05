@@ -62,5 +62,11 @@ class AppServiceProvider extends ServiceProvider
                 return $user->hasPermission($permission);
             });
         }
+
+        // 3. Register morph map for polymorphic party relations
+        \Illuminate\Database\Eloquent\Relations\Relation::morphMap([
+            'customer' => Customer::class,
+            'vendor' => Vendor::class,
+        ]);
     }
 }

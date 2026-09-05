@@ -27,10 +27,16 @@ class PaymentController extends Controller
     {
         Gate::authorize('viewAny', Payment::class);
 
-        $query = Payment::with(['invoice', 'bankAccount', 'creator', 'reconciler'])->latest();
+        $query = Payment::with(['invoice', 'bankAccount', 'creator', 'reconciler', 'party'])->latest();
 
         if ($type = $request->query('type')) {
-            $query->where('type', $type);
+            if ($type === 'customer_receipt') {
+                $query->where('type', 'received');
+            } elseif ($type === 'vendor_payment') {
+                $query->where('type', 'made');
+            } else {
+                $query->where('type', $type);
+            }
         }
 
         if ($status = $request->query('status')) {
@@ -38,8 +44,10 @@ class PaymentController extends Controller
         }
 
         if ($search = $request->query('search')) {
-            $query->where('payment_number', 'like', "%{$search}%")
+            $query->where(function ($q) use ($search) {
+                $q->where('payment_number', 'like', "%{$search}%")
                   ->orWhere('reference_number', 'like', "%{$search}%");
+            });
         }
 
         $payments = $query->paginate($request->query('per_page', 20));
@@ -58,6 +66,64 @@ class PaymentController extends Controller
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', Payment::class);
+
+        // Normalize aliases and fallback fields
+        $data = $request->all();
+
+        // 1. If invoice_id is provided, auto-fill party and type if missing
+        if (!empty($data['invoice_id'])) {
+            $invoice = Invoice::find($data['invoice_id']);
+            if ($invoice) {
+                if (empty($data['party_type'])) {
+                    $data['party_type'] = $invoice->party_type;
+                }
+                if (empty($data['party_id'])) {
+                    $data['party_id'] = $invoice->party_id;
+                }
+                if (empty($data['type']) && empty($data['payment_type'])) {
+                    $data['type'] = ($invoice->type === 'receivable' || $invoice->party_type === 'customer') ? 'received' : 'made';
+                }
+            }
+        }
+
+        // 2. Map payment_type -> type
+        if (empty($data['type']) && !empty($data['payment_type'])) {
+            if ($data['payment_type'] === 'customer_receipt') {
+                $data['type'] = 'received';
+            } elseif ($data['payment_type'] === 'vendor_payment') {
+                $data['type'] = 'made';
+            } else {
+                $data['type'] = $data['payment_type'];
+            }
+        }
+
+        // 3. Map customer_id / vendor_id -> party_type & party_id
+        if (empty($data['party_id'])) {
+            if (!empty($data['customer_id'])) {
+                $data['party_type'] = 'customer';
+                $data['party_id'] = $data['customer_id'];
+                if (empty($data['type'])) {
+                    $data['type'] = 'received';
+                }
+            } elseif (!empty($data['vendor_id'])) {
+                $data['party_type'] = 'vendor';
+                $data['party_id'] = $data['vendor_id'];
+                if (empty($data['type'])) {
+                    $data['type'] = 'made';
+                }
+            }
+        }
+
+        // 4. If party_id exists but party_type is missing, infer from type / payment_type
+        if (!empty($data['party_id']) && empty($data['party_type'])) {
+            if (($data['type'] ?? '') === 'received' || ($data['payment_type'] ?? '') === 'customer_receipt') {
+                $data['party_type'] = 'customer';
+            } elseif (($data['type'] ?? '') === 'made' || ($data['payment_type'] ?? '') === 'vendor_payment') {
+                $data['party_type'] = 'vendor';
+            }
+        }
+
+        $request->merge($data);
 
         $validated = $request->validate([
             'type' => ['required', 'in:received,made'],
@@ -117,7 +183,7 @@ class PaymentController extends Controller
             // Auto-post double-entry journal entry for the payment
             $je = JournalPostingService::postPayment($payment, $request->user());
 
-            $payment->load(['invoice', 'bankAccount', 'creator']);
+            $payment->load(['invoice', 'bankAccount', 'creator', 'party']);
 
             RealtimeService::broadcast('payment:recorded', [
                 'payment' => $payment->toArray(),
@@ -142,7 +208,7 @@ class PaymentController extends Controller
     {
         Gate::authorize('view', $payment);
 
-        $payment->load(['invoice', 'bankAccount', 'creator', 'reconciler']);
+        $payment->load(['invoice', 'bankAccount', 'creator', 'reconciler', 'party']);
 
         return response()->json([
             'data' => $payment,

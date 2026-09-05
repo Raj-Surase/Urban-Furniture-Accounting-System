@@ -300,12 +300,16 @@ export const InvoicesPage: React.FC = () => {
     if (!payInvoice || payAmount <= 0) return;
     try {
       setIsPaying(true);
-      const isCust = payInvoice.type === 'customer';
+      const isCust = payInvoice.type === 'receivable' || payInvoice.party_type === 'customer' || payInvoice.type === 'customer';
+      const resolvedPartyId = payInvoice.party_id || (isCust ? payInvoice.customer_id : payInvoice.vendor_id);
       await paymentsApi.create({
-        payment_type: isCust ? 'customer_receipt' : 'vendor_payment',
+        type: isCust ? 'received' : 'made',
+        party_type: isCust ? 'customer' : 'vendor',
+        party_id: resolvedPartyId ? Number(resolvedPartyId) : undefined,
         invoice_id: payInvoice.id,
-        customer_id: isCust ? payInvoice.customer_id : null,
-        vendor_id: !isCust ? payInvoice.vendor_id : null,
+        payment_type: isCust ? 'customer_receipt' : 'vendor_payment',
+        customer_id: isCust ? Number(resolvedPartyId) : null,
+        vendor_id: !isCust ? Number(resolvedPartyId) : null,
         amount: payAmount,
         payment_date: new Date().toISOString().split('T')[0],
         payment_method: payMethod,
@@ -1006,7 +1010,8 @@ export const InvoicesPage: React.FC = () => {
         zIndex="z-[70]"
         containerClassName="max-w-md"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
+        {payInvoice && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
               <div className="flex items-center gap-2.5">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
@@ -1020,13 +1025,13 @@ export const InvoicesPage: React.FC = () => {
             <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
               <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs space-y-1">
                 <div className="text-neutral-400">
-                  Invoice No: <span className="font-mono font-bold text-white">{payInvoice.invoice_number}</span>
+                  Invoice No: <span className="font-mono font-bold text-white">{payInvoice?.invoice_number}</span>
                 </div>
                 <div className="text-neutral-400">
-                  Party: <span className="font-semibold text-white">{payInvoice.customer?.name || payInvoice.vendor?.name}</span>
+                  Party: <span className="font-semibold text-white">{payInvoice?.customer?.name || payInvoice?.vendor?.name}</span>
                 </div>
                 <div className="text-neutral-400">
-                  Balance Due: <span className="font-mono font-bold text-emerald-400">₹{Number(payInvoice.balance_due ?? payInvoice.total_amount).toLocaleString('en-IN')}</span>
+                  Balance Due: <span className="font-mono font-bold text-emerald-400">₹{Number(payInvoice?.balance_due ?? payInvoice?.total_amount ?? 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
 
@@ -1088,6 +1093,7 @@ export const InvoicesPage: React.FC = () => {
               </div>
             </form>
           </div>
+        )}
       </PortalModal>
 
       {/* Invoice Detail Modal on Tap Row */}

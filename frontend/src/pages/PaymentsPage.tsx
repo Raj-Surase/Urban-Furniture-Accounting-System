@@ -112,9 +112,12 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       setIsSubmitting(true);
       const isCust = paymentType === 'customer_receipt';
       await paymentsApi.create({
+        type: isCust ? 'received' : 'made',
+        party_type: isCust ? 'customer' : 'vendor',
+        party_id: Number(partyId),
         payment_type: paymentType,
-        customer_id: isCust ? partyId : null,
-        vendor_id: !isCust ? partyId : null,
+        customer_id: isCust ? Number(partyId) : null,
+        vendor_id: !isCust ? Number(partyId) : null,
         amount,
         payment_date: paymentDate,
         payment_method: paymentMethod,
@@ -131,6 +134,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       setIsNewOpen(false);
       setAmount(0);
       setReference('');
+      setNotes('');
       fetchPayments();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Failed', message: err.response?.data?.message || 'Error' });
@@ -154,12 +158,18 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   };
 
   const filteredPayments = payments.filter((p) => {
+    const isCustomerPayment = p.payment_type === 'customer_receipt' || p.type === 'received';
+    const partyName = p.customer?.name || p.vendor?.name || p.party?.name || '';
     const matchesSearch =
       p.payment_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.reference_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.vendor?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === 'all' || p.payment_type === typeFilter;
+      partyName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType =
+      typeFilter === 'all' ||
+      (typeFilter === 'customer_receipt' && isCustomerPayment) ||
+      (typeFilter === 'vendor_payment' && !isCustomerPayment) ||
+      p.payment_type === typeFilter ||
+      p.type === typeFilter;
     return matchesSearch && matchesType;
   });
 
@@ -246,8 +256,9 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                 />
               ) : (
                 filteredPayments.map((p) => {
-                  const isInflow = p.payment_type === 'customer_receipt';
-                  const partyName = isInflow ? p.customer?.name : p.vendor?.name;
+                  const isInflow = p.payment_type === 'customer_receipt' || p.type === 'received';
+                  const partyName = isInflow ? (p.customer?.name || p.party?.name) : (p.vendor?.name || p.party?.name);
+                  const isCleared = p.status === 'reconciled' || p.status === 'cleared';
 
                   return (
                     <tr
@@ -294,7 +305,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                       <td className="py-3 px-4 text-center">
                         <span
                           className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            p.status === 'reconciled'
+                            isCleared
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                           }`}
@@ -460,7 +471,12 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         zIndex="z-[60]"
         containerClassName="max-w-lg"
       >
-        {detailPayment && (
+        {detailPayment && (() => {
+          const isDetailInflow = detailPayment.payment_type === 'customer_receipt' || detailPayment.type === 'received';
+          const detailPartyName = detailPayment.customer?.name || detailPayment.vendor?.name || detailPayment.party?.name || 'General / Direct';
+          const isDetailCleared = detailPayment.status === 'reconciled' || detailPayment.status === 'cleared';
+
+          return (
           <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
@@ -469,7 +485,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                   <span className="font-mono text-sm font-bold text-white">{detailPayment.payment_number}</span>
                   <span
                     className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      detailPayment.status === 'reconciled'
+                      isDetailCleared
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
@@ -478,7 +494,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-white mt-1">
-                  {detailPayment.payment_type === 'customer_receipt' ? 'Customer Collection Receipt' : 'Vendor Disbursement Voucher'}
+                  {isDetailInflow ? 'Customer Collection Receipt' : 'Vendor Disbursement Voucher'}
                 </h3>
               </div>
               <button
@@ -491,25 +507,25 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
 
             {/* Amount Banner */}
             <div className={`p-4 rounded-xl border flex items-center justify-between ${
-              detailPayment.payment_type === 'customer_receipt'
+              isDetailInflow
                 ? 'bg-emerald-500/10 border-emerald-500/20'
                 : 'bg-rose-500/10 border-rose-500/20'
             }`}>
               <div>
                 <div className="text-xs text-neutral-400 font-semibold uppercase tracking-wider">
-                  {detailPayment.payment_type === 'customer_receipt' ? 'Receipt Inflow' : 'Disbursement Outflow'}
+                  {isDetailInflow ? 'Receipt Inflow' : 'Disbursement Outflow'}
                 </div>
                 <div className="text-2xl font-mono font-bold text-white mt-0.5">
-                  {detailPayment.payment_type === 'customer_receipt' ? '+' : '-'}₹
+                  {isDetailInflow ? '+' : '-'}₹
                   {Number(detailPayment.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </div>
               </div>
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${
-                detailPayment.payment_type === 'customer_receipt'
+                isDetailInflow
                   ? 'bg-emerald-500/20 text-emerald-300'
                   : 'bg-rose-500/20 text-rose-300'
               }`}>
-                {detailPayment.payment_type?.replace('_', ' ')}
+                {detailPayment.payment_type?.replace('_', ' ') || (isDetailInflow ? 'customer receipt' : 'vendor payment')}
               </span>
             </div>
 
@@ -519,7 +535,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                 <div>
                   <span className="text-neutral-500">Party Account:</span>
                   <div className="font-semibold text-white mt-0.5">
-                    {detailPayment.customer?.name || detailPayment.vendor?.name || 'General / Direct'}
+                    {detailPartyName}
                   </div>
                 </div>
                 <div>
@@ -574,7 +590,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </PortalModal>
     </div>
   );
