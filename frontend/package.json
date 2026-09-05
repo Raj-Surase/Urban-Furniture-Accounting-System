@@ -9,10 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@formepdf/core": "^0.18.0",
+    "@formepdf/react": "^0.18.0",
     "@heroui/react": "2.8.10",
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

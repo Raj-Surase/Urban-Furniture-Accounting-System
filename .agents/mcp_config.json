@@ -1,10 +1,27 @@
 {
   "mcpServers": {
+    "shadcn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "shadcn@latest", "mcp"]
+    },
+    "pdfcn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "shadcn@latest", "mcp"]
+    },
     "heroui-react": {
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@heroui/react-mcp@latest"]
+    },
+    "tailwindcss": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "tailwindcss-docs-mcp"],
+      "env": {
+        "TAILWIND_DOCS_MCP_DEFAULT_VERSION": "v4"
+      }
     }
   }
 }
-
