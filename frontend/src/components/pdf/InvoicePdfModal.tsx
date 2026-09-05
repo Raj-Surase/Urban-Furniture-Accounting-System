@@ -16,6 +16,7 @@ import {
 import { generateVectorInvoicePdf } from './InvoicePdfGenerator';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { PortalModal } from '../common/PortalModal';
 
 export interface InvoicePdfData {
   id: number;
@@ -178,8 +179,14 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static">
-      <div className="relative w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto print:border-none print:shadow-none print:max-w-none print:w-full print:my-0">
+    <PortalModal
+      isOpen={isOpen}
+      onClose={onClose}
+      zIndex="z-[75]"
+      containerClassName="max-w-4xl"
+      backdropClassName="p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static"
+    >
+      <div className="relative w-full bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto print:border-none print:shadow-none print:max-w-none print:w-full print:my-0">
         
         {/* Top Control Action Bar (Hidden in Print) */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216] rounded-t-2xl print:hidden">
@@ -579,6 +586,6 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
         </div>
 
       </div>
-    </div>
+    </PortalModal>
   );
 };

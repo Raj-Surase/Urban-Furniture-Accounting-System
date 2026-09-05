@@ -28,20 +28,40 @@ export function formatApiError(error: unknown): FormattedError {
       result.status = axiosErr.response.status;
       const data = axiosErr.response.data;
 
-      // Handle Laravel Validation Errors (422 Unprocessable Entity)
-      if (axiosErr.response.status === 422) {
+      // Extract field-level errors if present (Laravel errors dictionary)
+      if (data?.errors && typeof data.errors === 'object') {
         result.isValidationError = true;
-        result.message = data?.message || 'Please correct the invalid input fields below.';
+        const messages: string[] = [];
 
-        if (data?.errors && typeof data.errors === 'object') {
-          for (const [key, value] of Object.entries(data.errors)) {
-            if (Array.isArray(value) && value.length > 0) {
-              result.fieldErrors[key] = String(value[0]);
-            } else if (typeof value === 'string') {
-              result.fieldErrors[key] = value;
-            }
+        for (const [key, value] of Object.entries(data.errors)) {
+          if (Array.isArray(value) && value.length > 0) {
+            const firstMsg = String(value[0]);
+            result.fieldErrors[key] = firstMsg;
+            messages.push(...value.map(String));
+          } else if (typeof value === 'string') {
+            result.fieldErrors[key] = value;
+            messages.push(value);
           }
         }
+
+        if (messages.length > 0) {
+          // If Laravel provided a generic summary message or no message, show specific field errors
+          if (!data?.message || data.message === 'The given data was invalid.' || data.message.includes('and ') && data.message.includes('more error')) {
+            result.message = messages.join(' ');
+          } else {
+            result.message = data.message;
+          }
+        } else if (data?.message) {
+          result.message = data.message;
+        }
+
+        return result;
+      }
+
+      // Handle Laravel Validation Errors (422 Unprocessable Entity) without explicit errors dict
+      if (axiosErr.response.status === 422) {
+        result.isValidationError = true;
+        result.message = data?.message || data?.error || 'Please correct the invalid input fields below.';
         return result;
       }
 

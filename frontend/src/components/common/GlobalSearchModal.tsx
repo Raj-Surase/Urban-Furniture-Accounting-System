@@ -458,7 +458,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       hideCloseButton
       classNames={{
         base: 'bg-[#16161c] border border-white/[0.1] rounded-[24px] shadow-[0_25px_80px_rgba(0,0,0,0.85)] overflow-hidden mt-12 sm:mt-20 mx-4 max-w-2xl',
-        backdrop: 'bg-black/75 backdrop-blur-md',
+        backdrop: 'bg-black/75 backdrop-blur-md z-[100]',
+        wrapper: 'z-[101]',
       }}
     >
       <ModalContent>
