@@ -5,9 +5,16 @@ import path from 'path';
 export default defineConfig({
     plugins: [react()],
     resolve: {
-        alias: {
-            '@': path.resolve(__dirname, './src'),
-        },
+        alias: [
+            {
+                find: /^react-aria\/(.*)$/,
+                replacement: path.resolve(__dirname, './node_modules/react-aria/dist/exports/$1.js'),
+            },
+            {
+                find: '@',
+                replacement: path.resolve(__dirname, './src'),
+            },
+        ],
     },
     server: {
         port: 5173,
