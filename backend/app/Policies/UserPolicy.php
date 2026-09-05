@@ -23,13 +23,9 @@ class UserPolicy
      * Determine whether the user can change user roles.
      * Strict access policy: Only Admins can manage roles.
      */
-    public function updateRole(User $user, User $targetUser): bool
+    public function updateRole(User $user, ?User $targetUser = null): bool
     {
-        if (! $user->hasPermission(Rbac::PERMISSION_USERS_MANAGE_ROLES)) {
-            return false;
-        }
-
-        return true;
+        return $user->hasPermission(Rbac::PERMISSION_USERS_MANAGE_ROLES);
     }
 
     /**
