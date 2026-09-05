@@ -19,6 +19,13 @@ use Illuminate\Support\Facades\Gate;
 
 class InvoiceController extends Controller
 {
+    /**
+     * List paginated invoices with optional filters (type, status, overdue, search).
+     * Admins and managers see all invoices; standard users see only their own.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Invoice::class);
@@ -57,6 +64,14 @@ class InvoiceController extends Controller
         return response()->json($invoices);
     }
 
+    /**
+     * Validate and draft a new invoice with GST-split line items.
+     * Auto-generates invoice number (INV-YYYY-NNNN or BILL-YYYY-NNNN).
+     * All line-item calculations run inside a DB transaction.
+     *
+     * @param  Request  $request
+     * @return JsonResponse  201 on success
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', Invoice::class);
@@ -202,6 +217,12 @@ class InvoiceController extends Controller
         });
     }
 
+    /**
+     * Retrieve a single invoice with related line items, payments, and party info.
+     *
+     * @param  Invoice  $invoice  Route-model-bound invoice instance
+     * @return JsonResponse
+     */
     public function show(Invoice $invoice): JsonResponse
     {
         Gate::authorize('view', $invoice);
@@ -214,6 +235,14 @@ class InvoiceController extends Controller
         ]);
     }
 
+    /**
+     * Update editable fields on a draft invoice (date, due date, notes).
+     * Only draft invoices may be modified after creation.
+     *
+     * @param  Request  $request
+     * @param  Invoice  $invoice
+     * @return JsonResponse
+     */
     public function update(Request $request, Invoice $invoice): JsonResponse
     {
         Gate::authorize('update', $invoice);
@@ -304,6 +333,13 @@ class InvoiceController extends Controller
         });
     }
 
+    /**
+     * Hard-delete a draft invoice. Approved or paid invoices must be voided instead.
+     * Broadcasts a realtime deletion event to subscribed clients.
+     *
+     * @param  Invoice  $invoice
+     * @return JsonResponse
+     */
     public function destroy(Invoice $invoice): JsonResponse
     {
         Gate::authorize('delete', $invoice);
