@@ -208,6 +208,7 @@ export const budgetsApi = {
   get: (id: number) => api.get(`/budgets/${id}`).then(res => res.data),
   create: (data: any) => api.post('/budgets', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/budgets/${id}`, data).then(res => res.data),
+  delete: (id: number) => api.delete(`/budgets/${id}`).then(res => res.data),
   confirm: (id: number) => api.post(`/budgets/${id}/confirm`).then(res => res.data),
   revise: (id: number) => api.post(`/budgets/${id}/revise`).then(res => res.data),
   cancel: (id: number) => api.post(`/budgets/${id}/cancel`).then(res => res.data),

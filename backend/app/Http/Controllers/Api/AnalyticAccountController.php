@@ -44,6 +44,13 @@ class AnalyticAccountController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        if (array_key_exists('code', $validated) && trim((string)$validated['code']) === '') {
+            $validated['code'] = null;
+        }
+        if (array_key_exists('description', $validated) && trim((string)$validated['description']) === '') {
+            $validated['description'] = null;
+        }
+
         $analytic = AnalyticAccount::create($validated);
 
         return response()->json([
@@ -80,16 +87,13 @@ class AnalyticAccountController extends Controller
                 ->where('invoices.status', '!=', 'void');
 
             if ($bl->start_date && $bl->end_date) {
-                $query->whereBetween('invoices.issue_date', [$bl->start_date, $bl->end_date]);
+                $query->whereBetween('invoices.invoice_date', [$bl->start_date, $bl->end_date]);
             }
 
             if ($bl->line_type === 'income') {
-                $query->where(function ($q) {
-                    $q->where('invoices.invoice_type', '!=', 'vendor')
-                      ->orWhereNull('invoices.invoice_type');
-                });
+                $query->where('invoices.type', '=', 'receivable');
             } else {
-                $query->where('invoices.invoice_type', '=', 'vendor');
+                $query->where('invoices.type', '=', 'payable');
             }
 
             $achieved = (float) $query->sum('invoice_line_items.line_total');
@@ -122,6 +126,13 @@ class AnalyticAccountController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
+
+        if (array_key_exists('code', $validated) && trim((string)$validated['code']) === '') {
+            $validated['code'] = null;
+        }
+        if (array_key_exists('description', $validated) && trim((string)$validated['description']) === '') {
+            $validated['description'] = null;
+        }
 
         $analyticAccount->update($validated);
 

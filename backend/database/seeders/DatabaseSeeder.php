@@ -2482,5 +2482,10 @@ class DatabaseSeeder extends Seeder
         foreach ($accountMap as $acc) {
             $acc->recalculateBalance();
         }
+
+        // =========================================================================
+        // 17. Seed Excalidraw Accounting Masters (Analytic Accounts, Budgets, Journals)
+        // =========================================================================
+        $this->call(ExcalidrawAccountingSeeder::class);
     }
 }

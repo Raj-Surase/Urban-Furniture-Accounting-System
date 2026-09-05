@@ -13,7 +13,7 @@ class BudgetController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Budget::with(['responsible', 'originalBudget', 'revisedBudget']);
+        $query = Budget::with(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -32,18 +32,10 @@ class BudgetController extends Controller
         $totalAchieved = 0;
 
         $budgetList = $budgets->map(function ($b) use (&$totalCommitted, &$totalAchieved) {
-            $computed = $b->computed_lines;
-            $bCommitted = array_sum(array_column($computed, 'committed_amount'));
-            $bAchieved = array_sum(array_column($computed, 'achieved_amount'));
-            $totalCommitted += $bCommitted;
-            $totalAchieved += $bAchieved;
-
-            $arr = $b->toArray();
-            $arr['computed_lines'] = $computed;
-            $arr['total_committed'] = $bCommitted;
-            $arr['total_achieved'] = $bAchieved;
-            $arr['progress_percent'] = $bCommitted > 0 ? round(($bAchieved / $bCommitted) * 100, 2) : 0;
-            return $arr;
+            $formatted = $this->formatBudget($b);
+            $totalCommitted += $formatted['total_committed'];
+            $totalAchieved += $formatted['total_achieved'];
+            return $formatted;
         });
 
         return response()->json([
@@ -63,12 +55,36 @@ class BudgetController extends Controller
             'name' => 'required|string|max:255',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
-            'responsible_id' => 'nullable|exists:customers,id',
+            'responsible_id' => 'nullable|integer',
+            'responsible_type' => 'nullable|string|in:customer,vendor,user',
             'lines' => 'required|array|min:1',
             'lines.*.analytic_account_id' => 'required|exists:analytic_accounts,id',
             'lines.*.type' => 'required|in:income,expense',
             'lines.*.committed_amount' => 'required|numeric|min:0',
         ]);
+
+        if (!empty($validated['responsible_id'])) {
+            $type = $validated['responsible_type'] ?? 'customer';
+            $valid = false;
+            if ($type === 'vendor') {
+                $valid = \App\Models\Vendor::where('id', $validated['responsible_id'])->exists();
+            } elseif ($type === 'user') {
+                $valid = \App\Models\User::where('id', $validated['responsible_id'])->exists();
+            } else {
+                $valid = \App\Models\Customer::where('id', $validated['responsible_id'])->exists() ||
+                         \App\Models\Vendor::where('id', $validated['responsible_id'])->exists();
+                if (!$valid) {
+                    $valid = \App\Models\User::where('id', $validated['responsible_id'])->exists();
+                }
+            }
+            if (!$valid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected responsible contact is invalid.',
+                    'errors' => ['responsible_id' => ['The selected responsible contact is invalid.']],
+                ], 422);
+            }
+        }
 
         return DB::transaction(function () use ($validated) {
             $budget = Budget::create([
@@ -76,6 +92,7 @@ class BudgetController extends Controller
                 'start_date' => $validated['start_date'],
                 'end_date' => $validated['end_date'],
                 'responsible_id' => $validated['responsible_id'] ?? null,
+                'responsible_type' => $validated['responsible_type'] ?? 'customer',
                 'status' => 'draft',
             ]);
 
@@ -88,27 +105,23 @@ class BudgetController extends Controller
                 ]);
             }
 
-            $budget->load(['responsible', 'lines.analyticAccount']);
-            $res = $budget->toArray();
-            $res['computed_lines'] = $budget->computed_lines;
+            $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Budget created in Draft state',
-                'data' => $res,
+                'data' => $this->formatBudget($budget),
             ], 201);
         });
     }
 
     public function show(Budget $budget): JsonResponse
     {
-        $budget->load(['responsible', 'originalBudget', 'revisedBudget', 'lines.analyticAccount']);
-        $res = $budget->toArray();
-        $res['computed_lines'] = $budget->computed_lines;
+        $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         return response()->json([
             'success' => true,
-            'data' => $res,
+            'data' => $this->formatBudget($budget),
         ]);
     }
 
@@ -118,20 +131,45 @@ class BudgetController extends Controller
             'name' => 'sometimes|string|max:255',
             'start_date' => 'sometimes|date',
             'end_date' => 'sometimes|date|after_or_equal:start_date',
-            'responsible_id' => 'nullable|exists:customers,id',
+            'responsible_id' => 'nullable|integer',
+            'responsible_type' => 'nullable|string|in:customer,vendor,user',
             'lines' => 'sometimes|array',
             'lines.*.analytic_account_id' => 'required|exists:analytic_accounts,id',
             'lines.*.type' => 'required|in:income,expense',
             'lines.*.committed_amount' => 'required|numeric|min:0',
         ]);
 
+        if (array_key_exists('responsible_id', $validated) && !empty($validated['responsible_id'])) {
+            $type = $validated['responsible_type'] ?? 'customer';
+            $valid = false;
+            if ($type === 'vendor') {
+                $valid = \App\Models\Vendor::where('id', $validated['responsible_id'])->exists();
+            } elseif ($type === 'user') {
+                $valid = \App\Models\User::where('id', $validated['responsible_id'])->exists();
+            } else {
+                $valid = \App\Models\Customer::where('id', $validated['responsible_id'])->exists() ||
+                         \App\Models\Vendor::where('id', $validated['responsible_id'])->exists();
+            }
+            if (!$valid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected responsible contact is invalid.',
+                    'errors' => ['responsible_id' => ['The selected responsible contact is invalid.']],
+                ], 422);
+            }
+        }
+
         return DB::transaction(function () use ($validated, $budget) {
-            $budget->update([
+            $updateData = [
                 'name' => $validated['name'] ?? $budget->name,
                 'start_date' => $validated['start_date'] ?? $budget->start_date,
                 'end_date' => $validated['end_date'] ?? $budget->end_date,
-                'responsible_id' => array_key_exists('responsible_id', $validated) ? $validated['responsible_id'] : $budget->responsible_id,
-            ]);
+            ];
+            if (array_key_exists('responsible_id', $validated)) {
+                $updateData['responsible_id'] = $validated['responsible_id'];
+                $updateData['responsible_type'] = $validated['responsible_type'] ?? 'customer';
+            }
+            $budget->update($updateData);
 
             if (isset($validated['lines'])) {
                 $budget->lines()->delete();
@@ -145,14 +183,12 @@ class BudgetController extends Controller
                 }
             }
 
-            $budget->load(['responsible', 'lines.analyticAccount']);
-            $res = $budget->toArray();
-            $res['computed_lines'] = $budget->computed_lines;
+            $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Budget updated successfully',
-                'data' => $res,
+                'data' => $this->formatBudget($budget),
             ]);
         });
     }
@@ -160,13 +196,12 @@ class BudgetController extends Controller
     public function confirm(Budget $budget): JsonResponse
     {
         $budget->update(['status' => 'confirm']);
+        $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         return response()->json([
             'success' => true,
             'message' => 'Budget confirmed successfully',
-            'data' => array_merge($budget->fresh(['responsible', 'lines.analyticAccount'])->toArray(), [
-                'computed_lines' => $budget->computed_lines,
-            ]),
+            'data' => $this->formatBudget($budget),
         ]);
     }
 
@@ -191,6 +226,7 @@ class BudgetController extends Controller
                 'start_date' => $budget->start_date,
                 'end_date' => $budget->end_date,
                 'responsible_id' => $budget->responsible_id,
+                'responsible_type' => $budget->responsible_type ?? 'customer',
                 'status' => 'draft',
                 'original_budget_id' => $budget->id,
             ]);
@@ -211,14 +247,12 @@ class BudgetController extends Controller
                 'revised_budget_id' => $revisedBudget->id,
             ]);
 
-            $revisedBudget->load(['responsible', 'originalBudget', 'lines.analyticAccount']);
+            $revisedBudget->load(['originalBudget', 'lines.analyticAccount']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'New revised budget created. Original budget moved to Revised state.',
-                'data' => array_merge($revisedBudget->toArray(), [
-                    'computed_lines' => $revisedBudget->computed_lines,
-                ]),
+                'data' => $this->formatBudget($revisedBudget),
             ], 201);
         });
     }
@@ -226,12 +260,67 @@ class BudgetController extends Controller
     public function cancel(Budget $budget): JsonResponse
     {
         $budget->update(['status' => 'cancelled']);
+        $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         return response()->json([
             'success' => true,
             'message' => 'Budget marked as cancelled',
-            'data' => $budget,
+            'data' => $this->formatBudget($budget),
         ]);
+    }
+
+    public function destroy(Budget $budget): JsonResponse
+    {
+        if ($budget->status === 'confirm') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Confirmed budgets cannot be deleted directly. Cancel the budget first.',
+            ], 422);
+        }
+
+        $budget->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Budget deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Format a budget record consistently with lines, KPIs, and responsible contact info.
+     */
+    private function formatBudget(Budget $b): array
+    {
+        $computed = $b->computed_lines;
+        $bCommitted = (float) array_sum(array_column($computed, 'committed_amount'));
+        $bAchieved = (float) array_sum(array_column($computed, 'achieved_amount'));
+
+        $arr = $b->toArray();
+        $arr['computed_lines'] = $computed;
+        $arr['total_committed'] = $bCommitted;
+        $arr['total_achieved'] = $bAchieved;
+        $arr['progress_percent'] = $bCommitted > 0 ? round(($bAchieved / $bCommitted) * 100, 2) : 0;
+
+        // Ensure responsible contact is properly resolved
+        $arr['responsible'] = $b->responsible_contact;
+
+        if ($b->originalBudget) {
+            $arr['original_budget'] = [
+                'id' => $b->originalBudget->id,
+                'name' => $b->originalBudget->name,
+                'status' => $b->originalBudget->status,
+            ];
+        }
+
+        if ($b->revisedBudget) {
+            $arr['revised_budget'] = [
+                'id' => $b->revisedBudget->id,
+                'name' => $b->revisedBudget->name,
+                'status' => $b->revisedBudget->status,
+            ];
+        }
+
+        return $arr;
     }
 
     /**
@@ -251,38 +340,44 @@ class BudgetController extends Controller
 
         $query = DB::table('invoice_line_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_line_items.invoice_id')
-            ->leftJoin('customers', 'customers.id', '=', 'invoices.customer_id')
-            ->leftJoin('vendors', 'vendors.id', '=', 'invoices.vendor_id')
             ->where('invoice_line_items.analytic_account_id', $analyticId)
             ->where('invoices.status', '!=', 'draft')
             ->where('invoices.status', '!=', 'void');
 
         if ($startDate && $endDate) {
-            $query->whereBetween('invoices.issue_date', [$startDate, $endDate]);
+            $query->whereBetween('invoices.invoice_date', [$startDate, $endDate]);
         }
 
         if ($type === 'income') {
-            $query->where(function ($q) {
-                $q->where('invoices.invoice_type', '!=', 'vendor')
-                  ->orWhereNull('invoices.invoice_type');
-            });
+            $query->where('invoices.type', '=', 'receivable');
         } else {
-            $query->where('invoices.invoice_type', '=', 'vendor');
+            $query->where('invoices.type', '=', 'payable');
         }
 
         $transactions = $query->select(
             'invoices.id as invoice_id',
             'invoices.invoice_number',
-            'invoices.invoice_type',
-            'invoices.issue_date',
+            'invoices.type as invoice_type',
+            'invoices.party_type',
+            'invoices.party_id',
+            'invoices.invoice_date as issue_date',
             'invoices.status',
-            'customers.name as customer_name',
-            'vendors.name as vendor_name',
             'invoice_line_items.description',
             'invoice_line_items.quantity',
             'invoice_line_items.unit_price',
             'invoice_line_items.line_total'
-        )->get();
+        )->get()->map(function ($tx) {
+            $partyName = '—';
+            if ($tx->party_type === 'customer') {
+                $partyName = \App\Models\Customer::find($tx->party_id)?->name ?? 'Customer';
+            } elseif ($tx->party_type === 'vendor') {
+                $partyName = \App\Models\Vendor::find($tx->party_id)?->name ?? 'Vendor';
+            }
+            $tx->customer_name = $tx->party_type === 'customer' ? $partyName : null;
+            $tx->vendor_name = $tx->party_type === 'vendor' ? $partyName : null;
+            $tx->party_name = $partyName;
+            return $tx;
+        });
 
         return response()->json([
             'success' => true,

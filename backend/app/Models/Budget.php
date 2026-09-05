@@ -17,6 +17,7 @@ class Budget extends Model
         'start_date',
         'end_date',
         'responsible_id',
+        'responsible_type',
         'status', // 'draft', 'confirm', 'revised', 'cancelled'
         'original_budget_id',
         'revised_budget_id',
@@ -35,6 +36,36 @@ class Budget extends Model
     public function responsible(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'responsible_id');
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'responsible_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'responsible_id');
+    }
+
+    public function getResponsibleContactAttribute(): ?array
+    {
+        if (!$this->responsible_id) {
+            return null;
+        }
+        if ($this->responsible_type === 'vendor') {
+            $v = Vendor::find($this->responsible_id);
+            return $v ? ['id' => $v->id, 'name' => $v->name, 'email' => $v->email, 'contact_type' => 'vendor'] : null;
+        }
+        $c = Customer::find($this->responsible_id);
+        if ($c) {
+            return ['id' => $c->id, 'name' => $c->name, 'email' => $c->email, 'contact_type' => 'customer'];
+        }
+        $v = Vendor::find($this->responsible_id);
+        if ($v) {
+            return ['id' => $v->id, 'name' => $v->name, 'email' => $v->email, 'contact_type' => 'vendor'];
+        }
+        return null;
     }
 
     public function originalBudget(): BelongsTo
@@ -62,8 +93,8 @@ class Budget extends Model
             $committed = (float) $line->committed_amount;
 
             // Achieved Amount lookup:
-            // Income -> Invoices where invoice_type != 'vendor' (or customer invoices)
-            // Expense -> Vendor Bills (invoice_type = 'vendor')
+            // Income -> Invoices where type = 'receivable' (customer invoices)
+            // Expense -> Vendor Bills where type = 'payable'
             $query = DB::table('invoice_line_items')
                 ->join('invoices', 'invoices.id', '=', 'invoice_line_items.invoice_id')
                 ->where('invoice_line_items.analytic_account_id', $analyticId)
@@ -71,16 +102,13 @@ class Budget extends Model
                 ->where('invoices.status', '!=', 'void');
 
             if ($startDate && $endDate) {
-                $query->whereBetween('invoices.issue_date', [$startDate, $endDate]);
+                $query->whereBetween('invoices.invoice_date', [$startDate, $endDate]);
             }
 
             if ($type === 'income') {
-                $query->where(function ($q) {
-                    $q->where('invoices.invoice_type', '!=', 'vendor')
-                      ->orWhereNull('invoices.invoice_type');
-                });
+                $query->where('invoices.type', '=', 'receivable');
             } else {
-                $query->where('invoices.invoice_type', '=', 'vendor');
+                $query->where('invoices.type', '=', 'payable');
             }
 
             $achieved = (float) $query->sum('invoice_line_items.line_total');

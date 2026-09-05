@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PieChart,
@@ -13,7 +13,9 @@ import {
   Trash2,
   Calendar,
   Layers,
-  X
+  X,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
@@ -36,11 +38,12 @@ interface BudgetRecord {
   end_date: string;
   status: 'draft' | 'confirm' | 'revised' | 'cancelled';
   responsible_id?: number;
-  responsible?: { id: number; name: string };
+  responsible_type?: 'customer' | 'vendor' | 'user';
+  responsible?: { id: number; name: string; contact_type?: string; email?: string };
   original_budget_id?: number;
-  original_budget?: { id: number; name: string };
+  original_budget?: { id: number; name: string; status?: string };
   revised_budget_id?: number;
-  revised_budget?: { id: number; name: string };
+  revised_budget?: { id: number; name: string; status?: string };
   computed_lines?: BudgetLineItem[];
   total_committed?: number;
   total_achieved?: number;
@@ -61,16 +64,25 @@ export const BudgetsPage: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('2026-01-01');
   const [endDate, setEndDate] = useState<string>('2026-01-31');
-  const [responsibleId, setResponsibleId] = useState<string>('');
+  const [responsibleValue, setResponsibleValue] = useState<string>(''); // format: `${contact_type}:${id}`
   const [lines, setLines] = useState<BudgetLineItem[]>([]);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modal State for Achieved Transactions Breakdown
   const [transactionModalOpen, setTransactionModalOpen] = useState<boolean>(false);
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
   const [modalAnalyticName, setModalAnalyticName] = useState<string>('');
+
+  // Auto-dismiss success message
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const fetchInitialData = async () => {
     setLoading(true);
@@ -94,16 +106,9 @@ export const BudgetsPage: React.FC = () => {
     fetchInitialData();
   }, [search]);
 
-  // Auto-open new budget form when ?new=true is in URL
-  useEffect(() => {
-    if (searchParams.get('new') === 'true') {
-      setActiveBudget(null);
-      setViewMode('form');
-    }
-  }, [searchParams]);
-
   const handleOpenForm = async (budgetId?: number) => {
     setError(null);
+    setSuccessMessage(null);
     if (budgetId) {
       try {
         const full = await budgetsApi.get(budgetId);
@@ -112,8 +117,13 @@ export const BudgetsPage: React.FC = () => {
         setName(b.name);
         setStartDate(b.start_date);
         setEndDate(b.end_date);
-        setResponsibleId(b.responsible_id ? b.responsible_id.toString() : '');
-        setLines(b.computed_lines || []);
+        if (b.responsible_id) {
+          const rType = b.responsible_type || b.responsible?.contact_type || 'customer';
+          setResponsibleValue(`${rType}:${b.responsible_id}`);
+        } else {
+          setResponsibleValue('');
+        }
+        setLines(b.computed_lines && b.computed_lines.length > 0 ? b.computed_lines : []);
       } catch (err) {
         console.error('Failed to load budget record:', err);
       }
@@ -122,25 +132,56 @@ export const BudgetsPage: React.FC = () => {
       setName('');
       setStartDate('2026-01-01');
       setEndDate('2026-01-31');
-      setResponsibleId(contacts[0]?.id ? contacts[0].id.toString() : '');
-      setLines([
-        {
-          analytic_account_id: analytics[0]?.id || 1,
-          type: 'expense',
-          committed_amount: 100000,
-        },
-      ]);
+      if (contacts && contacts.length > 0) {
+        setResponsibleValue(`${contacts[0].contact_type || 'customer'}:${contacts[0].id}`);
+      } else {
+        setResponsibleValue('');
+      }
+      if (analytics && analytics.length > 0) {
+        const first = analytics[0];
+        setLines([
+          {
+            analytic_account_id: first.id,
+            type: first.type === 'income' ? 'income' : 'expense',
+            committed_amount: 100000,
+          },
+        ]);
+      } else {
+        setLines([]);
+      }
     }
     setViewMode('form');
   };
 
+  // Auto-open new budget form when ?new=true is in URL and data is ready
+  useEffect(() => {
+    if (searchParams.get('new') === 'true' && !loading) {
+      handleOpenForm();
+    }
+  }, [searchParams, loading]);
+
+  // If opening new form before analytics finished loading, sync initial line when analytics arrive
+  useEffect(() => {
+    if (viewMode === 'form' && !activeBudget && lines.length === 0 && analytics.length > 0) {
+      const first = analytics[0];
+      setLines([
+        {
+          analytic_account_id: first.id,
+          type: first.type === 'income' ? 'income' : 'expense',
+          committed_amount: 100000,
+        },
+      ]);
+    }
+  }, [viewMode, activeBudget, lines.length, analytics]);
+
   const handleAddLine = () => {
     if (analytics.length === 0) return;
+    const defaultAcc = analytics[0];
     setLines([
       ...lines,
       {
-        analytic_account_id: analytics[0].id,
-        type: 'expense',
+        analytic_account_id: defaultAcc.id,
+        type: defaultAcc.type === 'income' ? 'income' : 'expense',
         committed_amount: 50000,
       },
     ]);
@@ -150,7 +191,18 @@ export const BudgetsPage: React.FC = () => {
     setLines(lines.filter((_, i) => i !== idx));
   };
 
-  const handleLineChange = (idx: number, field: keyof BudgetLineItem, value: any) => {
+  const handleAnalyticAccountChange = (idx: number, accountId: number) => {
+    const matched = analytics.find((a) => a.id === accountId);
+    const updated = [...lines];
+    updated[idx] = {
+      ...updated[idx],
+      analytic_account_id: accountId,
+      type: matched?.type === 'income' ? 'income' : 'expense',
+    };
+    setLines(updated);
+  };
+
+  const handleLineFieldChange = (idx: number, field: keyof BudgetLineItem, value: any) => {
     const updated = [...lines];
     updated[idx] = { ...updated[idx], [field]: value };
     setLines(updated);
@@ -160,9 +212,16 @@ export const BudgetsPage: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setSuccessMessage(null);
 
     if (!name.trim()) {
       setError('Budget Name is required.');
+      setSaving(false);
+      return;
+    }
+
+    if (new Date(endDate) < new Date(startDate)) {
+      setError('End Date cannot be earlier than Start Date.');
       setSaving(false);
       return;
     }
@@ -173,12 +232,37 @@ export const BudgetsPage: React.FC = () => {
       return;
     }
 
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (!l.analytic_account_id) {
+        setError(`Line ${i + 1}: Please select a valid analytic account.`);
+        setSaving(false);
+        return;
+      }
+      if (isNaN(Number(l.committed_amount)) || Number(l.committed_amount) <= 0) {
+        setError(`Line ${i + 1}: Committed amount must be greater than 0.`);
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
+      let respId: number | null = null;
+      let respType: string | null = null;
+      if (responsibleValue) {
+        const [cType, cId] = responsibleValue.split(':');
+        if (cId) {
+          respId = parseInt(cId, 10);
+          respType = cType;
+        }
+      }
+
       const payload = {
-        name,
+        name: name.trim(),
         start_date: startDate,
         end_date: endDate,
-        responsible_id: responsibleId ? parseInt(responsibleId, 10) : null,
+        responsible_id: respId,
+        responsible_type: respType,
         lines: lines.map((l) => ({
           analytic_account_id: l.analytic_account_id,
           type: l.type,
@@ -188,8 +272,10 @@ export const BudgetsPage: React.FC = () => {
 
       if (activeBudget) {
         await budgetsApi.update(activeBudget.id, payload);
+        setSuccessMessage('Budget updated successfully.');
       } else {
         await budgetsApi.create(payload);
+        setSuccessMessage('Budget created in Draft state.');
       }
 
       await fetchInitialData();
@@ -205,9 +291,11 @@ export const BudgetsPage: React.FC = () => {
   const handleConfirm = async () => {
     if (!activeBudget) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await budgetsApi.confirm(activeBudget.id);
       setActiveBudget(res.data);
+      setSuccessMessage('Budget confirmed successfully.');
       await fetchInitialData();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to confirm budget.');
@@ -219,8 +307,10 @@ export const BudgetsPage: React.FC = () => {
   const handleRevise = async () => {
     if (!activeBudget) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await budgetsApi.revise(activeBudget.id);
+      setSuccessMessage('Revision created in Draft state.');
       await fetchInitialData();
       // Open the newly created revised budget
       handleOpenForm(res.data.id);
@@ -234,12 +324,31 @@ export const BudgetsPage: React.FC = () => {
   const handleCancel = async () => {
     if (!activeBudget) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await budgetsApi.cancel(activeBudget.id);
       setActiveBudget(res.data);
+      setSuccessMessage('Budget marked as cancelled.');
       await fetchInitialData();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to cancel budget.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!activeBudget) return;
+    if (!window.confirm(`Are you sure you want to delete budget "${activeBudget.name}"?`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await budgetsApi.delete(activeBudget.id);
+      setSuccessMessage('Budget deleted successfully.');
+      await fetchInitialData();
+      setViewMode('list');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to delete budget.');
     } finally {
       setSaving(false);
     }
@@ -277,14 +386,88 @@ export const BudgetsPage: React.FC = () => {
       onSearchChange={setSearch}
       searchPlaceholder="Search budgets..."
     >
+      {/* Notifications Banner across list/form */}
+      <AnimatePresence>
+        {successMessage && viewMode !== 'form' && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center justify-between shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="font-medium">{successMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSuccessMessage(null)}
+              className="text-emerald-400 hover:text-emerald-200"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* FORM VIEW */}
       {viewMode === 'form' ? (
         <form onSubmit={handleSaveBudget} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6">
-          {error && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-              {error}
-            </div>
-          )}
+          {/* Form Notifications */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{error}</span>
+                </div>
+                <button type="button" onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200">
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+
+            {successMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{successMessage}</span>
+                </div>
+                <button type="button" onClick={() => setSuccessMessage(null)} className="text-emerald-400 hover:text-emerald-200">
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            )}
+
+            {analytics.length === 0 && !loading && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>No Analytic Accounts found. Create an Analytic Account before configuring a Budget.</span>
+                </div>
+                <Link
+                  to="/analyticals?new=true"
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold inline-flex items-center gap-1 transition-all whitespace-nowrap"
+                >
+                  Create Analytic Account <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Top Control Bar matching Excalidraw Stages: Draft, Confirm, Revise, Cancel */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
@@ -294,7 +477,7 @@ export const BudgetsPage: React.FC = () => {
                 <>
                   <button
                     type="submit"
-                    disabled={saving}
+                    disabled={saving || analytics.length === 0}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-md transition-all disabled:opacity-50"
                   >
                     <Check className="w-3.5 h-3.5" /> Save Draft
@@ -314,7 +497,7 @@ export const BudgetsPage: React.FC = () => {
                       type="button"
                       onClick={handleCancel}
                       disabled={saving}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-white/[0.08] transition-all"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-white/[0.08] transition-all disabled:opacity-50"
                     >
                       <XCircle className="w-3.5 h-3.5" /> Cancel
                     </button>
@@ -337,11 +520,23 @@ export const BudgetsPage: React.FC = () => {
                     type="button"
                     onClick={handleCancel}
                     disabled={saving}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-white/[0.08] transition-all"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-white/[0.08] transition-all disabled:opacity-50"
                   >
                     <XCircle className="w-3.5 h-3.5" /> Cancel
                   </button>
                 </>
+              )}
+
+              {/* Delete button for draft and cancelled budgets */}
+              {activeBudget && (activeBudget.status === 'draft' || activeBudget.status === 'cancelled') && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-semibold border border-rose-500/20 transition-all disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
               )}
 
               <button
@@ -461,23 +656,23 @@ export const BudgetsPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
-                Responsible
+                Responsible Contact
               </label>
               <select
-                value={responsibleId}
+                value={responsibleValue}
                 disabled={activeBudget?.status === 'confirm' || activeBudget?.status === 'revised'}
-                onChange={(e) => setResponsibleId(e.target.value)}
+                onChange={(e) => setResponsibleValue(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
               >
                 <option value="">-- Select Contact / Responsible --</option>
                 {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.email})
+                  <option key={`${c.contact_type}-${c.id}`} value={`${c.contact_type}:${c.id}`}>
+                    [{c.contact_type === 'vendor' ? 'Vendor' : 'Customer'}] {c.name} {c.email ? `(${c.email})` : ''}
                   </option>
                 ))}
               </select>
               <span className="text-[10px] text-[#606070] mt-1 block">
-                Select from Contacts Created
+                Select from Contacts (Customers or Vendors)
               </span>
             </div>
           </div>
@@ -493,7 +688,8 @@ export const BudgetsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddLine}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4]/20 hover:bg-[#7042f4]/30 text-[#c084fc] text-xs font-semibold border border-[#7042f4]/30 transition-all"
+                  disabled={analytics.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4]/20 hover:bg-[#7042f4]/30 text-[#c084fc] text-xs font-semibold border border-[#7042f4]/30 transition-all disabled:opacity-50"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Analytic Line
                 </button>
@@ -533,8 +729,8 @@ export const BudgetsPage: React.FC = () => {
                             ) : (
                               <select
                                 value={line.analytic_account_id}
-                                onChange={(e) => handleLineChange(idx, 'analytic_account_id', parseInt(e.target.value, 10))}
-                                className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white"
+                                onChange={(e) => handleAnalyticAccountChange(idx, parseInt(e.target.value, 10))}
+                                className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-[#7042f4]"
                               >
                                 {analytics.map((a) => (
                                   <option key={a.id} value={a.id}>
@@ -556,8 +752,8 @@ export const BudgetsPage: React.FC = () => {
                             ) : (
                               <select
                                 value={line.type}
-                                onChange={(e) => handleLineChange(idx, 'type', e.target.value)}
-                                className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white capitalize"
+                                onChange={(e) => handleLineFieldChange(idx, 'type', e.target.value)}
+                                className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white capitalize focus:outline-none focus:border-[#7042f4]"
                               >
                                 <option value="expense">Expense</option>
                                 <option value="income">Income</option>
@@ -571,9 +767,10 @@ export const BudgetsPage: React.FC = () => {
                               <input
                                 type="number"
                                 step="0.01"
+                                min="0"
                                 value={line.committed_amount}
-                                onChange={(e) => handleLineChange(idx, 'committed_amount', e.target.value)}
-                                className="w-28 text-right px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white"
+                                onChange={(e) => handleLineFieldChange(idx, 'committed_amount', e.target.value)}
+                                className="w-28 text-right px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-[#7042f4]"
                               />
                             )}
                           </td>
