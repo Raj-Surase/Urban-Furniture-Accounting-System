@@ -8,6 +8,14 @@ import {
   UserCheck,
   User,
   LogOut,
+  FileText,
+  ShoppingBag,
+  Truck,
+  BookOpen,
+  CreditCard,
+  FileSpreadsheet,
+  Users,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -30,17 +38,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       category: 'Overview',
       items: [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Analytics', path: '/#analytics', icon: LineChart },
+        { name: 'Financial & GST Reports', path: '/reports', icon: FileSpreadsheet },
       ],
     },
     {
-      category: 'Operations',
+      category: 'Accounting & Treasury',
       items: [
-        { name: 'Items Directory', path: '/items', icon: Layers },
+        { name: 'Invoices & Bills (GST)', path: '/invoices', icon: FileText },
+        { name: 'Payments & Treasury', path: '/payments', icon: CreditCard },
+        { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
+        { name: 'General Ledger Journal', path: '/journal', icon: Layers },
       ],
     },
     {
-      category: 'System & Management',
+      category: 'Sales & Purchasing',
+      items: [
+        { name: 'Sales Orders', path: '/sales-orders', icon: Truck },
+        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+        { name: 'Products & Inventory', path: '/products', icon: Store },
+        { name: 'Customer Directory', path: '/customers', icon: Users },
+        { name: 'Vendor Directory', path: '/vendors', icon: Truck },
+      ],
+    },
+    {
+      category: 'System & Governance',
       items: [
         ...(isAdmin ? [{ name: 'Admin Console', path: '/admin', icon: Shield }] : []),
         { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },

@@ -39,7 +39,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl sm:text-4xl text-white font-normal tracking-tight font-sans">
-            Welcome back, <span className="font-semibold">{user?.name ? user.name.split(' ')[0] : 'Angela'}</span>
+            Welcome back, <span className="font-semibold">{user?.name ? user.name.split(' ')[0] : 'Admin'}</span>
           </h1>
         </div>
 
@@ -67,35 +67,35 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
         <div className="md:col-span-4 flex flex-col justify-between space-y-4">
           <div>
             <div className="text-xs text-[#8e8e9f] font-medium font-sans">
-              Total revenue
+              Total sales revenue
             </div>
             <div className="flex items-baseline gap-3 mt-1">
               <span className="text-3xl sm:text-4xl font-semibold text-white tracking-tight font-sans">
-                $16,957<span className="text-2xl text-white/70">.00</span>
+                ₹1,85,950<span className="text-2xl text-white/70">.00</span>
               </span>
               <span className="inline-flex items-center gap-0.5 text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                +12.87%
+                +18.4%
               </span>
             </div>
             <div className="text-xs text-[#757588] mt-1.5 font-sans">
-              Available to spend: <span className="text-white/80 font-medium">$16,957.00</span>
+              Available working capital: <span className="text-white/80 font-medium">₹1,85,950.00</span>
             </div>
           </div>
 
-          {/* Action Buttons: Transfer ↑ / Request ↓ / Options */}
+          {/* Action Buttons: New Invoice / Record Payment / More */}
           <div className="flex items-center gap-2.5 pt-2">
             <button
               onClick={onNewItem}
               className="bg-white text-black font-semibold rounded-full px-5 py-2 hover:bg-white/90 active:scale-95 text-xs flex items-center gap-1.5 transition-all shadow-sm select-none"
             >
-              Transfer <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              New Invoice <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
 
             <button
               onClick={onBroadcast}
               className="bg-[#24242e] text-white hover:bg-[#2e2e3a] font-medium rounded-full px-5 py-2 text-xs flex items-center gap-1.5 active:scale-95 transition-all select-none border border-white/[0.04]"
             >
-              Request <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2]" />
+              Record Payment <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2]" />
             </button>
 
             <button
@@ -108,15 +108,15 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
           </div>
         </div>
 
-        {/* Segment 2: Invest / Active Sprint Progress */}
+        {/* Segment 2: Procurement & Materials */}
         <div className="md:col-span-4 flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-white/[0.06] md:pl-6 pt-4 md:pt-0">
           <div>
             <div className="text-base sm:text-lg font-semibold text-white tracking-tight">
-              $4,485.00
+              ₹88,500.00
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-[#8e8e9f] font-medium flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-[#c084fc]" /> +33% Invest
+                <TrendingUp className="w-3 h-3 text-[#c084fc]" /> +24% Procurement (Teak & Hardware)
               </span>
             </div>
           </div>
@@ -132,28 +132,28 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
           </div>
 
           <div className="text-[11px] text-[#6d6d7e] font-sans">
-            January 25
+            Fiscal Q1 &bull; Active PO Fulfillment
           </div>
         </div>
 
-        {/* Segment 3: Products / Vertical Equalizer Histogram */}
+        {/* Segment 3: Top Products / Furniture Catalog */}
         <div className="md:col-span-4 flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-white/[0.06] md:pl-6 pt-4 md:pt-0">
           <div className="relative">
             <div className="text-base sm:text-lg font-semibold text-white tracking-tight">
-              $8,458.70
+              ₹1,24,000.00
             </div>
 
-            {/* Dashed line with Average badge */}
+            {/* Dashed line with Target Met badge */}
             <div className="relative my-1 flex items-center">
               <div className="w-full border-b border-dashed border-white/15" />
               <span className="absolute left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#262632] border border-white/[0.08] text-[#a0a0b0] select-none">
-                Average
+                Target Met
               </span>
             </div>
 
             <div className="flex items-center gap-3 text-xs text-[#8e8e9f] pt-1 font-sans">
-              <span className="text-white/80 font-medium">+12% Products</span>
-              <span>1.34 Other</span>
+              <span className="text-white/80 font-medium">+15% Chairs & Tables</span>
+              <span>Sofas & Combos</span>
             </div>
           </div>
 
@@ -173,7 +173,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
           </div>
 
           <div className="text-[11px] text-[#6d6d7e] font-sans">
-            February 25
+            Inventory Turnover &bull; FY 2026-27
           </div>
         </div>
       </div>

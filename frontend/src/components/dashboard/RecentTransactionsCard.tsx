@@ -21,50 +21,50 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
   onSearchClick,
   onItemClick,
 }) => {
-  // Default records aligned directly with the target screenshot
+  // Default records aligned directly with Urban Furniture accounting transactions
   const [transactions] = useState<TransactionItem[]>([
     {
       id: 'tx-1',
-      name: 'Internet',
-      category: 'Multimedia',
-      categoryColor: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]',
-      amount: '-$40.00',
-      isPositive: false,
+      name: 'Nimesh Pathak',
+      category: 'Sales Invoice',
+      categoryColor: 'bg-[#c6f135] shadow-[0_0_8px_rgba(198,241,53,0.5)]',
+      amount: '+₹24,525.00',
+      isPositive: true,
       timestamp: 'Today, 2:45 PM',
     },
     {
       id: 'tx-2',
-      name: 'Isabelle Garcia',
-      category: 'Transfer',
-      categoryColor: 'bg-[#8b5cf6] shadow-[0_0_8px_rgba(139,92,246,0.5)]',
-      amount: '-$86.50',
+      name: 'Azure Furniture',
+      category: 'Vendor Bill',
+      categoryColor: 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+      amount: '-₹88,500.00',
       isPositive: false,
       timestamp: 'Today, 1:12 PM',
     },
     {
       id: 'tx-3',
-      name: 'Sephora',
-      category: 'Beauty',
-      categoryColor: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]',
-      amount: '-$140.80',
+      name: 'Open Wood Furnishings',
+      category: 'Raw Materials',
+      categoryColor: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]',
+      amount: '-₹18,000.00',
       isPositive: false,
       timestamp: 'Yesterday',
     },
     {
       id: 'tx-4',
-      name: 'Netflix',
-      category: 'Multimedia',
-      categoryColor: 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-      amount: '-$140.80',
-      isPositive: false,
+      name: 'Rahul Sharma Timber Crafts',
+      category: 'Wholesale SO',
+      categoryColor: 'bg-[#8b5cf6] shadow-[0_0_8px_rgba(139,92,246,0.5)]',
+      amount: '+₹54,500.00',
+      isPositive: true,
       timestamp: 'Yesterday',
     },
     {
       id: 'tx-5',
-      name: 'Violet Green',
-      category: 'Transfer',
-      categoryColor: 'bg-[#8b5cf6] shadow-[0_0_8px_rgba(139,92,246,0.5)]',
-      amount: '+$600.00',
+      name: 'HDFC Bank Account',
+      category: 'Settlement',
+      categoryColor: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]',
+      amount: '+₹24,525.00',
       isPositive: true,
       timestamp: 'Feb 24',
     },
@@ -135,14 +135,14 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
         ))}
       </div>
 
-      {/* Footer link to Items Directory */}
+      {/* Footer link to Invoices & Bills */}
       <div className="pt-3 border-t border-white/[0.04] mt-2 flex items-center justify-between text-xs text-[#6d6d7e]">
         <span>5 displayed</span>
         <a
-          href="/items"
+          href="/invoices"
           className="text-white hover:underline font-medium hover:text-[#c084fc] transition-colors"
         >
-          View all in Directory &rarr;
+          View all in Invoices & Bills &rarr;
         </a>
       </div>
     </div>

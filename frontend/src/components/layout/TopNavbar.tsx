@@ -45,12 +45,15 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
 
   const navItems = [
     { label: 'Dashboard', path: '/' },
-    { label: 'Analytics', path: '/#analytics' },
-    { label: 'Transactions', path: '/items' },
+    { label: 'Invoices', path: '/invoices' },
+    { label: 'Sales', path: '/sales-orders' },
+    { label: 'Purchases', path: '/purchase-orders' },
+    { label: 'Products', path: '/products' },
+    { label: 'Accounts', path: '/accounts' },
+    { label: 'Reports', path: '/reports' },
     ...(user?.role === 'admin'
-      ? [{ label: 'Admin Console', path: '/admin' }]
+      ? [{ label: 'Admin', path: '/admin' }]
       : []),
-    { label: 'Settings', path: '/profile' },
   ];
 
   const isNavActive = (itemPath: string) => {
@@ -156,7 +159,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
           >
             <DropdownItem key="profile-header" className="h-14 gap-2 cursor-default" textValue="Profile Info">
               <div className="flex flex-col">
-                <span className="font-bold text-sm text-white">{user?.name || 'Angela Demo'}</span>
+                <span className="font-bold text-sm text-white">{user?.name || 'Urban Furniture User'}</span>
                 <span className="text-xs text-muted-foreground">{user?.email || 'user@example.com'}</span>
                 <div className="mt-1">
                   <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-[#7042f4]/20 text-[#c084fc] border border-[#7042f4]/30">

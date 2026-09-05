@@ -36,13 +36,23 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
 
   const getBreadcrumbs = () => {
     const parts = location.pathname.split('/').filter(Boolean);
-    const breadcrumbs = [{ name: 'Home', path: '/' }];
+    const breadcrumbs = [{ name: 'Urban Furniture', path: '/' }];
 
     let currentPath = '';
     parts.forEach((part) => {
       currentPath += `/${part}`;
       let name = part.charAt(0).toUpperCase() + part.slice(1).replace('-', ' ');
-      if (part === 'items') name = 'Items Directory';
+      if (part === 'invoices') name = 'Invoices & Vendor Bills (GST)';
+      if (part === 'purchase-orders') name = 'Purchase Orders';
+      if (part === 'sales-orders') name = 'Sales Orders';
+      if (part === 'products') name = 'Products & Furniture Inventory';
+      if (part === 'accounts') name = 'Chart of Accounts';
+      if (part === 'journal') name = 'General Ledger & Journals';
+      if (part === 'payments') name = 'Payments & Treasury';
+      if (part === 'customers') name = 'Customer Directory';
+      if (part === 'vendors') name = 'Vendor Directory';
+      if (part === 'reports') name = 'Financial & Budget Reports';
+      if (part === 'items') name = 'Workshop Operations';
       if (part === 'admin') name = 'Admin Console';
       if (part === 'profile') name = 'Profile & Clearance';
       if (part === 'forbidden') name = 'Access Denied';
@@ -103,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
           <div className="flex items-center gap-2 min-w-0">
             <Search className="w-3.5 h-3.5 text-[#808090] group-hover:text-white transition-colors shrink-0" />
             <span className="truncate text-xs text-[#707080] group-hover:text-[#9090a0]">
-              Search pages, modules...
+              Search accounting records, products, invoices...
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -115,39 +125,42 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
 
         {/* Quick Demo Role Switcher */}
         <div className="hidden lg:flex items-center gap-1 bg-[#18181f] p-1 rounded-full border border-white/[0.06] text-xs shadow-xs">
-          <span className="text-[10px] uppercase font-mono font-bold text-[#808090] pl-2 pr-1">Clearance:</span>
+          <span className="text-[10px] uppercase font-mono font-bold text-[#808090] pl-2 pr-1">Actor:</span>
           <button
             type="button"
-            onClick={() => handleQuickSwitchRole('admin@example.com', 'Admin')}
+            onClick={() => handleQuickSwitchRole('admin@example.com', 'Admin (Business Owner)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === 'admin'
                 ? 'bg-[#7042f4] text-white shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
+            title="Admin (Business Owner) - Full system rights"
           >
             Admin
           </button>
           <button
             type="button"
-            onClick={() => handleQuickSwitchRole('manager@example.com', 'Manager')}
+            onClick={() => handleQuickSwitchRole('manager@example.com', 'Invoicing User (Accountant)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === 'manager'
                 ? 'bg-amber-500 text-black shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
+            title="Invoicing User (Accountant) - Master data, transactions, reports"
           >
-            Manager
+            Accountant
           </button>
           <button
             type="button"
-            onClick={() => handleQuickSwitchRole('user@example.com', 'Standard User')}
+            onClick={() => handleQuickSwitchRole('user@example.com', 'Contact User (Customer/Vendor)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === 'user'
                 ? 'bg-emerald-500 text-black shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
+            title="Contact User - View invoices/bills and register payments"
           >
-            User
+            Contact
           </button>
         </div>
 

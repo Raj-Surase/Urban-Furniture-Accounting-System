@@ -20,6 +20,17 @@ import { ProfilePage } from './pages/ProfilePage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
+import { InvoicesPage } from './pages/InvoicesPage';
+import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage';
+import { SalesOrdersPage } from './pages/SalesOrdersPage';
+import { ProductsPage } from './pages/ProductsPage';
+import { AccountsPage } from './pages/AccountsPage';
+import { JournalPage } from './pages/JournalPage';
+import { PaymentsPage } from './pages/PaymentsPage';
+import { CustomersPage } from './pages/CustomersPage';
+import { VendorsPage } from './pages/VendorsPage';
+import { ReportsPage } from './pages/ReportsPage';
+
 export const App: React.FC = () => {
   return (
     <ErrorBoundary componentName="Application Root">
@@ -55,6 +66,86 @@ export const App: React.FC = () => {
                         element={
                           <ProtectedRoute>
                             <DashboardPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="invoices"
+                        element={
+                          <ProtectedRoute>
+                            <InvoicesPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="purchase-orders"
+                        element={
+                          <ProtectedRoute>
+                            <PurchaseOrdersPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="sales-orders"
+                        element={
+                          <ProtectedRoute>
+                            <SalesOrdersPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="products"
+                        element={
+                          <ProtectedRoute>
+                            <ProductsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="accounts"
+                        element={
+                          <ProtectedRoute>
+                            <AccountsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="journal"
+                        element={
+                          <ProtectedRoute>
+                            <JournalPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="payments"
+                        element={
+                          <ProtectedRoute>
+                            <PaymentsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="customers"
+                        element={
+                          <ProtectedRoute>
+                            <CustomersPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="vendors"
+                        element={
+                          <ProtectedRoute>
+                            <VendorsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="reports"
+                        element={
+                          <ProtectedRoute>
+                            <ReportsPage />
                           </ProtectedRoute>
                         }
                       />

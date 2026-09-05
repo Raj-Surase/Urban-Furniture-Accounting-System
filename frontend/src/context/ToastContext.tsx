@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { Card, CardBody, Chip, Button } from '@heroui/react';
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 export interface ToastItem {
   id: string;
   type: ToastType;
   message: string;
+  title?: string;
 }
 
 interface ToastContextType {
@@ -16,7 +17,9 @@ interface ToastContextType {
     success: (message: string) => void;
     error: (message: string) => void;
     info: (message: string) => void;
+    warning: (message: string) => void;
   };
+  addToast: (options: { type?: ToastType; title?: string; message: string } | string, messageOrTitle?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -28,23 +31,40 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const addToast = useCallback((type: ToastType, message: string) => {
-    const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
+  const addToast = useCallback(
+    (options: { type?: ToastType; title?: string; message: string } | string, messageOrTitle?: string) => {
+      const id = Math.random().toString(36).substring(2, 9);
+      let type: ToastType = 'info';
+      let message = '';
+      let title: string | undefined;
 
-    setTimeout(() => {
-      removeToast(id);
-    }, 4200);
-  }, [removeToast]);
+      if (typeof options === 'object' && options !== null) {
+        type = options.type || 'info';
+        message = options.message || '';
+        title = options.title;
+      } else {
+        type = (options as ToastType) || 'info';
+        message = messageOrTitle || '';
+      }
+
+      setToasts((prev) => [...prev, { id, type, message, title }]);
+
+      setTimeout(() => {
+        removeToast(id);
+      }, 4200);
+    },
+    [removeToast]
+  );
 
   const toast = {
-    success: (msg: string) => addToast('success', msg),
-    error: (msg: string) => addToast('error', msg),
-    info: (msg: string) => addToast('info', msg),
+    success: (msg: string) => addToast({ type: 'success', message: msg }),
+    error: (msg: string) => addToast({ type: 'error', message: msg }),
+    info: (msg: string) => addToast({ type: 'info', message: msg }),
+    warning: (msg: string) => addToast({ type: 'warning', message: msg }),
   };
 
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={{ toast, addToast }}>
       {children}
       {/* HeroUI Modern Toast Notification Stack */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-2 sm:px-0">

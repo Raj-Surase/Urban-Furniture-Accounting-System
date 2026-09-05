@@ -101,10 +101,10 @@ export const LoginPage: React.FC = () => {
               <Logo className="justify-center mb-1" />
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
-                  Welcome Back
+                  Urban Furniture
                 </h2>
                 <p className="text-xs sm:text-sm text-[#8e8e9f] mt-1 font-sans">
-                  Sign in with your enterprise credentials
+                  Sign in to Urban Furniture Accounting System
                 </p>
               </div>
             </CardHeader>
@@ -130,7 +130,7 @@ export const LoginPage: React.FC = () => {
                       <span>Admin</span>
                       <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">admin@example.com</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Owner (Full)</span>
                   </button>
 
                   <button
@@ -139,10 +139,10 @@ export const LoginPage: React.FC = () => {
                     className="p-2.5 rounded-xl bg-card/60 hover:bg-card border border-border/50 dark:border-white/[0.08] text-left transition-all hover:border-amber-400/50 group active:scale-[0.98]"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground group-hover:text-amber-400">
-                      <span>Manager</span>
+                      <span>Accountant</span>
                       <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">manager@example.com</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Invoicing User</span>
                   </button>
 
                   <button
@@ -151,10 +151,10 @@ export const LoginPage: React.FC = () => {
                     className="p-2.5 rounded-xl bg-card/60 hover:bg-card border border-border/50 dark:border-white/[0.08] text-left transition-all hover:border-blue-400/50 group active:scale-[0.98]"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground group-hover:text-blue-400">
-                      <span>Standard</span>
+                      <span>Contact</span>
                       <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">user@example.com</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Client / Vendor</span>
                   </button>
                 </div>
               </div>

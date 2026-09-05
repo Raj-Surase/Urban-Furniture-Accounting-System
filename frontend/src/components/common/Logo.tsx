@@ -17,8 +17,11 @@ export const Logo: React.FC<LogoProps> = ({ className = '', iconOnly = false, ..
       </div>
       {!iconOnly && (
         <div className="flex flex-col text-left">
-          <span className="font-bold text-lg leading-tight tracking-tight font-sans text-white">
-            AssetFlow
+          <span className="font-bold text-base sm:text-lg leading-tight tracking-tight font-sans text-white">
+            Urban Furniture
+          </span>
+          <span className="text-[10px] font-medium tracking-wider text-[#9090a0] uppercase leading-none mt-0.5">
+            Accounting System
           </span>
         </div>
       )}

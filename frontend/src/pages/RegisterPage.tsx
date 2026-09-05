@@ -49,8 +49,8 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await register({ name, email, password, role });
-      toast.success('Account created and saved to PostgreSQL!');
+      await register({ name, email, password, role: 'user' });
+      toast.success('Account created successfully!');
       navigate('/');
     } catch (err: unknown) {
       const formatted = formatApiError(err);
@@ -177,35 +177,12 @@ export const RegisterPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-1.5 text-left">
-                  <label htmlFor="reg-role" className="text-xs font-semibold text-[#8e8e9f] block">
-                    Assigned Clearance Role
-                  </label>
-                  <Select
-                    id="reg-role"
-                    aria-label="Assigned Clearance Role"
-                    selectedKeys={[role]}
-                    onChange={(e) => setRole(e.target.value)}
-                    variant="bordered"
-                    size="md"
-                    startContent={<Shield className="w-4 h-4 text-[#8e8e9f] shrink-0" />}
-                    classNames={{
-                      base: "w-full",
-                      trigger: "!bg-[#1c1c24] border border-white/[0.12] hover:border-white/30 focus:!border-primary rounded-xl h-11 transition-all shadow-none text-white",
-                      value: "text-white text-sm",
-                      popoverContent: "bg-[#1c1c24] border border-white/[0.1] text-white",
-                    }}
-                  >
-                    <SelectItem key="user" description="Standard CRUD & live WebSocket events">
-                      Standard User
-                    </SelectItem>
-                    <SelectItem key="manager" description="Team review & channel broadcasts">
-                      Manager
-                    </SelectItem>
-                    <SelectItem key="admin" description="Full access including /admin console">
-                      Administrator
-                    </SelectItem>
-                  </Select>
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-3">
+                  <Shield className="w-5 h-5 text-primary shrink-0" />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-white">Standard User Clearance</p>
+                    <p className="text-[11px] text-zinc-400">All public accounts are registered with Standard Staff permissions. Manager & Admin access is provisioned by organization administrators.</p>
+                  </div>
                 </div>
 
                 {error && (

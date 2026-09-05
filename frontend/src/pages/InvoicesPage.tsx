@@ -1,0 +1,1038 @@
+import React, { useEffect, useState } from 'react';
+import {
+  FileText,
+  Plus,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  DollarSign,
+  Building2,
+  Calendar,
+  Layers,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Search,
+  Filter,
+  CreditCard,
+  Percent,
+} from 'lucide-react';
+import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfModal';
+
+export const InvoicesPage: React.FC = () => {
+  const { user, isAdmin, isManager } = useAuth();
+  const { addToast } = useToast();
+
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
+  const [activeTab, setActiveTab] = useState<'all' | 'customer' | 'vendor'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // PDF Preview State
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoicePdfData | null>(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  // Create Invoice Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createType, setCreateType] = useState<'customer' | 'vendor'>('customer');
+  const [selectedPartyId, setSelectedPartyId] = useState<number | ''>('');
+  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
+  const [notes, setNotes] = useState('Urban Furniture Tax Invoice. Payment due within 30 days. E-way bill applicable.');
+  const [lineItems, setLineItems] = useState<
+    Array<{
+      product_id: number | '';
+      description: string;
+      hsn_code: string;
+      quantity: number;
+      unit_price: number;
+      gst_rate: number;
+    }>
+  >([{ product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Quick Payment Modal State
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [payInvoice, setPayInvoice] = useState<any>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState('bank_transfer');
+  const [payReference, setPayReference] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [invRes, custRes, vendRes, prodRes] = await Promise.all([
+        invoicesApi.list(),
+        customersApi.list(),
+        vendorsApi.list(),
+        productsApi.list(),
+      ]);
+      setInvoices(invRes.data || invRes || []);
+      setCustomers(custRes.data || custRes || []);
+      setVendors(vendRes.data || vendRes || []);
+      setProducts(prodRes.data || prodRes || []);
+    } catch (err) {
+      console.error('Failed to fetch invoice data:', err);
+      addToast({
+        type: 'error',
+        title: 'Error loading invoices',
+        message: 'Could not retrieve invoices and billing entities.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Determine place of supply and interstate
+  const selectedParty =
+    createType === 'customer'
+      ? customers.find((c) => c.id === Number(selectedPartyId))
+      : vendors.find((v) => v.id === Number(selectedPartyId));
+
+  const isInterstate =
+    selectedParty?.state &&
+    !selectedParty.state.toLowerCase().includes('maharashtra') &&
+    !selectedParty.gstin?.startsWith('27');
+
+  // Calculate live totals for new invoice
+  const calculateTotals = () => {
+    let subtotal = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
+
+    lineItems.forEach((item) => {
+      const lineTaxable = Number(item.quantity || 0) * Number(item.unit_price || 0);
+      subtotal += lineTaxable;
+      const rate = Number(item.gst_rate || 18);
+      if (isInterstate) {
+        totalIgst += (lineTaxable * rate) / 100;
+      } else {
+        totalCgst += (lineTaxable * (rate / 2)) / 100;
+      }
+    });
+
+    if (!isInterstate) {
+      totalSgst = totalCgst;
+    }
+
+    const taxAmount = totalCgst + totalSgst + totalIgst;
+    const totalAmount = subtotal + taxAmount;
+
+    return { subtotal, totalCgst, totalSgst, totalIgst, taxAmount, totalAmount };
+  };
+
+  const handleProductSelect = (index: number, productId: number) => {
+    const prod = products.find((p) => p.id === productId);
+    if (!prod) return;
+    const updated = [...lineItems];
+    updated[index] = {
+      ...updated[index],
+      product_id: prod.id,
+      description: prod.name,
+      hsn_code: prod.hsn_code || '9403',
+      unit_price: createType === 'customer' ? Number(prod.price) : Number(prod.cost_price || prod.price * 0.7),
+      gst_rate: Number(prod.gst_rate || 18),
+    };
+    setLineItems(updated);
+  };
+
+  const handleAddLine = () => {
+    setLineItems([
+      ...lineItems,
+      { product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 },
+    ]);
+  };
+
+  const handleRemoveLine = (index: number) => {
+    if (lineItems.length <= 1) return;
+    setLineItems(lineItems.filter((_, idx) => idx !== index));
+  };
+
+  const handleCreateInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPartyId) {
+      addToast({ type: 'warning', title: 'Validation', message: 'Please select a customer or vendor.' });
+      return;
+    }
+
+    const validItems = lineItems.filter((item) => item.product_id && item.quantity > 0);
+    if (validItems.length === 0) {
+      addToast({ type: 'warning', title: 'Validation', message: 'Add at least one valid product line.' });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        type: createType,
+        customer_id: createType === 'customer' ? selectedPartyId : null,
+        vendor_id: createType === 'vendor' ? selectedPartyId : null,
+        invoice_date: invoiceDate,
+        due_date: dueDate,
+        notes,
+        items: validItems.map((item) => ({
+          product_id: item.product_id,
+          description: item.description,
+          hsn_code: item.hsn_code,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          gst_rate: item.gst_rate,
+        })),
+      };
+
+      const res = await invoicesApi.create(payload);
+      addToast({
+        type: 'success',
+        title: 'Invoice Draft Created',
+        message: `${res.invoice_number || 'Invoice'} created in Draft status.`,
+      });
+      setIsCreateModalOpen(false);
+      // Reset form
+      setLineItems([{ product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 }]);
+      fetchData();
+    } catch (err: any) {
+      console.error('Failed to create invoice:', err);
+      addToast({
+        type: 'error',
+        title: 'Creation Failed',
+        message: err.response?.data?.message || 'Failed to save invoice.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Automatic Posting on Approval
+  const handleApprove = async (id: number) => {
+    try {
+      const res = await invoicesApi.approve(id);
+      addToast({
+        type: 'success',
+        title: 'Approved & Auto-Posted to General Ledger',
+        message: `Invoice approved! Balanced journal entry ${res.journal_entry_id ? `#${res.journal_entry_id}` : ''} created automatically.`,
+      });
+      fetchData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Approval Failed',
+        message: err.response?.data?.message || 'Could not approve invoice.',
+      });
+    }
+  };
+
+  // Void Invoice & Contra-Reversal
+  const handleVoid = async (id: number) => {
+    if (!confirm('Are you sure you want to void this invoice? A reversing journal contra-entry will be posted.')) {
+      return;
+    }
+    try {
+      await invoicesApi.void(id);
+      addToast({
+        type: 'warning',
+        title: 'Invoice Voided',
+        message: 'Invoice has been voided and reversing contra journal entry posted.',
+      });
+      fetchData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Void Failed',
+        message: err.response?.data?.message || 'Could not void invoice.',
+      });
+    }
+  };
+
+  // Record Payment
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payInvoice || payAmount <= 0) return;
+    try {
+      setIsPaying(true);
+      const isCust = payInvoice.type === 'customer';
+      await paymentsApi.create({
+        payment_type: isCust ? 'customer_receipt' : 'vendor_payment',
+        invoice_id: payInvoice.id,
+        customer_id: isCust ? payInvoice.customer_id : null,
+        vendor_id: !isCust ? payInvoice.vendor_id : null,
+        amount: payAmount,
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_method: payMethod,
+        reference_number: payReference || `TXN-${Date.now()}`,
+        status: 'reconciled', // Reconcile to trigger auto journal posting
+      });
+
+      addToast({
+        type: 'success',
+        title: 'Payment Reconciled',
+        message: `Recorded ₹${payAmount.toLocaleString('en-IN')} payment and posted journal entry.`,
+      });
+      setIsPayModalOpen(false);
+      setPayInvoice(null);
+      fetchData();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Payment Failed',
+        message: err.response?.data?.message || 'Could not record payment.',
+      });
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const filteredInvoices = invoices.filter((inv) => {
+    const matchesTab =
+      activeTab === 'all' ||
+      (activeTab === 'customer' && inv.type === 'customer') ||
+      (activeTab === 'vendor' && inv.type === 'vendor');
+
+    const partyName = inv.customer?.name || inv.vendor?.name || '';
+    const matchesQuery =
+      inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      partyName.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+
+    return matchesTab && matchesQuery && matchesStatus;
+  });
+
+  // Calculate high level metrics
+  const totalReceivables = invoices
+    .filter((inv) => inv.type === 'customer' && (inv.status === 'approved' || inv.status === 'draft'))
+    .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
+
+  const totalPayables = invoices
+    .filter((inv) => inv.type === 'vendor' && (inv.status === 'approved' || inv.status === 'draft'))
+    .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
+
+  const totalGst = invoices
+    .filter((inv) => inv.status === 'approved' || inv.status === 'paid')
+    .reduce((sum, inv) => sum + Number(inv.tax_amount || 0), 0);
+
+  const pendingApprovals = invoices.filter((inv) => inv.status === 'draft').length;
+
+  const currentTotals = calculateTotals();
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+            <FileText className="w-7 h-7 text-purple-400" />
+            Invoices & GST Billing
+          </h1>
+          <p className="text-sm text-neutral-400 mt-1">
+            Accounts Receivable, Vendor Bills, Double-Entry Auto-Posting, and Tax Invoices.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => {
+              setCreateType('customer');
+              setSelectedPartyId('');
+              setIsCreateModalOpen(true);
+            }}
+            className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            New Tax Invoice (AR)
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCreateType('vendor');
+              setSelectedPartyId('');
+              setIsCreateModalOpen(true);
+            }}
+            className="border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 gap-2 text-xs font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            New Vendor Bill (AP)
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-400">Total Receivables (AR)</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <ArrowDownLeft className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-xl font-bold text-white mt-2 font-mono">
+            ₹{totalReceivables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-[11px] text-neutral-500 mt-1">Due from commercial buyers</p>
+        </Card>
+
+        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-400">Total Payables (AP)</span>
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-xl font-bold text-white mt-2 font-mono">
+            ₹{totalPayables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-[11px] text-neutral-500 mt-1">Due to timber & hardware vendors</p>
+        </Card>
+
+        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-400">GST Collected / Input</span>
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+              <Percent className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-xl font-bold text-white mt-2 font-mono">
+            ₹{totalGst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </p>
+          <p className="text-[11px] text-neutral-500 mt-1">Total CGST + SGST + IGST</p>
+        </Card>
+
+        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-400">Pending Approvals</span>
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-xl font-bold text-amber-400 mt-2 font-mono">{pendingApprovals}</p>
+          <p className="text-[11px] text-neutral-500 mt-1">Require Manager / Admin approval</p>
+        </Card>
+      </div>
+
+      {/* Main Content Area */}
+      <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
+        {/* Filter Navigation Bar */}
+        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'all'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              All Invoices ({invoices.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('customer')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'customer'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              Customer Invoices (AR)
+            </button>
+            <button
+              onClick={() => setActiveTab('vendor')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'vendor'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
+              }`}
+            >
+              Vendor Bills (AP)
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
+              <input
+                type="text"
+                placeholder="Search invoice or party..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 w-52 sm:w-64"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none focus:border-purple-500"
+            >
+              <option value="all">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="approved">Approved</option>
+              <option value="paid">Paid</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Invoices Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                <th className="py-3 px-4">Invoice #</th>
+                <th className="py-3 px-4">Type</th>
+                <th className="py-3 px-4">Entity & GSTIN</th>
+                <th className="py-3 px-4">Dates</th>
+                <th className="py-3 px-4 text-right">Taxable</th>
+                <th className="py-3 px-4 text-right">GST (₹)</th>
+                <th className="py-3 px-4 text-right">Total Amount</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04] text-xs">
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-neutral-400">
+                    Loading invoices and GST records...
+                  </td>
+                </tr>
+              ) : filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-neutral-500 italic">
+                    No matching invoices found.
+                  </td>
+                </tr>
+              ) : (
+                filteredInvoices.map((inv) => {
+                  const isCust = inv.type === 'customer';
+                  const party = isCust ? inv.customer : inv.vendor;
+                  const partyName = party?.company_name || party?.name || (isCust ? 'Customer' : 'Vendor');
+
+                  return (
+                    <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="py-3 px-4 font-mono font-bold text-white flex items-center gap-2">
+                        <span>{inv.invoice_number}</span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isCust
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          }`}
+                        >
+                          {isCust ? 'Tax Invoice' : 'Vendor Bill'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-neutral-200">{partyName}</div>
+                        <div className="text-[10.5px] text-neutral-500 font-mono">
+                          {party?.gstin || 'Unregistered'} · {inv.place_of_supply || 'MH'}
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-4 text-neutral-400">
+                        <div>Date: {inv.invoice_date}</div>
+                        <div className="text-[10.5px] text-neutral-500">Due: {inv.due_date}</div>
+                      </td>
+
+                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                        ₹{Number(inv.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                        ₹{Number(inv.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        <span className="text-[10px] text-neutral-500 block">
+                          {inv.is_interstate ? 'IGST' : 'CGST+SGST'}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                        ₹{Number(inv.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        {(inv.amount_paid ?? 0) > 0 && (
+                          <span className="text-[10px] text-emerald-400 block font-normal">
+                            Paid: ₹{Number(inv.amount_paid).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                            inv.status === 'paid'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : inv.status === 'approved'
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : inv.status === 'void'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* pdfcn PDF Preview Button */}
+                          <button
+                            onClick={() => {
+                              setSelectedInvoice(inv);
+                              setIsPdfModalOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 transition-colors"
+                            title="Generate & View PDF (pdfcn)"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Approve & Auto-Post Button */}
+                          {inv.status === 'draft' && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => handleApprove(inv.id)}
+                              className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                              title="Approve and Auto-Post to General Ledger"
+                            >
+                              Approve & Post
+                            </button>
+                          )}
+
+                          {/* Record Payment Button */}
+                          {inv.status === 'approved' && (inv.balance_due === undefined || inv.balance_due > 0) && (
+                            <button
+                              onClick={() => {
+                                setPayInvoice(inv);
+                                setPayAmount(Number(inv.balance_due ?? inv.total_amount));
+                                setIsPayModalOpen(true);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors"
+                              title="Record Payment & Reconcile"
+                            >
+                              Pay
+                            </button>
+                          )}
+
+                          {/* Void Button */}
+                          {inv.status === 'approved' && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => handleVoid(inv.id)}
+                              className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-600 hover:text-white text-neutral-400 transition-colors"
+                              title="Void Invoice (Auto Contra-Reversal)"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* PDF Modal Styled with pdfcn principles */}
+      <InvoicePdfModal
+        isOpen={isPdfModalOpen}
+        onClose={() => {
+          setIsPdfModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+      />
+
+      {/* Create Invoice / Bill Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden text-white">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-purple-400" />
+                <h3 className="text-base font-bold">
+                  Create {createType === 'customer' ? 'Customer Tax Invoice (AR)' : 'Vendor Bill (AP)'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateInvoice} className="p-6 space-y-6">
+              {/* Party selection & Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    {createType === 'customer' ? 'Customer (Buyer)' : 'Vendor (Supplier)'}
+                  </label>
+                  <select
+                    value={selectedPartyId}
+                    onChange={(e) => setSelectedPartyId(Number(e.target.value))}
+                    required
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    <option value="">Select party...</option>
+                    {(createType === 'customer' ? customers : vendors).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.gstin || 'No GSTIN'}) - {p.state || 'MH'}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedParty && (
+                    <div className="text-[10px] text-neutral-400 mt-1">
+                      GSTIN: {selectedParty.gstin || 'Unregistered'} · Supply: {selectedParty.state || 'MH'} (
+                      {isInterstate ? 'Inter-state IGST' : 'Intra-state CGST+SGST'})
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Invoice Date</label>
+                  <input
+                    type="date"
+                    value={invoiceDate}
+                    onChange={(e) => setInvoiceDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Line Items Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                    Line Items & GST Breakdown
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddLine}
+                    className="text-xs text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-1"
+                  >
+                    + Add Item
+                  </button>
+                </div>
+
+                <div className="border border-neutral-800 rounded-xl overflow-hidden bg-[#181820]">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-neutral-800 bg-neutral-900/60 text-neutral-400 text-[10px] uppercase">
+                        <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-2 w-20">HSN</th>
+                        <th className="py-2.5 px-2 w-16 text-right">Qty</th>
+                        <th className="py-2.5 px-2 w-24 text-right">Price (₹)</th>
+                        <th className="py-2.5 px-2 w-16 text-right">GST %</th>
+                        <th className="py-2.5 px-2 w-28 text-right">Total (₹)</th>
+                        <th className="py-2.5 px-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800/60">
+                      {lineItems.map((line, idx) => {
+                        const lineTaxable = Number(line.quantity || 0) * Number(line.unit_price || 0);
+                        const lineTax = (lineTaxable * Number(line.gst_rate || 18)) / 100;
+                        const lineTotal = lineTaxable + lineTax;
+
+                        return (
+                          <tr key={idx} className="hover:bg-white/[0.01]">
+                            <td className="py-2 px-3">
+                              <select
+                                value={line.product_id}
+                                onChange={(e) => handleProductSelect(idx, Number(e.target.value))}
+                                required
+                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white"
+                              >
+                                <option value="">Select product SKU...</option>
+                                {products.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} ({p.sku})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            <td className="py-2 px-2">
+                              <input
+                                type="text"
+                                value={line.hsn_code}
+                                onChange={(e) => {
+                                  const updated = [...lineItems];
+                                  updated[idx].hsn_code = e.target.value;
+                                  setLineItems(updated);
+                                }}
+                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white font-mono text-center"
+                              />
+                            </td>
+
+                            <td className="py-2 px-2 text-right">
+                              <input
+                                type="number"
+                                min="1"
+                                value={line.quantity}
+                                onChange={(e) => {
+                                  const updated = [...lineItems];
+                                  updated[idx].quantity = Number(e.target.value);
+                                  setLineItems(updated);
+                                }}
+                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right"
+                              />
+                            </td>
+
+                            <td className="py-2 px-2 text-right">
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={line.unit_price}
+                                onChange={(e) => {
+                                  const updated = [...lineItems];
+                                  updated[idx].unit_price = Number(e.target.value);
+                                  setLineItems(updated);
+                                }}
+                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right font-mono"
+                              />
+                            </td>
+
+                            <td className="py-2 px-2 text-right">
+                              <select
+                                value={line.gst_rate}
+                                onChange={(e) => {
+                                  const updated = [...lineItems];
+                                  updated[idx].gst_rate = Number(e.target.value);
+                                  setLineItems(updated);
+                                }}
+                                className="w-full px-1 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right"
+                              >
+                                <option value="0">0%</option>
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18">18%</option>
+                                <option value="28">28%</option>
+                              </select>
+                            </td>
+
+                            <td className="py-2 px-2 text-right font-mono font-bold text-white">
+                              ₹{lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+
+                            <td className="py-2 px-2 text-center">
+                              {lineItems.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLine(idx)}
+                                  className="text-neutral-500 hover:text-rose-400"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Summary Calculations */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Notes & Terms</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="bg-[#181820] p-4 rounded-xl border border-neutral-800 space-y-2 text-xs">
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Taxable Subtotal:</span>
+                    <span className="font-mono text-white">
+                      ₹{currentTotals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {isInterstate ? (
+                    <div className="flex justify-between text-neutral-400">
+                      <span>IGST (18%):</span>
+                      <span className="font-mono text-white">
+                        ₹{currentTotals.totalIgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>CGST (9%):</span>
+                        <span className="font-mono text-white">
+                          ₹{currentTotals.totalCgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>SGST (9%):</span>
+                        <span className="font-mono text-white">
+                          ₹{currentTotals.totalSgst.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="border-t border-neutral-700 pt-2 flex justify-between items-center font-bold text-sm text-white">
+                    <span>Grand Total:</span>
+                    <span className="font-mono text-purple-400 text-base">
+                      ₹{currentTotals.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isSubmitting}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+                >
+                  {isSubmitting ? 'Creating...' : 'Save Draft Invoice'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {isPayModalOpen && payInvoice && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden text-white">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold">Record Payment</h3>
+              </div>
+              <button onClick={() => setIsPayModalOpen(false)} className="text-neutral-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
+              <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs space-y-1">
+                <div className="text-neutral-400">
+                  Invoice No: <span className="font-mono font-bold text-white">{payInvoice.invoice_number}</span>
+                </div>
+                <div className="text-neutral-400">
+                  Party: <span className="font-semibold text-white">{payInvoice.customer?.name || payInvoice.vendor?.name}</span>
+                </div>
+                <div className="text-neutral-400">
+                  Balance Due: <span className="font-mono font-bold text-emerald-400">₹{Number(payInvoice.balance_due ?? payInvoice.total_amount).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Payment Amount (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Payment Method</label>
+                <select
+                  value={payMethod}
+                  onChange={(e) => setPayMethod(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="bank_transfer">Bank Transfer (NEFT/RTGS)</option>
+                  <option value="upi">UPI / Instant QR</option>
+                  <option value="cash">Cash in Hand</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / UTR Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. UTR-987654321"
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none font-mono"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPayModalOpen(false)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isPaying}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                >
+                  {isPaying ? 'Recording...' : 'Confirm Payment & Reconcile'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+

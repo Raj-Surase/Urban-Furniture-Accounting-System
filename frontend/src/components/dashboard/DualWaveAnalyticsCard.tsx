@@ -30,11 +30,11 @@ export const DualWaveAnalyticsCard: React.FC = () => {
       <div className="flex items-center gap-4 mt-3 select-none">
         <div className="flex items-center gap-1.5 text-xs text-[#a0a0b0]">
           <span className="w-2.5 h-2.5 rounded-xs bg-[#c6f135] shadow-[0_0_8px_rgba(198,241,53,0.5)]" />
-          <span>Income</span>
+          <span>Sales Revenue (Furniture)</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-[#71717a]">
           <span className="w-2.5 h-2.5 rounded-xs bg-[#52525b] border border-dashed border-white/40" />
-          <span>Expenses</span>
+          <span>Procurement Expenses</span>
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export const DualWaveAnalyticsCard: React.FC = () => {
             className="px-2.5 py-1 rounded-lg bg-[#24242e] border border-white/10 text-[11px] font-bold text-white shadow-lg flex items-center gap-1 self-end"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#c6f135]" />
-            $7,958.00
+            ₹1,24,500.00
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: -4 }}
@@ -121,7 +121,7 @@ export const DualWaveAnalyticsCard: React.FC = () => {
             className="px-2.5 py-1 rounded-lg bg-[#1e1e26] border border-white/10 text-[11px] font-bold text-[#a0a0b0] shadow-lg flex items-center gap-1 self-end"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-[#71717a]" />
-            $5,861.00
+            ₹68,400.00
           </motion.div>
         </div>
       </div>

@@ -41,7 +41,7 @@ export const ActivityHeatmapCard: React.FC = () => {
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-white/80" />
           <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight font-sans">
-            Activity by time
+            Workshop & Accounting Activity
           </h2>
         </div>
 
@@ -104,7 +104,7 @@ export const ActivityHeatmapCard: React.FC = () => {
               {activeCell.day} {activeCell.hour}: <strong className="text-[#c084fc]">{activeCell.count}</strong> events
             </span>
           ) : (
-            <span>Peak: Thu 3pm</span>
+            <span>Peak: Thu 3pm &bull; Order dispatch & posting</span>
           )}
         </div>
 

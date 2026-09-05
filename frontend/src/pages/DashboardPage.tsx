@@ -66,9 +66,9 @@ export const DashboardPage: React.FC = () => {
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [selectedChannelFilter, setSelectedChannelFilter] = useState<string>('all');
   const [recentEvents, setRecentEvents] = useState<SocketEventItem[]>([
-    { id: '1', event: 'item:created', title: 'System initialized on PostgreSQL', time: 'Just now', channel: 'items' },
-    { id: '2', event: 'system:ping', title: 'Socket handshake established', time: '1m ago', channel: 'global' },
-    { id: '3', event: 'security:auth', title: 'Sanctum bearer token issued', time: '2m ago', channel: 'auth' },
+    { id: '1', event: 'invoice:posted', title: 'Customer Invoice INV-2026-0001 posted for Nimesh Pathak (5x Office Chairs)', time: 'Just now', channel: 'invoices' },
+    { id: '2', event: 'payment:reconciled', title: 'Payment received and reconciled via HDFC Bank for INV-2026-0001', time: '1m ago', channel: 'payments' },
+    { id: '3', event: 'order:issued', title: 'Purchase Order PO-2026-0001 issued to Azure Furniture for Wooden Tables', time: '2m ago', channel: 'procurement' },
   ]);
 
   // Broadcast test states
@@ -163,7 +163,7 @@ export const DashboardPage: React.FC = () => {
           event,
           channel,
           data: {
-            sender: user?.name || 'Angela Demo',
+            sender: user?.name || 'Urban Furniture User',
             message,
             timestamp: new Date().toISOString(),
           },
@@ -197,10 +197,10 @@ export const DashboardPage: React.FC = () => {
   }, [recentEvents, selectedChannelFilter]);
 
   const presets = [
-    { label: 'Item Created', event: 'item:created', msg: 'New resource persisted in PostgreSQL', channel: 'items' },
-    { label: 'Inventory Alert', event: 'stock:low', msg: 'Low stock threshold triggered for SKUs', channel: 'inventory' },
-    { label: 'System Ping', event: 'system:ping', msg: 'Periodic telemetry ping acknowledgment', channel: 'global' },
-    { label: 'Admin Override', event: 'admin:action', msg: 'Elevated authorization session created', channel: 'auth' },
+    { label: 'Invoice Posted', event: 'invoice:posted', msg: 'Tax Invoice auto-posted to General Ledger with GST', channel: 'invoices' },
+    { label: 'Payment Reconciled', event: 'payment:reconciled', msg: 'Bank receipt reconciled against AR 1120', channel: 'payments' },
+    { label: 'Stock Intake (GRNI)', event: 'inventory:received', msg: 'Goods received from Azure Furniture: Dr Inventory Cr GRNI', channel: 'inventory' },
+    { label: 'COGS Relieved', event: 'sales:delivered', msg: 'Delivery completed: Dr COGS 5010 Cr Inventory 1130', channel: 'sales' },
   ];
 
   return (
@@ -208,7 +208,7 @@ export const DashboardPage: React.FC = () => {
       <div className="space-y-8 pb-8">
         {/* 1. Top Greeting & 3-Column Hero Metrics Section (Exact match to target design) */}
         <HeroMetricsSection
-          onNewItem={() => navigate('/items')}
+          onNewItem={() => navigate('/invoices')}
           onBroadcast={() => setShowDeveloperStudio(true)}
           totalItemsCount={itemsCount}
           completedCount={completedCount}
@@ -225,8 +225,8 @@ export const DashboardPage: React.FC = () => {
 
           {/* Card 3: Recent Transactions / Real-Time Items */}
           <RecentTransactionsCard
-            onSearchClick={() => navigate('/items')}
-            onItemClick={() => navigate('/items')}
+            onSearchClick={() => navigate('/invoices')}
+            onItemClick={() => navigate('/invoices')}
           />
         </div>
 
@@ -374,18 +374,5 @@ export const DashboardPage: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] text-[#6d6d7e] flex items-center justify-between pt-2 border-t border-white/[0.04]">
-                      <span>PostgreSQL &bull; Node.js Socket &bull; Laravel Sanctum</span>
-                      <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms latency</span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </PageTransition>
-  );
-};
-
-export default DashboardPage;
+                      <span>MySQL &bull; Node.js Socket &bull; Urban Furniture Accounting</span>
+                      <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms l
