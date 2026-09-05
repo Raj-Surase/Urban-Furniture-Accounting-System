@@ -10,7 +10,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
-import api from '../lib/api';
+import api, { dashboardApi } from '../lib/api';
 import { formatApiError } from '../lib/errorHandler';
 import { PageTransition } from '../components/layout/PageTransition';
 
@@ -49,11 +49,14 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [itemsCount, setItemsCount] = useState<number>(16);
-  const [completedCount, setCompletedCount] = useState<number>(11);
-  const [inProgressCount, setInProgressCount] = useState<number>(5);
+  const [itemsCount, setItemsCount] = useState<number>(0);
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  const [inProgressCount, setInProgressCount] = useState<number>(0);
   const [apiLatency, setApiLatency] = useState<number>(12);
   const [apiHealth, setApiHealth] = useState<any>(null);
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(true);
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
 
   // Realtime stream state
   const [showDeveloperStudio, setShowDeveloperStudio] = useState<boolean>(false);
@@ -65,11 +68,7 @@ export const DashboardPage: React.FC = () => {
   }, [searchParams]);
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [selectedChannelFilter, setSelectedChannelFilter] = useState<string>('all');
-  const [recentEvents, setRecentEvents] = useState<SocketEventItem[]>([
-    { id: '1', event: 'invoice:posted', title: 'Customer Invoice INV-2026-0001 posted for Nimesh Pathak (5x Office Chairs)', time: 'Just now', channel: 'invoices' },
-    { id: '2', event: 'payment:reconciled', title: 'Payment received and reconciled via HDFC Bank for INV-2026-0001', time: '1m ago', channel: 'payments' },
-    { id: '3', event: 'order:issued', title: 'Purchase Order PO-2026-0001 issued to Azure Furniture for Wooden Tables', time: '2m ago', channel: 'procurement' },
-  ]);
+  const [recentEvents, setRecentEvents] = useState<SocketEventItem[]>([]);
 
   // Broadcast test states
   const [customEvent, setCustomEvent] = useState('');
@@ -89,24 +88,30 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (range: 'week' | 'month' | 'year' = timeRange) => {
+    setLoadingSummary(true);
     try {
-      const res = await api.get('/items?per_page=100');
-      if (res.data?.data) {
-        const items = res.data.data;
-        setItemsCount(items.length || 16);
-        setCompletedCount(items.filter((i: any) => i.status === 'completed').length || 11);
-        setInProgressCount(items.filter((i: any) => i.status === 'in_progress').length || 5);
+      const res = await dashboardApi.getSummary({ time_range: range });
+      if (res?.kpis) {
+        setSummaryData(res);
+        setItemsCount(res.kpis.total_items_count ?? 0);
+        setCompletedCount(res.kpis.completed_count ?? 0);
+        setInProgressCount(res.kpis.in_progress_count ?? 0);
       }
-    } catch {
-      // Fallback to demo count
+    } catch (err) {
+      console.error('Failed to fetch dashboard summary:', err);
+    } finally {
+      setLoadingSummary(false);
     }
   };
 
   useEffect(() => {
     checkApiHealth();
-    fetchStats();
   }, []);
+
+  useEffect(() => {
+    fetchStats(timeRange);
+  }, [timeRange]);
 
   // Socket listener for realtime stream
   useEffect(() => {
@@ -210,9 +215,10 @@ export const DashboardPage: React.FC = () => {
         <HeroMetricsSection
           onNewItem={() => navigate('/invoices')}
           onBroadcast={() => setShowDeveloperStudio(true)}
-          totalItemsCount={itemsCount}
-          completedCount={completedCount}
-          inProgressCount={inProgressCount}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+          summaryData={summaryData}
+          loading={loadingSummary}
         />
 
         {/* 2. Bottom 3-Card Visual Grid (Exact match to target design) */}
@@ -355,7 +361,7 @@ export const DashboardPage: React.FC = () => {
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                       {filteredEvents.length === 0 ? (
                         <div className="text-center py-6 text-xs text-[#757588]">
-                          No events captured yet. Emit a preset above!
+                          No events captured yet. Real-time events will stream here live as operations occur.
                         </div>
                       ) : (
                         filteredEvents.map((ev) => (
@@ -374,7 +380,7 @@ export const DashboardPage: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] text-[#6d6d7e] flex items-center justify-between pt-2 border-t border-white/[0.04]">
-                      <span>MySQL &bull; Node.js Socket &bull; Urban Furniture Accounting</span>
+                      <span>Real-time Telemetry &bull; Urban Furniture Accounting</span>
                       <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms latency</span>
                     </div>
                   </div>

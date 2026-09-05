@@ -55,9 +55,11 @@ export default api;
 // ==========================================
 
 export const dashboardApi = {
-  getSummary: () => api.get('/dashboard/summary').then(res => res.data),
+  getSummary: (params?: Record<string, any>) => api.get('/dashboard/summary', { params }).then(res => res.data),
   getTransactions: () => api.get('/dashboard/transactions').then(res => res.data),
   getAlerts: () => api.get('/dashboard/alerts').then(res => res.data),
+  getAnalytics: (params?: Record<string, any>) => api.get('/dashboard/analytics', { params }).then(res => res.data),
+  getActivity: (params?: Record<string, any>) => api.get('/dashboard/activity', { params }).then(res => res.data),
 };
 
 export const accountsApi = {

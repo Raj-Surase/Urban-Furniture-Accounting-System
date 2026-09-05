@@ -49,6 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
     Route::get('/dashboard/transactions', [DashboardController::class, 'recentTransactions']);
     Route::get('/dashboard/alerts', [DashboardController::class, 'alerts']);
+    Route::get('/dashboard/analytics', [DashboardController::class, 'analytics']);
+    Route::get('/dashboard/activity', [DashboardController::class, 'activity']);
 
     // Legacy Items Resource
     Route::apiResource('items', ItemController::class);

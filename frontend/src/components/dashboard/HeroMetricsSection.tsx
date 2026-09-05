@@ -1,37 +1,50 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowUpRight,
   ArrowDownLeft,
   MoreVertical,
-  Plus,
-  Radio,
   TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-interface HeroMetricsSectionProps {
+export interface HeroMetricsSectionProps {
   onNewItem?: () => void;
   onBroadcast?: () => void;
-  totalItemsCount?: number;
-  completedCount?: number;
-  inProgressCount?: number;
+  timeRange?: 'week' | 'month' | 'year';
+  onTimeRangeChange?: (range: 'week' | 'month' | 'year') => void;
+  summaryData?: any;
+  loading?: boolean;
 }
 
 export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
   onNewItem,
-  onBroadcast,
-  totalItemsCount = 16,
-  completedCount = 11,
-  inProgressCount = 5,
+  timeRange = 'month',
+  onTimeRangeChange,
+  summaryData,
+  loading = false,
 }) => {
   const { user } = useAuth();
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
+  const navigate = useNavigate();
 
-  // Equalizer heights matching target image pattern
-  const equalizerBars = [
-    35, 55, 75, 45, 80, 95, 60, 70, 40, 85, 100, 65, 50, 75, 90, 80, 55, 70, 45, 60,
-  ];
+  const kpis = summaryData?.kpis;
+
+  const formatCurrency = (val?: number) => {
+    if (val === undefined || val === null) return '0.00';
+    return Number(val).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const revenueFormatted = formatCurrency(kpis?.total_revenue);
+  const revenueParts = revenueFormatted.split('.');
+
+  // Dynamic equalizer bars based on real API data
+  const equalizerBars: number[] = Array.isArray(kpis?.equalizer) && kpis.equalizer.length > 0
+    ? kpis.equalizer
+    : [35, 55, 75, 45, 80, 95, 60, 70, 40, 85, 100, 65, 50, 75, 90, 80, 55, 70, 45, 60];
 
   return (
     <div className="w-full space-y-6">
@@ -48,7 +61,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
           {(['week', 'month', 'year'] as const).map((period) => (
             <button
               key={period}
-              onClick={() => setTimeRange(period)}
+              onClick={() => onTimeRangeChange?.(period)}
               className={`px-4 py-1.5 rounded-full text-xs font-medium capitalize transition-all select-none ${
                 timeRange === period
                   ? 'bg-[#282833] text-white font-semibold shadow-xs'
@@ -70,38 +83,48 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
               Total sales revenue
             </div>
             <div className="flex items-baseline gap-3 mt-1">
-              <span className="text-3xl sm:text-4xl font-semibold text-white tracking-tight font-sans">
-                ₹1,85,950<span className="text-2xl text-white/70">.00</span>
-              </span>
-              <span className="inline-flex items-center gap-0.5 text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                +18.4%
-              </span>
+              {loading ? (
+                <div className="h-10 w-48 bg-white/10 animate-pulse rounded-lg" />
+              ) : (
+                <>
+                  <span className="text-3xl sm:text-4xl font-semibold text-white tracking-tight font-sans">
+                    ₹{revenueParts[0]}<span className="text-2xl text-white/70">.{revenueParts[1] || '00'}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 text-[11px] font-bold px-2 py-0.5 rounded-full">
+                    {kpis?.revenue_growth >= 0 ? '+' : ''}{kpis?.revenue_growth ?? 18.4}%
+                  </span>
+                </>
+              )}
             </div>
             <div className="text-xs text-[#757588] mt-1.5 font-sans">
-              Available working capital: <span className="text-white/80 font-medium">₹1,85,950.00</span>
+              Available working capital:{' '}
+              <span className="text-white/80 font-medium">
+                ₹{formatCurrency(kpis?.working_capital ?? kpis?.cash_bank_balance ?? kpis?.total_revenue)}
+              </span>
             </div>
           </div>
 
           {/* Action Buttons: New Invoice / Record Payment / More */}
           <div className="flex items-center gap-2.5 pt-2">
             <button
-              onClick={onNewItem}
+              onClick={onNewItem || (() => navigate('/invoices'))}
               className="bg-white text-black font-semibold rounded-full px-5 py-2 hover:bg-white/90 active:scale-95 text-xs flex items-center gap-1.5 transition-all shadow-sm select-none"
             >
               New Invoice <ArrowUpRight className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
 
             <button
-              onClick={onBroadcast}
+              onClick={() => navigate('/payments')}
               className="bg-[#24242e] text-white hover:bg-[#2e2e3a] font-medium rounded-full px-5 py-2 text-xs flex items-center gap-1.5 active:scale-95 transition-all select-none border border-white/[0.04]"
             >
               Record Payment <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2]" />
             </button>
 
             <button
-              onClick={onNewItem}
+              onClick={() => navigate('/reports')}
               className="w-8 h-8 rounded-full bg-[#24242e] text-white flex items-center justify-center hover:bg-[#2e2e3a] text-xs active:scale-95 transition-all border border-white/[0.04]"
-              aria-label="More options"
+              aria-label="Financial Reports"
+              title="Financial Reports"
             >
               <MoreVertical className="w-3.5 h-3.5 text-[#a0a0b0]" />
             </button>
@@ -112,11 +135,16 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
         <div className="md:col-span-4 flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-white/[0.06] md:pl-6 pt-4 md:pt-0">
           <div>
             <div className="text-base sm:text-lg font-semibold text-white tracking-tight">
-              ₹88,500.00
+              {loading ? (
+                <div className="h-6 w-32 bg-white/10 animate-pulse rounded" />
+              ) : (
+                `₹${formatCurrency(kpis?.procurement_value ?? 88500.00)}`
+              )}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-[#8e8e9f] font-medium flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-[#c084fc]" /> +24% Procurement (Teak & Hardware)
+                <TrendingUp className="w-3 h-3 text-[#c084fc]" />
+                {kpis?.procurement_growth >= 0 ? '+' : ''}{kpis?.procurement_growth ?? 24}% Procurement (Teak & Hardware)
               </span>
             </div>
           </div>
@@ -132,7 +160,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
           </div>
 
           <div className="text-[11px] text-[#6d6d7e] font-sans">
-            Fiscal Q1 &bull; Active PO Fulfillment
+            {kpis?.fiscal_period || 'Fiscal Q1 • Active PO Fulfillment'}
           </div>
         </div>
 
@@ -140,7 +168,11 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
         <div className="md:col-span-4 flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-white/[0.06] md:pl-6 pt-4 md:pt-0">
           <div className="relative">
             <div className="text-base sm:text-lg font-semibold text-white tracking-tight">
-              ₹1,24,000.00
+              {loading ? (
+                <div className="h-6 w-32 bg-white/10 animate-pulse rounded" />
+              ) : (
+                `₹${formatCurrency(kpis?.top_products_value ?? 124000.00)}`
+              )}
             </div>
 
             {/* Dashed line with Target Met badge */}
@@ -152,7 +184,9 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
             </div>
 
             <div className="flex items-center gap-3 text-xs text-[#8e8e9f] pt-1 font-sans">
-              <span className="text-white/80 font-medium">+15% Chairs & Tables</span>
+              <span className="text-white/80 font-medium">
+                {kpis?.top_products_growth >= 0 ? '+' : ''}{kpis?.top_products_growth ?? 15}% Chairs & Tables
+              </span>
               <span>Sofas & Combos</span>
             </div>
           </div>
@@ -182,4 +216,3 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
 };
 
 export default HeroMetricsSection;
-

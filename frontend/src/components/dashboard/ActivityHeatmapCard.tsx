@@ -1,23 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { dashboardApi } from '../../lib/api';
+
+interface PeakInfo {
+  day: string;
+  hour: string;
+  count: number;
+  description: string;
+}
 
 export const ActivityHeatmapCard: React.FC = () => {
   const [activeCell, setActiveCell] = useState<{ day: string; hour: string; count: number } | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const hours = ['1pm', '2pm', '3pm', '4pm', '5pm', '6pm'];
+  const [days, setDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  const [hours, setHours] = useState<string[]>(['1pm', '2pm', '3pm', '4pm', '5pm', '6pm']);
+  const [matrix, setMatrix] = useState<number[][]>([
+    [0, 1, 1, 2, 1, 0, 0],
+    [0, 1, 3, 3, 2, 1, 0],
+    [0, 2, 3, 4, 3, 2, 0],
+    [1, 2, 3, 3, 2, 1, 0],
+    [0, 1, 2, 3, 2, 0, 0],
+    [0, 0, 1, 2, 1, 0, 0],
+  ]);
+  const [countsMatrix, setCountsMatrix] = useState<number[][]>([]);
+  const [peak, setPeak] = useState<PeakInfo>({
+    day: 'Thu',
+    hour: '3pm',
+    count: 42,
+    description: 'Order dispatch & posting',
+  });
 
-  // Matrix pattern calibrated to match the target image diamond concentration
-  // Levels: 0 (darkest), 1 (subtle purple), 2 (mid purple), 3 (bright purple), 4 (lavender peak)
-  const heatmapData: number[][] = [
-    [0, 1, 1, 2, 1, 0, 0], // 1pm
-    [0, 1, 3, 3, 2, 1, 0], // 2pm
-    [0, 2, 3, 4, 3, 2, 0], // 3pm
-    [1, 2, 3, 3, 2, 1, 0], // 4pm
-    [0, 1, 2, 3, 2, 0, 0], // 5pm
-    [0, 0, 1, 2, 1, 0, 0], // 6pm
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    dashboardApi.getActivity()
+      .then((res) => {
+        if (isMounted && res) {
+          if (res.days) setDays(res.days);
+          if (res.hours) setHours(res.hours);
+          if (res.matrix) setMatrix(res.matrix);
+          if (res.counts) setCountsMatrix(res.counts);
+          if (res.peak) setPeak(res.peak);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch activity heatmap:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getColorClass = (level: number) => {
     switch (level) {
@@ -35,7 +72,7 @@ export const ActivityHeatmapCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300">
+    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 min-h-[340px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -65,51 +102,66 @@ export const ActivityHeatmapCard: React.FC = () => {
           </div>
 
           {/* Matrix Rows */}
-          <div className="space-y-1.5">
-            {hours.map((hour, rIdx) => (
-              <div key={hour} className="grid grid-cols-8 gap-1.5 items-center">
-                {/* Y-axis Hour label */}
-                <span className="text-[11px] text-[#757588] text-right pr-2 font-sans">
-                  {hour}
-                </span>
+          {loading ? (
+            <div className="space-y-1.5 py-1">
+              {[1, 2, 3, 4, 5, 6].map((r) => (
+                <div key={r} className="grid grid-cols-8 gap-1.5 items-center">
+                  <div className="h-6 w-8 bg-white/5 rounded" />
+                  {[1, 2, 3, 4, 5, 6, 7].map((c) => (
+                    <div key={c} className="h-6 sm:h-7 rounded-md bg-white/5 animate-pulse" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {hours.map((hour, rIdx) => (
+                <div key={hour} className="grid grid-cols-8 gap-1.5 items-center">
+                  {/* Y-axis Hour label */}
+                  <span className="text-[11px] text-[#757588] text-right pr-2 font-sans">
+                    {hour}
+                  </span>
 
-                {/* 7 Columns for Days */}
-                {heatmapData[rIdx].map((level, cIdx) => {
-                  const day = days[cIdx];
-                  const count = level === 4 ? 42 : level === 3 ? 28 : level === 2 ? 16 : level === 1 ? 7 : 1;
-                  return (
-                    <motion.div
-                      key={cIdx}
-                      whileHover={{ scale: 1.25, zIndex: 10 }}
-                      onMouseEnter={() => setActiveCell({ day, hour, count })}
-                      onMouseLeave={() => setActiveCell(null)}
-                      className={`h-6 sm:h-7 rounded-md transition-all duration-150 cursor-pointer ${getColorClass(
-                        level
-                      )}`}
-                      title={`${day} at ${hour}: ${count} operations`}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+                  {/* 7 Columns for Days */}
+                  {(matrix[rIdx] || []).map((level, cIdx) => {
+                    const day = days[cIdx] || '';
+                    const actualCount = countsMatrix[rIdx]?.[cIdx] ?? (level > 0 ? level * 8 : 0);
+                    return (
+                      <motion.div
+                        key={cIdx}
+                        whileHover={{ scale: 1.25, zIndex: 10 }}
+                        onMouseEnter={() => setActiveCell({ day, hour, count: actualCount })}
+                        onMouseLeave={() => setActiveCell(null)}
+                        className={`h-6 sm:h-7 rounded-md transition-all duration-150 cursor-pointer ${getColorClass(
+                          level
+                        )}`}
+                        title={`${day} at ${hour}: ${actualCount} operations`}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Dynamic Hover Tooltip / Footer Legend */}
       <div className="flex items-center justify-between text-[11px] text-[#6d6d7e] font-sans pt-3 mt-2 border-t border-white/[0.04]">
-        <div className="text-white/80 font-medium">
+        <div className="text-white/80 font-medium truncate pr-2">
           {activeCell ? (
             <span>
               {activeCell.day} {activeCell.hour}: <strong className="text-[#c084fc]">{activeCell.count}</strong> events
             </span>
           ) : (
-            <span>Peak: Thu 3pm &bull; Order dispatch & posting</span>
+            <span>
+              Peak: <span className="text-white">{peak.day} {peak.hour}</span> &bull; {peak.description}
+            </span>
           )}
         </div>
 
         {/* Legend: Less -> More */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <span>Less</span>
           <div className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-xs bg-[#202029]" />
@@ -126,4 +178,3 @@ export const ActivityHeatmapCard: React.FC = () => {
 };
 
 export default ActivityHeatmapCard;
-
