@@ -338,7 +338,7 @@ class ReportController extends Controller
 
             $bucketKey = 'current';
             if ($today->gt($due)) {
-                $daysOver = $today->diffInDays($due);
+                $daysOver = abs($today->diffInDays($due));
                 if ($daysOver <= 30) {
                     $bucketKey = 'days_1_30';
                 } elseif ($daysOver <= 60) {
@@ -422,7 +422,7 @@ class ReportController extends Controller
 
             $bucketKey = 'current';
             if ($today->gt($due)) {
-                $daysOver = $today->diffInDays($due);
+                $daysOver = abs($today->diffInDays($due));
                 if ($daysOver <= 30) {
                     $bucketKey = 'days_1_30';
                 } elseif ($daysOver <= 60) {
