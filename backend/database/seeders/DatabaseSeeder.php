@@ -2487,5 +2487,10 @@ class DatabaseSeeder extends Seeder
         // 17. Seed Excalidraw Accounting Masters (Analytic Accounts, Budgets, Journals)
         // =========================================================================
         $this->call(ExcalidrawAccountingSeeder::class);
+
+        // =========================================================================
+        // 18. Seed 250+ Records Across All Modules with Realistic Operations Data
+        // =========================================================================
+        $this->call(ComprehensiveOperationsSeeder::class);
     }
 }
