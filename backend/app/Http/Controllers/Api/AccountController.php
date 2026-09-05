@@ -47,11 +47,12 @@ class AccountController extends Controller
             'type' => ['required', 'in:asset,liability,equity,revenue,expense'],
             'sub_type' => ['nullable', 'string', 'max:50'],
             'parent_id' => ['nullable', 'exists:accounts,id'],
-            'normal_balance' => ['required', 'in:debit,credit'],
+            'normal_balance' => ['nullable', 'in:debit,credit'],
             'opening_balance' => ['nullable', 'numeric'],
             'description' => ['nullable', 'string'],
         ]);
 
+        $normalBalance = $validated['normal_balance'] ?? (in_array($validated['type'], ['asset', 'expense']) ? 'debit' : 'credit');
         $opening = (float) ($validated['opening_balance'] ?? 0);
         $account = Account::create([
             'code' => $validated['code'],
@@ -59,7 +60,7 @@ class AccountController extends Controller
             'type' => $validated['type'],
             'sub_type' => $validated['sub_type'] ?? null,
             'parent_id' => $validated['parent_id'] ?? null,
-            'normal_balance' => $validated['normal_balance'],
+            'normal_balance' => $normalBalance,
             'opening_balance' => $opening,
             'current_balance' => $opening,
             'description' => $validated['description'] ?? null,

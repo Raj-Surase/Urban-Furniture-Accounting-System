@@ -35,6 +35,16 @@ import { CustomersPage } from './pages/CustomersPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { ReportsPage } from './pages/ReportsPage';
 
+// Excalidraw Re-architecture Pages
+import { VendorBillsPage } from './pages/VendorBillsPage';
+import { ContactsPage } from './pages/ContactsPage';
+import { JournalsPage } from './pages/JournalsPage';
+import { AnalyticAccountsPage } from './pages/AnalyticAccountsPage';
+import { BudgetsPage } from './pages/BudgetsPage';
+import { ProfitAndLossReportPage } from './pages/ProfitAndLossReportPage';
+import { BalanceSheetReportPage } from './pages/BalanceSheetReportPage';
+import { CustomerPortalPage } from './pages/CustomerPortalPage';
+
 /**
  * Root application component.
  *
@@ -109,6 +119,15 @@ export const App: React.FC = () => {
                           </ProtectedRoute>
                         }
                       />
+                      {/* Vendor Bills (Excalidraw Purchase Bill) */}
+                      <Route
+                        path="bills"
+                        element={
+                          <ProtectedRoute>
+                            <VendorBillsPage />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="products"
                         element={
@@ -117,11 +136,53 @@ export const App: React.FC = () => {
                           </ProtectedRoute>
                         }
                       />
+                      {/* Unified Contact Master */}
+                      <Route
+                        path="contacts"
+                        element={
+                          <ProtectedRoute>
+                            <ContactsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Journals Master */}
+                      <Route
+                        path="journals"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <JournalsPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Analytic Accounts (Cost Centers) */}
+                      <Route
+                        path="analyticals"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <AnalyticAccountsPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Budgets */}
+                      <Route
+                        path="budgets"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <BudgetsPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="accounts"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager']}>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
                               <AccountsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -131,7 +192,7 @@ export const App: React.FC = () => {
                         path="journal"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager']}>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
                               <JournalPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -173,9 +234,49 @@ export const App: React.FC = () => {
                         path="reports"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager']}>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
                               <ReportsPage />
                             </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Dedicated Excalidraw Financial Reports */}
+                      <Route
+                        path="reports/profit-loss"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <ProfitAndLossReportPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="reports/balance-sheet"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <BalanceSheetReportPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="reports/budget"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                              <BudgetsPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+                      {/* Customer / User Portal */}
+                      <Route
+                        path="portal"
+                        element={
+                          <ProtectedRoute>
+                            <CustomerPortalPage />
                           </ProtectedRoute>
                         }
                       />

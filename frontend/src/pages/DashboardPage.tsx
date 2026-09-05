@@ -7,6 +7,7 @@ import { PageTransition } from '../components/layout/PageTransition';
 
 // Redesigned Obsidian Visual Widgets matching Expected UI
 import { HeroMetricsSection } from '../components/dashboard/HeroMetricsSection';
+import { ExcalidrawDashboardCards } from '../components/dashboard/ExcalidrawDashboardCards';
 import { DualWaveAnalyticsCard } from '../components/dashboard/DualWaveAnalyticsCard';
 import { ActivityHeatmapCard } from '../components/dashboard/ActivityHeatmapCard';
 import { RecentTransactionsCard } from '../components/dashboard/RecentTransactionsCard';
@@ -75,6 +76,14 @@ export const DashboardPage: React.FC = () => {
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
           summaryData={summaryData}
+          loading={loadingSummary}
+        />
+
+        {/* Excalidraw Operational Hub: Sales, Purchase, and Budget Reports Cards */}
+        <ExcalidrawDashboardCards
+          salesData={summaryData?.kpis?.sales_card}
+          purchaseData={summaryData?.kpis?.purchase_card}
+          budgetData={summaryData?.kpis?.budget_card}
           loading={loadingSummary}
         />
 

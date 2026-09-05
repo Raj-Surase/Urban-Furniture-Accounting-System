@@ -18,15 +18,29 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', Password::defaults()],
+            'name' => ['nullable', 'string', 'max:255'],
+            'login_id' => ['required', 'string', 'min:6', 'max:12', 'unique:users,login_id'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[@$!%*?&#^()_+={}\[\]:;"\'<>,.\/\\|~`-]/',
+            ],
+        ], [
+            'login_id.min' => 'Login Id must be between 6-12 characters.',
+            'login_id.max' => 'Login Id must be between 6-12 characters.',
+            'login_id.unique' => 'Login Id should be unique.',
+            'email.unique' => 'Email Id should not be a duplicate in database.',
+            'password.regex' => 'Password must contain a small case, a large case and a special character.',
+            'password.min' => 'Password length should be more than 8 characters.',
         ]);
 
-        // Directive 4: Public registration is locked strictly to 'user' role.
-        // Managers can only be onboarded by Admin via /api/admin/onboard-manager.
         $user = User::create([
-            'name' => $validated['name'],
+            'name' => $validated['name'] ?? $validated['login_id'],
+            'login_id' => $validated['login_id'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => User::ROLE_USER,
@@ -39,6 +53,7 @@ class AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'login_id' => $user->login_id,
                 'email' => $user->email,
                 'role' => $user->role,
                 'permissions' => $user->getPermissions(),
@@ -54,29 +69,36 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $identifier = $request->input('login_id') ?? $request->input('email') ?? $request->input('login');
+        $password = $request->input('password');
 
-        $user = User::where('email', $request->email)->first();
+        if (! $identifier || ! $password) {
+            throw ValidationException::withMessages([
+                'login_id' => ['Invalid Login Id or Password'],
+            ]);
+        }
+
+        $user = User::where('email', $identifier)
+            ->orWhere('login_id', $identifier)
+            ->first();
 
         $passwordMatches = false;
         if ($user) {
-            if (Hash::check($request->password, $user->password)) {
+            if (Hash::check($password, $user->password)) {
                 $passwordMatches = true;
             } elseif (
                 in_array($user->email, ['admin@example.com', 'manager@example.com', 'user@example.com']) &&
-                in_array($request->password, ['password', 'password123'])
+                in_array($password, ['password', 'password123'])
             ) {
-                // Allow both 'password' and 'password123' for pre-seeded hackathon accounts
+                // Allow pre-seeded hackathon accounts
                 $passwordMatches = true;
             }
         }
 
         if (! $user || ! $passwordMatches) {
             throw ValidationException::withMessages([
-                'email' => ['The provided credentials do not match our records.'],
+                'login_id' => ['Invalid Login Id or Password'],
+                'email' => ['Invalid Login Id or Password'],
             ]);
         }
 
@@ -87,6 +109,7 @@ class AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'login_id' => $user->login_id,
                 'email' => $user->email,
                 'role' => $user->role,
                 'permissions' => $user->getPermissions(),

@@ -183,5 +183,40 @@ export const usersApi = {
   updateRole: (userId: number, role: string) => api.patch(`/users/${userId}/role`, { role }).then(res => res.data),
   onboardManager: (data: { name: string; email: string; phone?: string }) =>
     api.post('/admin/onboard-manager', data).then(res => res.data),
+  createUser: (data: any) => api.post('/admin/create-user', data).then(res => res.data),
   getMatrix: () => api.get('/rbac/matrix').then(res => res.data),
 };
+
+export const journalsApi = {
+  list: () => api.get('/journals').then(res => res.data),
+  get: (id: number) => api.get(`/journals/${id}`).then(res => res.data),
+  create: (data: any) => api.post('/journals', data).then(res => res.data),
+  update: (id: number, data: any) => api.put(`/journals/${id}`, data).then(res => res.data),
+  delete: (id: number) => api.delete(`/journals/${id}`).then(res => res.data),
+};
+
+export const analyticAccountsApi = {
+  list: (params?: Record<string, any>) => api.get('/analytic-accounts', { params }).then(res => res.data),
+  get: (id: number) => api.get(`/analytic-accounts/${id}`).then(res => res.data),
+  create: (data: any) => api.post('/analytic-accounts', data).then(res => res.data),
+  update: (id: number, data: any) => api.put(`/analytic-accounts/${id}`, data).then(res => res.data),
+  delete: (id: number) => api.delete(`/analytic-accounts/${id}`).then(res => res.data),
+};
+
+export const budgetsApi = {
+  list: (params?: Record<string, any>) => api.get('/budgets', { params }).then(res => res.data),
+  get: (id: number) => api.get(`/budgets/${id}`).then(res => res.data),
+  create: (data: any) => api.post('/budgets', data).then(res => res.data),
+  update: (id: number, data: any) => api.put(`/budgets/${id}`, data).then(res => res.data),
+  confirm: (id: number) => api.post(`/budgets/${id}/confirm`).then(res => res.data),
+  revise: (id: number) => api.post(`/budgets/${id}/revise`).then(res => res.data),
+  cancel: (id: number) => api.post(`/budgets/${id}/cancel`).then(res => res.data),
+  getAnalyticTransactions: (id: number, params: { analytic_account_id: number; type: string }) =>
+    api.get(`/budgets/${id}/analytic-transactions`, { params }).then(res => res.data),
+};
+
+export const contactsApi = {
+  list: (params?: Record<string, any>) => api.get('/contacts', { params }).then(res => res.data),
+  create: (data: any) => api.post('/contacts', data).then(res => res.data),
+};
+

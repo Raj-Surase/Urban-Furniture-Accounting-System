@@ -13,6 +13,7 @@ class JournalEntryLine extends Model
     protected $fillable = [
         "journal_entry_id",
         "account_id",
+        "partner_id",
         "account_code",
         "account_name",
         "debit",

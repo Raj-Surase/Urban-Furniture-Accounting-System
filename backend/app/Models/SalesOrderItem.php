@@ -13,6 +13,7 @@ class SalesOrderItem extends Model
     protected $fillable = [
         "sales_order_id",
         "product_id",
+        "analytic_account_id",
         "hsn_code",
         "description",
         "quantity_ordered",
@@ -45,6 +46,11 @@ class SalesOrderItem extends Model
         "gst_rate",
         "total_amount",
     ];
+
+    public function analyticAccount(): BelongsTo
+    {
+        return $this->belongsTo(AnalyticAccount::class);
+    }
 
     public function getQuantityAttribute(): float
     {

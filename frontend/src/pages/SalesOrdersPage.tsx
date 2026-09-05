@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Truck,
   Plus,
@@ -10,6 +11,13 @@ import {
   Calendar,
   Layers,
   Percent,
+  Clock,
+  AlertTriangle,
+  Trash2,
+  CreditCard,
+  ShieldCheck,
+  UserCheck,
+  FileText,
 } from 'lucide-react';
 import { salesOrdersApi, customersApi, productsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,8 +27,10 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 
 export const SalesOrdersPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
@@ -34,6 +44,7 @@ export const SalesOrdersPage: React.FC = () => {
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [customerId, setCustomerId] = useState<number | ''>('');
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(15);
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [expectedDate, setExpectedDate] = useState(
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -109,6 +120,26 @@ export const SalesOrdersPage: React.FC = () => {
     setItems(updated);
   };
 
+  const handleCustomerSelect = (id: number | '') => {
+    setCustomerId(id);
+    if (id) {
+      const c = customers.find((cust) => cust.id === id);
+      const terms = c?.payment_terms_days ?? 15;
+      setPaymentTermsDays(terms);
+      setExpectedDate(calculateDueDate(orderDate, terms));
+    }
+  };
+
+  const handlePaymentTermsChange = (days: number) => {
+    setPaymentTermsDays(days);
+    setExpectedDate(calculateDueDate(orderDate, days));
+  };
+
+  const handleOrderDateChange = (date: string) => {
+    setOrderDate(date);
+    setExpectedDate(calculateDueDate(date, paymentTermsDays));
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerId) {
@@ -136,6 +167,8 @@ export const SalesOrdersPage: React.FC = () => {
       });
       addToast({ type: 'success', title: 'SO Created', message: 'Draft sales order created.' });
       setIsCreateOpen(false);
+      setCustomerId('');
+      setPaymentTermsDays(15);
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
       fetchData();
     } catch (err: any) {
@@ -201,6 +234,30 @@ export const SalesOrdersPage: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || so.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const selectedCustomer = customers.find((c) => c.id === customerId);
+  const isCustomerInterState = selectedCustomer
+    ? (selectedCustomer.state &&
+        !selectedCustomer.state.toLowerCase().includes('maharashtra') &&
+        selectedCustomer.state.toUpperCase() !== 'MH' &&
+        selectedCustomer.state !== '27') ||
+      (selectedCustomer.gstin && !selectedCustomer.gstin.startsWith('27'))
+    : false;
+
+  const soSubtotal = items.reduce(
+    (acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+    0
+  );
+  const soTotalTax = items.reduce(
+    (acc, it) =>
+      acc +
+      ((Number(it.quantity) || 0) *
+        (Number(it.unit_price) || 0) *
+        (Number(it.gst_rate) || 0)) /
+        100,
+    0
+  );
+  const soGrandTotal = soSubtotal + soTotalTax;
 
   return (
     <div className="space-y-6">
@@ -350,6 +407,17 @@ export const SalesOrdersPage: React.FC = () => {
                             </button>
                           )}
 
+                          {(so.status === 'confirmed' || so.status === 'approved' || so.status === 'partially_delivered' || so.status === 'delivered') && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => navigate(`/invoices?from_so=${so.id}`)}
+                              className="px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                              title="Create Customer Invoice"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              Create Invoice
+                            </button>
+                          )}
+
                           {(so.status === 'approved' || so.status === 'partially_delivered') && (isAdmin || isManager) && (
                             <button
                               onClick={() => {
@@ -383,145 +451,345 @@ export const SalesOrdersPage: React.FC = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         zIndex="z-[60]"
-        containerClassName="max-w-2xl"
+        containerClassName="max-w-3xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
-            <h3 className="text-base font-bold">New Sales Order</h3>
-            <form onSubmit={handleCreate} className="space-y-4">
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+                <Truck className="w-5 h-5" />
+              </div>
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Customer</label>
-                <select
-                  value={customerId}
-                  onChange={(e) => setCustomerId(Number(e.target.value))}
+                <h3 className="text-base font-bold text-white">Create Sales Order (Client Contract)</h3>
+                <p className="text-xs text-neutral-400">
+                  Book commercial sales contracts, schedule client delivery dates & reserve warehouse inventory
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsCreateOpen(false)}
+              className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.05] transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            {/* Customer Selector Card */}
+            <div className="p-4 bg-white/[0.02] border border-white/[0.07] rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Customer / Client Account
+                </label>
+                {selectedCustomer && (
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      isCustomerInterState
+                        ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    }`}
+                  >
+                    {isCustomerInterState ? 'Inter-State Supply (IGST 100%)' : 'Intra-State Supply (CGST 50% + SGST 50%)'}
+                  </span>
+                )}
+              </div>
+
+              <select
+                value={customerId}
+                onChange={(e) => handleCustomerSelect(e.target.value === '' ? '' : Number(e.target.value))}
+                required
+                className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+              >
+                <option value="">Select a registered client or institutional customer...</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} • {c.state || 'MH'} {c.gstin ? `(${c.gstin})` : '(Unregistered)'}
+                  </option>
+                ))}
+              </select>
+
+              {selectedCustomer && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs border-t border-white/[0.04]">
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">GSTIN</span>
+                    <span className="font-mono font-semibold text-neutral-200">{selectedCustomer.gstin || 'Unregistered'}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">Place of Supply</span>
+                    <span className="font-semibold text-neutral-200">{selectedCustomer.state || 'Maharashtra (27)'}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">Commercial Terms</span>
+                    <span className="font-semibold text-emerald-400">
+                      {selectedCustomer.credit_limit ? `Limit ₹${Number(selectedCustomer.credit_limit).toLocaleString('en-IN')}` : 'Credit Approved'} • Net {paymentTermsDays}d
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Dates and Terms */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Order Date
+                </label>
+                <input
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => handleOrderDateChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Payment Terms
+                </label>
+                <select
+                  value={paymentTermsDays}
+                  onChange={(e) => handlePaymentTermsChange(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 >
-                  <option value="">Select customer...</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.gstin || 'No GSTIN'}) - {c.state || 'MH'}
+                  {PAYMENT_TERMS_OPTIONS.map((pt) => (
+                    <option key={pt.days} value={pt.days}>
+                      {pt.label}
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Order Date</label>
-                  <input
-                    type="date"
-                    value={orderDate}
-                    onChange={(e) => setOrderDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Delivery Date</label>
-                  <input
-                    type="date"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Target Delivery Date
+                </label>
+                <input
+                  type="date"
+                  value={expectedDate}
+                  onChange={(e) => setExpectedDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                />
               </div>
+            </div>
 
-              {/* Items */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
-                  <span>Items</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setItems([...items, { product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }])
-                    }
-                    className="text-emerald-400 hover:text-emerald-300"
-                  >
-                    + Add Item
-                  </button>
-                </div>
-
-                {items.map((it, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <select
-                      value={it.product_id}
-                      onChange={(e) => handleProductChange(idx, Number(e.target.value))}
-                      required
-                      className="flex-1 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white"
-                    >
-                      <option value="">Select Product SKU...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.sku})
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      value={it.quantity === 0 ? '' : it.quantity}
-                      onChange={(e) => {
-                        const updated = [...items];
-                        const val = e.target.value;
-                        updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
-                        setItems(updated);
-                      }}
-                      className="w-20 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right"
-                    />
-
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Price"
-                      value={it.unit_price === 0 ? '' : it.unit_price}
-                      onChange={(e) => {
-                        const updated = [...items];
-                        const val = e.target.value;
-                        updated[idx].unit_price = val === '' ? 0 : Number(val);
-                        setItems(updated);
-                      }}
-                      className="w-24 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right font-mono"
-                    />
-
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                        className="text-neutral-500 hover:text-rose-400 px-1"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
+            {/* Line Items */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-neutral-300 border-b border-white/[0.06] pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                  Sales Line Items ({items.length})
+                </span>
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
+                  onClick={() =>
+                    setItems([...items, { product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }])
+                  }
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white"
-                >
-                  {isSubmitting ? 'Creating...' : 'Save Draft SO'}
-                </Button>
+                  <Plus className="w-3.5 h-3.5" /> Add Furniture Product
+                </button>
               </div>
-            </form>
-          </div>
+
+              <div className="space-y-2">
+                {items.map((it, idx) => {
+                  const prod = products.find((p) => p.id === it.product_id);
+                  const lineSubtotal = (Number(it.quantity) || 0) * (Number(it.unit_price) || 0);
+                  const lineTax = (lineSubtotal * (Number(it.gst_rate) || 0)) / 100;
+                  const isStockDeficit = prod && it.quantity > (prod.current_stock ?? 0);
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl space-y-2.5 hover:border-white/[0.1] transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                        <div className="flex-1 w-full">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Furniture Product SKU
+                          </label>
+                          <select
+                            value={it.product_id}
+                            onChange={(e) => handleProductChange(idx, Number(e.target.value))}
+                            required
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                          >
+                            <option value="">Select Furniture Item / SKU...</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.sku}) • Stock: {p.current_stock ?? 0} {p.unit_of_measure || 'pcs'} • Price: ₹{Number(p.price).toLocaleString('en-IN')}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="w-24">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Qty {prod?.unit_of_measure ? `(${prod.unit_of_measure})` : ''}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={it.quantity === 0 ? '' : it.quantity}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              const val = e.target.value;
+                              updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono"
+                          />
+                        </div>
+
+                        <div className="w-28">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Selling Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Price"
+                            value={it.unit_price === 0 ? '' : it.unit_price}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              const val = e.target.value;
+                              updated[idx].unit_price = val === '' ? 0 : Number(val);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono"
+                          />
+                        </div>
+
+                        <div className="w-24">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            GST %
+                          </label>
+                          <select
+                            value={it.gst_rate}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              updated[idx].gst_rate = Number(e.target.value);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white"
+                          >
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="12">12%</option>
+                            <option value="18">18%</option>
+                            <option value="28">28%</option>
+                          </select>
+                        </div>
+
+                        {items.length > 1 && (
+                          <div className="self-end pb-1">
+                            <button
+                              type="button"
+                              onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap justify-between items-center text-[11px] text-neutral-400 bg-black/20 px-2.5 py-1.5 rounded-md gap-2">
+                        <div>
+                          {prod ? (
+                            isStockDeficit ? (
+                              <span className="text-amber-400 font-medium flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                Requested {it.quantity} exceeds on-hand stock ({prod.current_stock ?? 0} {prod.unit_of_measure || 'units'}) — Production / PO required
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400 font-medium flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                                Available in warehouse: {prod.current_stock ?? 0} {prod.unit_of_measure || 'units'}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-neutral-500 italic">Select product to check warehouse stock availability</span>
+                          )}
+                        </div>
+                        <div className="font-mono">
+                          Subtotal: <strong className="text-white">₹{lineSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> + Tax: <strong className="text-neutral-300">₹{lineTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Delivery / Project Notes */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                Site Delivery Instructions / Project Notes
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Site gate pass, delivery contact person, installation instructions..."
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Financial Summary & Auto-COGS Note */}
+            <div className="p-4 bg-emerald-500/[0.04] border border-emerald-500/20 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs border-b border-emerald-500/10 pb-2">
+                <span className="text-neutral-400">Order Subtotal:</span>
+                <span className="font-mono font-bold text-white">
+                  ₹{soSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs border-b border-emerald-500/10 pb-2">
+                <span className="text-neutral-400">
+                  {isCustomerInterState ? 'IGST (Inter-State Outflow):' : 'CGST + SGST (Intra-State Outflow):'}
+                </span>
+                <span className="font-mono text-neutral-300">
+                  ₹{soTotalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-0.5">
+                <span className="font-bold text-white">Grand Order Value:</span>
+                <span className="font-mono font-bold text-emerald-400 text-base">
+                  ₹{soGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-neutral-400 pt-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Delivery fulfillment will automatically post inventory relief: <strong className="text-neutral-300">Dr COGS 5010 / Cr Inventory 1130</strong>.</span>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+              >
+                {isSubmitting ? 'Booking Sales Order...' : 'Save Draft SO'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </PortalModal>
 
       {/* Deliver Modal */}
@@ -750,6 +1018,19 @@ export const SalesOrdersPage: React.FC = () => {
                     className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
                   >
                     Approve Order
+                  </Button>
+                )}
+
+                {(detailOrder.status === 'confirmed' || detailOrder.status === 'approved' || detailOrder.status === 'partially_delivered' || detailOrder.status === 'delivered') && (isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      navigate(`/invoices?from_so=${detailOrder.id}`);
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Create Invoice
                   </Button>
                 )}
 

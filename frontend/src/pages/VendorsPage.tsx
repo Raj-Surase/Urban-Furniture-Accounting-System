@@ -9,8 +9,12 @@ import {
   MapPin,
   FileSpreadsheet,
   AlertCircle,
+  X,
+  CreditCard,
+  FolderTree,
+  ShieldCheck,
 } from 'lucide-react';
-import { vendorsApi } from '../lib/api';
+import { vendorsApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -19,25 +23,34 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import {
+  INDIAN_STATES,
+  PAYMENT_TERMS_OPTIONS,
+  extractPanFromGstin,
+  getStateFromGstin,
+} from '../constants/formOptions';
 
 export const VendorsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
   const [vendors, setVendors] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Create Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [state, setState] = useState('Maharashtra');
   const [address, setAddress] = useState('');
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
+  const [payableAccountId, setPayableAccountId] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,8 +61,18 @@ export const VendorsPage: React.FC = () => {
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const res = await vendorsApi.list();
-      setVendors(res.data || res || []);
+      const [venRes, accRes] = await Promise.all([
+        vendorsApi.list(),
+        accountsApi.list().catch(() => ({ data: [] })),
+      ]);
+      const list = venRes?.data || venRes || [];
+      setVendors(Array.isArray(list) ? list : []);
+      const accList = accRes?.data || accRes || [];
+      setAccounts(Array.isArray(accList) ? accList : []);
+      const defaultAp = (Array.isArray(accList) ? accList : []).find((a: any) => a.code === '2110');
+      if (defaultAp && !payableAccountId) {
+        setPayableAccountId(defaultAp.id);
+      }
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load vendors.' });
@@ -68,14 +91,47 @@ export const VendorsPage: React.FC = () => {
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
+  const resetForm = () => {
+    setName('');
+    setContactPerson('');
+    setGstin('');
+    setPan('');
+    setEmail('');
+    setPhone('');
+    setState('Maharashtra');
+    setAddress('');
+    setPaymentTermsDays(30);
+    const defaultAp = accounts.find((a: any) => a.code === '2110');
+    setPayableAccountId(defaultAp ? defaultAp.id : '');
+    setFieldErrors({});
+    setFormError(null);
+  };
+
+  const handleOpenModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const handleGstinChange = (val: string) => {
+    const upper = val.toUpperCase();
+    setGstin(upper);
+    const extractedState = getStateFromGstin(upper);
+    if (extractedState) {
+      setState(extractedState.name);
+    }
+    const extractedPan = extractPanFromGstin(upper);
+    if (extractedPan) {
+      setPan(extractedPan);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     const errors: Record<string, string> = {};
 
-    if (!name.trim()) errors.name = 'Contact name is required.';
-    if (!companyName.trim()) errors.company_name = 'Company name is required.';
-    if (!state.trim()) errors.state = 'State is required.';
+    if (!name.trim()) errors.name = 'Supplier or Company name is required.';
+    if (!state.trim()) errors.state = 'State selection is required.';
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -87,26 +143,19 @@ export const VendorsPage: React.FC = () => {
       setIsSubmitting(true);
       await vendorsApi.create({
         name: name.trim(),
-        company_name: companyName.trim(),
-        gstin: gstin.trim(),
-        pan: pan.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
+        contact_person: contactPerson.trim() || undefined,
+        gstin: gstin.trim() || undefined,
+        pan: pan.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
         state: state.trim(),
-        address: address.trim(),
+        address: address.trim() || undefined,
+        payment_terms_days: paymentTermsDays,
+        payable_account_id: payableAccountId ? Number(payableAccountId) : undefined,
       });
       addToast({ type: 'success', title: 'Vendor Added', message: `${name.trim()} has been added.` });
       setIsModalOpen(false);
-      setName('');
-      setCompanyName('');
-      setGstin('');
-      setPan('');
-      setEmail('');
-      setPhone('');
-      setState('Maharashtra');
-      setAddress('');
-      setFieldErrors({});
-      setFormError(null);
+      resetForm();
       fetchVendors();
     } catch (err: any) {
       const formatted = formatApiError(err);
@@ -127,7 +176,7 @@ export const VendorsPage: React.FC = () => {
   const filtered = vendors.filter(
     (v) =>
       v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.gstin?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -146,11 +195,7 @@ export const VendorsPage: React.FC = () => {
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => {
-              setFieldErrors({});
-              setFormError(null);
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenModal}
             className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 shadow-lg shadow-indigo-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -239,10 +284,31 @@ export const VendorsPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         zIndex="z-[60]"
-        maxWidth="max-w-lg"
+        containerClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
-          <h3 className="text-base font-bold">Add Supplier / Vendor</h3>
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Add Supplier / Vendor</h3>
+                <p className="text-xs text-neutral-400">
+                  Vendor profile, GST compliance, procurement terms, and Accounts Payable ledger.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           <form onSubmit={handleCreate} className="space-y-4">
             {formError && (
               <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
@@ -251,10 +317,11 @@ export const VendorsPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 1: Company Name & Contact Person */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Contact Name <span className="text-rose-400">*</span>
+                  Supplier / Company Name <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -270,7 +337,7 @@ export const VendorsPage: React.FC = () => {
                     }
                   }}
                   required
-                  placeholder="e.g. Azure Furniture"
+                  placeholder="e.g. GreenPly Timber & Plywood Ltd"
                   className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
                     fieldErrors.name
                       ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
@@ -281,90 +348,44 @@ export const VendorsPage: React.FC = () => {
                   <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.name}</span>
                 )}
               </div>
+
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Company / Legal Name <span className="text-rose-400">*</span>
+                  Primary Contact Person
                 </label>
                 <input
                   type="text"
-                  value={companyName}
-                  onChange={(e) => {
-                    setCompanyName(e.target.value);
-                    if (fieldErrors.company_name) {
-                      setFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.company_name;
-                        return next;
-                      });
-                    }
-                  }}
-                  required
-                  placeholder="e.g. Azure Furniture Pvt Ltd"
-                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                    fieldErrors.company_name
-                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                      : 'border-neutral-700 focus:border-indigo-500'
-                  }`}
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
+                  placeholder="e.g. Ramesh Agarwal (Key Accounts)"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
                 />
-                {fieldErrors.company_name && (
-                  <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.company_name}</span>
-                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: GSTIN & State Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">GSTIN</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-neutral-300">
+                    GSTIN (GST Number)
+                  </label>
+                  <span className="text-[10.5px] text-indigo-400 font-mono">Auto-detects State & PAN</span>
+                </div>
                 <input
                   type="text"
                   placeholder="e.g. 27AAAPL1234F1Z9"
                   value={gstin}
-                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-indigo-500 focus:outline-none"
+                  onChange={(e) => handleGstinChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono uppercase focus:border-indigo-500 focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">PAN</label>
-                <input
-                  type="text"
-                  placeholder="e.g. AAAPL1234F"
-                  value={pan}
-                  onChange={(e) => setPan(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. azure.furniture@example.com"
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. +91 98201 12345"
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  State <span className="text-rose-400">*</span>
+                  State / Place of Supply <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={state}
                   onChange={(e) => {
                     setState(e.target.value);
@@ -376,31 +397,119 @@ export const VendorsPage: React.FC = () => {
                       });
                     }
                   }}
-                  required
-                  placeholder="e.g. Maharashtra"
-                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                    fieldErrors.state
-                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                      : 'border-neutral-700 focus:border-indigo-500'
-                  }`}
-                />
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st.code} value={st.name}>
+                      {st.code} - {st.name}
+                    </option>
+                  ))}
+                </select>
                 {fieldErrors.state && (
                   <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.state}</span>
                 )}
               </div>
+            </div>
+
+            {/* Auto-extracted PAN Banner */}
+            {(pan || gstin) && (
+              <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-indigo-300">
+                  <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                  <span>GST Place of Supply:</span>
+                  <span className="font-mono font-bold">{state}</span>
+                </div>
+                <div className="font-mono text-neutral-300 text-[11px]">
+                  PAN: <span className="text-white font-bold">{pan || 'Auto from GSTIN'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Email & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Billing / Dispatch Address</label>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. sales@greenply.com"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone Number</label>
                 <input
                   type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. Plot 45, MIDC Industrial Area, Pune"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +91 98201 12345"
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Row 4: Address */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Factory / Dispatch Office Address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. Plot 45, MIDC Industrial Area, Phase II, Pune, Maharashtra 411026"
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Commercial Credit Terms & GL Accounts */}
+            <div className="p-3.5 bg-[#17171e] border border-neutral-800 rounded-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <FolderTree className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold text-neutral-200">Procurement Credit Terms & General Ledger</span>
+                <span className="text-[10px] text-neutral-500 ml-auto">Accounts Payable Routing</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Credit / Payment Terms
+                  </label>
+                  <select
+                    value={paymentTermsDays}
+                    onChange={(e) => setPaymentTermsDays(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    {PAYMENT_TERMS_OPTIONS.map((pt) => (
+                      <option key={pt.days} value={pt.days}>
+                        {pt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Payable Ledger (2110)
+                  </label>
+                  <select
+                    value={payableAccountId}
+                    onChange={(e) => setPayableAccountId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 truncate"
+                  >
+                    <option value="">Default (2110 Accounts Payable)</option>
+                    {accounts
+                      .filter((a) => a.type === 'liability')
+                      .map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
               <Button
                 type="button"
                 variant="outline"
@@ -414,9 +523,9 @@ export const VendorsPage: React.FC = () => {
                 type="submit"
                 size="sm"
                 disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-md shadow-indigo-600/20"
               >
-                {isSubmitting ? 'Adding...' : 'Save Vendor'}
+                {isSubmitting ? 'Creating Vendor...' : 'Save Vendor / Supplier'}
               </Button>
             </div>
           </form>

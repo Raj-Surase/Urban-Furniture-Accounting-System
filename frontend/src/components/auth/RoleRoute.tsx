@@ -3,8 +3,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 interface RoleRouteProps {
-  requiredRole?: 'admin' | 'manager' | 'user';
-  allowedRoles?: Array<'admin' | 'manager' | 'user'>;
+  requiredRole?: 'admin' | 'manager' | 'accountant' | 'user';
+  allowedRoles?: Array<'admin' | 'manager' | 'accountant' | 'user'>;
   requiredPermission?: string;
   children: React.ReactNode;
 }

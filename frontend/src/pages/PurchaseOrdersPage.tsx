@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ShoppingBag,
   Plus,
@@ -10,6 +11,14 @@ import {
   Calendar,
   Layers,
   Percent,
+  Clock,
+  Truck,
+  Info,
+  Trash2,
+  CreditCard,
+  ArrowRight,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
 import { purchaseOrdersApi, vendorsApi, productsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,8 +28,10 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 
 export const PurchaseOrdersPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
@@ -34,6 +45,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [vendorId, setVendorId] = useState<number | ''>('');
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(15);
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [expectedDate, setExpectedDate] = useState(
     new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -107,6 +119,26 @@ export const PurchaseOrdersPage: React.FC = () => {
       gst_rate: Number(prod.gst_rate || 18),
     };
     setItems(updated);
+  };
+
+  const handleVendorSelect = (id: number | '') => {
+    setVendorId(id);
+    if (id) {
+      const v = vendors.find((vend) => vend.id === id);
+      const terms = v?.payment_terms_days ?? 15;
+      setPaymentTermsDays(terms);
+      setExpectedDate(calculateDueDate(orderDate, terms));
+    }
+  };
+
+  const handlePaymentTermsChange = (days: number) => {
+    setPaymentTermsDays(days);
+    setExpectedDate(calculateDueDate(orderDate, days));
+  };
+
+  const handleOrderDateChange = (date: string) => {
+    setOrderDate(date);
+    setExpectedDate(calculateDueDate(date, paymentTermsDays));
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -201,6 +233,30 @@ export const PurchaseOrdersPage: React.FC = () => {
     const matchesStatus = statusFilter === 'all' || po.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const selectedVendor = vendors.find((v) => v.id === vendorId);
+  const isVendorInterState = selectedVendor
+    ? (selectedVendor.state &&
+        !selectedVendor.state.toLowerCase().includes('maharashtra') &&
+        selectedVendor.state.toUpperCase() !== 'MH' &&
+        selectedVendor.state !== '27') ||
+      (selectedVendor.gstin && !selectedVendor.gstin.startsWith('27'))
+    : false;
+
+  const poSubtotal = items.reduce(
+    (acc, it) => acc + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+    0
+  );
+  const poTotalTax = items.reduce(
+    (acc, it) =>
+      acc +
+      ((Number(it.quantity) || 0) *
+        (Number(it.unit_price) || 0) *
+        (Number(it.gst_rate) || 0)) /
+        100,
+    0
+  );
+  const poGrandTotal = poSubtotal + poTotalTax;
 
   return (
     <div className="space-y-6">
@@ -351,22 +407,40 @@ export const PurchaseOrdersPage: React.FC = () => {
                             </button>
                           )}
 
-                          {(po.status === 'approved' || po.status === 'partially_received') && (isAdmin || isManager) && (
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(po);
-                                const initQtys: Record<number, number> = {};
-                                (po.items || []).forEach((item: any) => {
-                                  initQtys[item.id] = item.quantity - (item.quantity_received || 0);
-                                });
-                                setReceiveQtys(initQtys);
-                                setIsReceiveOpen(true);
-                              }}
-                              className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                            >
-                              <PackageCheck className="w-3.5 h-3.5" />
-                              Receive
-                            </button>
+                          {(po.status === 'approved' || po.status === 'partially_received' || po.status === 'received') && (isAdmin || isManager) && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  navigate(
+                                    `/bills?from_po=${po.id}&vendor_id=${po.vendor_id}&po_number=${encodeURIComponent(
+                                      po.order_number
+                                    )}`
+                                  )
+                                }
+                                className="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                                title="Create Vendor Bill"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Create Bill
+                              </button>
+                              {po.status !== 'received' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrder(po);
+                                    const initQtys: Record<number, number> = {};
+                                    (po.items || []).forEach((item: any) => {
+                                      initQtys[item.id] = item.quantity - (item.quantity_received || 0);
+                                    });
+                                    setReceiveQtys(initQtys);
+                                    setIsReceiveOpen(true);
+                                  }}
+                                  className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                                >
+                                  <PackageCheck className="w-3.5 h-3.5" />
+                                  Receive
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
@@ -384,145 +458,335 @@ export const PurchaseOrdersPage: React.FC = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         zIndex="z-[60]"
-        containerClassName="max-w-2xl"
+        containerClassName="max-w-3xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
-            <h3 className="text-base font-bold">New Purchase Order</h3>
-            <form onSubmit={handleCreate} className="space-y-4">
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Vendor</label>
-                <select
-                  value={vendorId}
-                  onChange={(e) => setVendorId(Number(e.target.value))}
+                <h3 className="text-base font-bold text-white">Create Purchase Order (Procurement)</h3>
+                <p className="text-xs text-neutral-400">
+                  Draft procurement orders with approved furniture suppliers, timber mills & hardware vendors
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsCreateOpen(false)}
+              className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.05] transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            {/* Vendor Selector Card */}
+            <div className="p-4 bg-white/[0.02] border border-white/[0.07] rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+                  Supplier / Vendor Selection
+                </label>
+                {selectedVendor && (
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      isVendorInterState
+                        ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                        : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                    }`}
+                  >
+                    {isVendorInterState ? 'Inter-State (IGST 100%)' : 'Intra-State (CGST 50% + SGST 50%)'}
+                  </span>
+                )}
+              </div>
+
+              <select
+                value={vendorId}
+                onChange={(e) => handleVendorSelect(e.target.value === '' ? '' : Number(e.target.value))}
+                required
+                className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none transition-colors"
+              >
+                <option value="">Choose an approved vendor / manufacturer...</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} • {v.state || 'MH'} {v.gstin ? `(${v.gstin})` : '(Unregistered)'}
+                  </option>
+                ))}
+              </select>
+
+              {selectedVendor && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs border-t border-white/[0.04]">
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">GSTIN</span>
+                    <span className="font-mono font-semibold text-neutral-200">{selectedVendor.gstin || 'Unregistered'}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">Dispatch State</span>
+                    <span className="font-semibold text-neutral-200">{selectedVendor.state || 'Maharashtra (27)'}</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-black/20 border border-white/[0.04]">
+                    <span className="text-[10px] uppercase font-medium text-neutral-400 block">Payment Terms</span>
+                    <span className="font-semibold text-indigo-400">
+                      {paymentTermsDays ? `Net ${paymentTermsDays} Days` : 'Due on Receipt'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Dates and Terms */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Order Date
+                </label>
+                <input
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => handleOrderDateChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Commercial Terms
+                </label>
+                <select
+                  value={paymentTermsDays}
+                  onChange={(e) => handlePaymentTermsChange(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="">Select vendor...</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.gstin || 'No GSTIN'})
+                  {PAYMENT_TERMS_OPTIONS.map((pt) => (
+                    <option key={pt.days} value={pt.days}>
+                      {pt.label}
                     </option>
                   ))}
                 </select>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Order Date</label>
-                  <input
-                    type="date"
-                    value={orderDate}
-                    onChange={(e) => setOrderDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Expected Delivery</label>
-                  <input
-                    type="date"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Expected Delivery Date
+                </label>
+                <input
+                  type="date"
+                  value={expectedDate}
+                  onChange={(e) => setExpectedDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+                />
               </div>
+            </div>
 
-              {/* Items */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
-                  <span>Items</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setItems([...items, { product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }])
-                    }
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    + Add Item
-                  </button>
-                </div>
-
-                {items.map((it, idx) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <select
-                      value={it.product_id}
-                      onChange={(e) => handleProductChange(idx, Number(e.target.value))}
-                      required
-                      className="flex-1 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white"
-                    >
-                      <option value="">Select Product SKU...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.sku})
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      value={it.quantity === 0 ? '' : it.quantity}
-                      onChange={(e) => {
-                        const updated = [...items];
-                        const val = e.target.value;
-                        updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
-                        setItems(updated);
-                      }}
-                      className="w-20 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right"
-                    />
-
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Price"
-                      value={it.unit_price === 0 ? '' : it.unit_price}
-                      onChange={(e) => {
-                        const updated = [...items];
-                        const val = e.target.value;
-                        updated[idx].unit_price = val === '' ? 0 : Number(val);
-                        setItems(updated);
-                      }}
-                      className="w-24 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right font-mono"
-                    />
-
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                        className="text-neutral-500 hover:text-rose-400 px-1"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
+            {/* Line Items */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-neutral-300 border-b border-white/[0.06] pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                  Order Line Items ({items.length})
+                </span>
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
+                  onClick={() =>
+                    setItems([...items, { product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }])
+                  }
+                  className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white"
-                >
-                  {isSubmitting ? 'Creating...' : 'Save Draft PO'}
-                </Button>
+                  <Plus className="w-3.5 h-3.5" /> Add Product Item
+                </button>
               </div>
-            </form>
-          </div>
+
+              <div className="space-y-2">
+                {items.map((it, idx) => {
+                  const prod = products.find((p) => p.id === it.product_id);
+                  const lineSubtotal = (Number(it.quantity) || 0) * (Number(it.unit_price) || 0);
+                  const lineTax = (lineSubtotal * (Number(it.gst_rate) || 0)) / 100;
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl space-y-2.5 hover:border-white/[0.1] transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                        <div className="flex-1 w-full">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Product / Raw Material SKU
+                          </label>
+                          <select
+                            value={it.product_id}
+                            onChange={(e) => handleProductChange(idx, Number(e.target.value))}
+                            required
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+                          >
+                            <option value="">Select Furniture / Raw Material SKU...</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.sku}) • Stock: {p.current_stock ?? 0} {p.unit_of_measure || 'pcs'}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="w-24">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Qty {prod?.unit_of_measure ? `(${prod.unit_of_measure})` : ''}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Qty"
+                            value={it.quantity === 0 ? '' : it.quantity}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              const val = e.target.value;
+                              updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono"
+                          />
+                        </div>
+
+                        <div className="w-28">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            Unit Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Price"
+                            value={it.unit_price === 0 ? '' : it.unit_price}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              const val = e.target.value;
+                              updated[idx].unit_price = val === '' ? 0 : Number(val);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono"
+                          />
+                        </div>
+
+                        <div className="w-24">
+                          <label className="text-[10px] uppercase font-semibold text-neutral-400 block mb-0.5">
+                            GST %
+                          </label>
+                          <select
+                            value={it.gst_rate}
+                            onChange={(e) => {
+                              const updated = [...items];
+                              updated[idx].gst_rate = Number(e.target.value);
+                              setItems(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded-lg text-xs text-white"
+                          >
+                            <option value="0">0%</option>
+                            <option value="5">5%</option>
+                            <option value="12">12%</option>
+                            <option value="18">18%</option>
+                            <option value="28">28%</option>
+                          </select>
+                        </div>
+
+                        {items.length > 1 && (
+                          <div className="self-end pb-1">
+                            <button
+                              type="button"
+                              onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                              className="p-1.5 text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-center text-[11px] text-neutral-400 bg-black/20 px-2.5 py-1 rounded-md">
+                        <span>
+                          {prod ? (
+                            <span>
+                              Current Stock: <strong className="text-white">{prod.current_stock ?? 0} {prod.unit_of_measure || 'units'}</strong>
+                            </span>
+                          ) : (
+                            <span className="text-neutral-500 italic">Select product to verify current warehouse inventory</span>
+                          )}
+                        </span>
+                        <span className="font-mono">
+                          Subtotal: <strong className="text-white">₹{lineSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong> + Tax: <strong className="text-neutral-300">₹{lineTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Procurement Notes */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                Procurement Instructions / Delivery Notes
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Include warehouse bay delivery directions, timber grade specifications, or inspection criteria..."
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Financial Summary & Auto-GRNI Note */}
+            <div className="p-4 bg-indigo-500/[0.04] border border-indigo-500/20 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-xs border-b border-indigo-500/10 pb-2">
+                <span className="text-neutral-400">Items Subtotal:</span>
+                <span className="font-mono font-bold text-white">
+                  ₹{poSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs border-b border-indigo-500/10 pb-2">
+                <span className="text-neutral-400">
+                  {isVendorInterState ? 'IGST (Inter-State):' : 'CGST + SGST (Intra-State):'}
+                </span>
+                <span className="font-mono text-neutral-300">
+                  ₹{poTotalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-0.5">
+                <span className="font-bold text-white">Total Order Value:</span>
+                <span className="font-mono font-bold text-emerald-400 text-base">
+                  ₹{poGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-neutral-400 pt-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Goods Receipt will auto-post GRNI clearing journals: <strong className="text-neutral-300">Dr Inventory / Cr GRNI Clearing</strong>.</span>
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+              >
+                {isSubmitting ? 'Creating Purchase Order...' : 'Save Draft PO'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </PortalModal>
 
       {/* Receive Modal */}
@@ -629,11 +893,15 @@ export const PurchaseOrdersPage: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Order Date</div>
-                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.order_date}</div>
+                <div className="font-mono font-bold text-white mt-0.5">
+                  {detailOrder.order_date ? detailOrder.order_date.split('T')[0] : 'N/A'}
+                </div>
               </div>
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Expected Delivery</div>
-                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.expected_delivery_date || 'N/A'}</div>
+                <div className="font-mono font-bold text-white mt-0.5">
+                  {detailOrder.expected_delivery_date ? detailOrder.expected_delivery_date.split('T')[0] : 'N/A'}
+                </div>
               </div>
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Tax / GST</div>
@@ -665,27 +933,47 @@ export const PurchaseOrdersPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {(detailOrder.items || []).map((item: any) => (
-                      <tr key={item.id} className="hover:bg-white/[0.01]">
-                        <td className="py-2.5 px-3">
-                          <div className="font-semibold text-white">{item.product?.name || item.description || 'Custom Supply'}</div>
-                          {item.product?.sku && (
-                            <div className="text-[10px] font-mono text-indigo-400">SKU: {item.product.sku}</div>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">{item.quantity}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
-                          {item.quantity_received || 0} / {item.quantity}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
-                          ₹{Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{item.gst_rate || 18}%</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
-                          ₹{Number(item.total_amount || (item.quantity * item.unit_price * (1 + (item.gst_rate || 18) / 100))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {(detailOrder.items || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-neutral-400">
+                          No line items found for this purchase order.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      (detailOrder.items || []).map((item: any) => {
+                        const qty = Number(item.quantity ?? item.quantity_ordered ?? 0);
+                        const received = Number(item.quantity_received ?? 0);
+                        const rate = Number(item.unit_price ?? 0);
+                        const gst = Number(item.tax_rate ?? item.gst_rate ?? 18);
+                        const total = Number(
+                          item.line_total ??
+                          item.total_amount ??
+                          (qty * rate * (1 + gst / 100))
+                        );
+
+                        return (
+                          <tr key={item.id} className="hover:bg-white/[0.01]">
+                            <td className="py-2.5 px-3">
+                              <div className="font-semibold text-white">{item.product?.name || item.description || 'Custom Supply'}</div>
+                              {item.product?.sku && (
+                                <div className="text-[10px] font-mono text-indigo-400">SKU: {item.product.sku}</div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white">{qty}</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
+                              {received} / {qty}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
+                              ₹{rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{gst}%</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
+                              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -730,25 +1018,43 @@ export const PurchaseOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {(detailOrder.status === 'approved' || detailOrder.status === 'partially_received') && (isAdmin || isManager) && (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const po = detailOrder;
-                      setSelectedOrder(po);
-                      const initQtys: Record<number, number> = {};
-                      (po.items || []).forEach((item: any) => {
-                        initQtys[item.id] = item.quantity - (item.quantity_received || 0);
-                      });
-                      setReceiveQtys(initQtys);
-                      setDetailOrder(null);
-                      setIsReceiveOpen(true);
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1"
-                  >
-                    <PackageCheck className="w-3.5 h-3.5" />
-                    Receive Goods
-                  </Button>
+                {(detailOrder.status === 'approved' || detailOrder.status === 'partially_received' || detailOrder.status === 'received') && (isAdmin || isManager) && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        navigate(
+                          `/bills?from_po=${detailOrder.id}&vendor_id=${detailOrder.vendor_id}&po_number=${encodeURIComponent(
+                            detailOrder.order_number
+                          )}`
+                        );
+                      }}
+                      className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Create Bill
+                    </Button>
+                    {detailOrder.status !== 'received' && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const po = detailOrder;
+                          setSelectedOrder(po);
+                          const initQtys: Record<number, number> = {};
+                          (po.items || []).forEach((item: any) => {
+                            initQtys[item.id] = item.quantity - (item.quantity_received || 0);
+                          });
+                          setReceiveQtys(initQtys);
+                          setDetailOrder(null);
+                          setIsReceiveOpen(true);
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1"
+                      >
+                        <PackageCheck className="w-3.5 h-3.5" />
+                        Receive Goods
+                      </Button>
+                    )}
+                  </>
                 )}
 
                 <Button

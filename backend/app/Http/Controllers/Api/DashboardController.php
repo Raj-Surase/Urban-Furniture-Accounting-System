@@ -134,6 +134,21 @@ class DashboardController extends Controller
                         'completed_count' => $completedCount,
                         'in_progress_count' => $inProgressCount,
                         'equalizer' => $equalizer,
+                        'sales_card' => [
+                            'all' => SalesOrder::count(),
+                            'confirmed' => SalesOrder::whereIn('status', ['confirmed', 'approved', 'delivered'])->count(),
+                            'draft' => SalesOrder::where('status', 'draft')->count(),
+                        ],
+                        'purchase_card' => [
+                            'all' => PurchaseOrder::count(),
+                            'confirmed' => PurchaseOrder::whereIn('status', ['approved', 'received', 'submitted'])->count(),
+                            'draft' => PurchaseOrder::where('status', 'draft')->count(),
+                        ],
+                        'budget_card' => [
+                            'budget' => \App\Models\Budget::count(),
+                            'committed' => (float) \App\Models\BudgetLine::sum('committed_amount'),
+                            'achieved' => (float) \App\Models\InvoiceLineItem::whereNotNull('analytic_account_id')->sum('line_total'),
+                        ],
                     ],
                 ];
             }

@@ -8,9 +8,16 @@ import {
   ArrowUpRight,
   Filter,
   AlertCircle,
+  X,
+  Building2,
+  FolderTree,
+  Landmark,
+  Receipt,
+  Sparkles,
+  IndianRupee,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { paymentsApi, customersApi, vendorsApi } from '../lib/api';
+import { paymentsApi, customersApi, vendorsApi, accountsApi, invoicesApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -30,6 +37,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const [payments, setPayments] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -38,6 +47,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [paymentType, setPaymentType] = useState<'customer_receipt' | 'vendor_payment'>('customer_receipt');
   const [partyId, setPartyId] = useState<number | ''>('');
+  const [bankAccountId, setBankAccountId] = useState<number | ''>('');
+  const [invoiceId, setInvoiceId] = useState<number | ''>('');
   const [amount, setAmount] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
@@ -50,14 +61,27 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const [payRes, custRes, vendRes] = await Promise.all([
+      const [payRes, custRes, vendRes, accRes, invRes] = await Promise.all([
         paymentsApi.list(),
         customersApi.list(),
         vendorsApi.list(),
+        accountsApi.list().catch(() => ({ data: [] })),
+        invoicesApi.list().catch(() => ({ data: [] })),
       ]);
-      setPayments(payRes.data || payRes || []);
-      setCustomers(custRes.data || custRes || []);
-      setVendors(vendRes.data || vendRes || []);
+      setPayments(payRes?.data || payRes || []);
+      setCustomers(custRes?.data || custRes || []);
+      setVendors(vendRes?.data || vendRes || []);
+      const accList = accRes?.data || accRes || [];
+      setAccounts(Array.isArray(accList) ? accList : []);
+      const invList = invRes?.data || invRes || [];
+      setInvoices(Array.isArray(invList) ? invList : []);
+
+      const defaultBank = (Array.isArray(accList) ? accList : []).find(
+        (a: any) => a.code === '1110' || (a.type === 'asset' && a.name.toLowerCase().includes('bank'))
+      );
+      if (defaultBank && !bankAccountId) {
+        setBankAccountId(defaultBank.id);
+      }
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load payments.' });
@@ -147,6 +171,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         payment_date: paymentDate,
         payment_method: paymentMethod,
         reference_number: reference.trim() || `TXN-${Date.now()}`,
+        bank_account_id: bankAccountId ? Number(bankAccountId) : undefined,
+        invoice_id: invoiceId ? Number(invoiceId) : undefined,
         notes: notes.trim() || null,
         status: 'reconciled',
       });
@@ -160,6 +186,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       setAmount('');
       setReference('');
       setNotes('');
+      setInvoiceId('');
       setFieldErrors({});
       setFormError(null);
       fetchPayments();
@@ -373,70 +400,210 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         isOpen={isNewOpen}
         onClose={() => setIsNewOpen(false)}
         zIndex="z-[60]"
-        containerClassName="max-w-lg"
+        containerClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
-            <h3 className="text-base font-bold">Record Payment Voucher</h3>
-
-            {formError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-                <span className="flex-1">{formError}</span>
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                  paymentType === 'customer_receipt'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
+                }`}
+              >
+                <CreditCard className="w-5 h-5" />
               </div>
-            )}
+              <div>
+                <h3 className="text-base font-bold text-white">Record Payment Voucher</h3>
+                <p className="text-xs text-neutral-400">
+                  Treasury cash/bank clearing, double-entry journal posting, and invoice settlement.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsNewOpen(false)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Voucher Type <span className="text-rose-400">*</span>
-                  </label>
-                  <select
-                    value={paymentType}
-                    onChange={(e: any) => {
-                      setPaymentType(e.target.value);
-                      setPartyId('');
-                      if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
-                    }}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="customer_receipt">Customer Receipt (Inflow)</option>
-                    <option value="vendor_payment">Vendor Disbursement (Outflow)</option>
-                  </select>
+          {formError && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+              <span className="flex-1">{formError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleCreate} className="space-y-4">
+            {/* Voucher Type Segmented Toggle */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentType('customer_receipt');
+                  setPartyId('');
+                  setInvoiceId('');
+                  if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
+                }}
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                  paymentType === 'customer_receipt'
+                    ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-500/10'
+                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
+                Customer Receipt (Inflow / AR)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentType('vendor_payment');
+                  setPartyId('');
+                  setInvoiceId('');
+                  if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
+                }}
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
+                  paymentType === 'vendor_payment'
+                    ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-300 shadow-sm shadow-indigo-500/10'
+                    : 'bg-[#1a1a22] border-neutral-800 text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <ArrowUpRight className="w-4 h-4 text-indigo-400" />
+                Vendor Disbursement (Outflow / AP)
+              </button>
+            </div>
+
+            {/* Party Selector */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                {paymentType === 'customer_receipt' ? 'Customer Account' : 'Supplier / Vendor Account'} <span className="text-rose-400">*</span>
+              </label>
+              <select
+                value={partyId}
+                onChange={(e) => {
+                  const val = e.target.value ? Number(e.target.value) : '';
+                  setPartyId(val);
+                  setInvoiceId('');
+                  if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
+                }}
+                className={`w-full px-3 py-2 bg-[#1a1a22] border ${
+                  fieldErrors.party_id ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
+                } rounded-lg text-xs text-white focus:outline-none`}
+              >
+                <option value="">Select {paymentType === 'customer_receipt' ? 'customer' : 'supplier'}...</option>
+                {(paymentType === 'customer_receipt' ? customers : vendors).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.gstin ? `(${p.gstin})` : ''} {p.state ? `— ${p.state}` : ''}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.party_id && (
+                <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.party_id}</span>
+              )}
+            </div>
+
+            {/* Selected Party Balance Strip */}
+            {(() => {
+              if (!partyId) return null;
+              const selectedParty = (paymentType === 'customer_receipt' ? customers : vendors).find(
+                (p) => Number(p.id) === Number(partyId)
+              );
+              if (!selectedParty) return null;
+              const bal = Number(selectedParty.outstanding_balance || 0);
+
+              return (
+                <div className="p-3 bg-[#17171e] border border-neutral-800 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <IndianRupee className="w-4 h-4 text-neutral-400" />
+                    <span className="text-neutral-400">Current Outstanding Balance:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        bal > 0
+                          ? paymentType === 'customer_receipt'
+                            ? 'text-emerald-400'
+                            : 'text-amber-400'
+                          : 'text-neutral-300'
+                      }`}
+                    >
+                      ₹{bal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {bal > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(bal.toFixed(2))}
+                      className="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-neutral-200 text-[11px] font-medium border border-white/10 transition-colors"
+                    >
+                      Fill Full Balance
+                    </button>
+                  )}
                 </div>
+              );
+            })()}
 
+            {/* Linked Open Invoices (Optional) */}
+            {(() => {
+              if (!partyId) return null;
+              const partyInvoices = invoices.filter(
+                (inv) =>
+                  Number(inv.party_id) === Number(partyId) &&
+                  (paymentType === 'customer_receipt'
+                    ? inv.type === 'receivable' || inv.party_type === 'customer'
+                    : inv.type === 'payable' || inv.party_type === 'vendor') &&
+                  inv.status !== 'paid' &&
+                  inv.status !== 'void'
+              );
+
+              if (partyInvoices.length === 0) return null;
+
+              return (
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    {paymentType === 'customer_receipt' ? 'Customer' : 'Vendor'} <span className="text-rose-400">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-amber-400" />
+                      Settle Specific Open Invoice (Optional)
+                    </label>
+                    <span className="text-[10.5px] text-neutral-500">{partyInvoices.length} open invoice(s)</span>
+                  </div>
                   <select
-                    value={partyId}
+                    value={invoiceId}
                     onChange={(e) => {
-                      setPartyId(e.target.value ? Number(e.target.value) : '');
-                      if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
+                      const invVal = e.target.value ? Number(e.target.value) : '';
+                      setInvoiceId(invVal);
+                      if (invVal) {
+                        const targetInv = partyInvoices.find((i) => Number(i.id) === invVal);
+                        if (targetInv) {
+                          const due = Number(targetInv.balance_due || targetInv.grand_total || 0);
+                          if (due > 0) setAmount(due.toFixed(2));
+                        }
+                      }
                     }}
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border ${
-                      fieldErrors.party_id ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
-                    } rounded-lg text-xs text-white focus:outline-none`}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-amber-500 focus:outline-none font-mono"
                   >
-                    <option value="">Select party...</option>
-                    {(paymentType === 'customer_receipt' ? customers : vendors).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
+                    <option value="">Direct On-Account Payment (Unlinked Advance)</option>
+                    {partyInvoices.map((inv) => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.invoice_number} — Due: ₹{Number(inv.balance_due || inv.grand_total).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Total: ₹{Number(inv.grand_total).toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
-                  {fieldErrors.party_id && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.party_id}</span>
-                  )}
                 </div>
-              </div>
+              );
+            })()}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Payment Amount (₹) <span className="text-rose-400">*</span>
-                  </label>
+            {/* Amount & Date */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Payment Amount (₹) <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-xs font-bold text-neutral-500">₹</span>
                   <input
                     type="number"
                     step="0.01"
@@ -447,104 +614,151 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                       setAmount(e.target.value);
                       if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: '' }));
                     }}
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border ${
+                    className={`w-full pl-7 pr-3 py-2 bg-[#1a1a22] border ${
                       fieldErrors.amount ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
                     } rounded-lg text-xs text-white font-mono font-bold focus:outline-none`}
                   />
-                  {fieldErrors.amount && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.amount}</span>
-                  )}
                 </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Payment Date <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={paymentDate}
-                    onChange={(e) => {
-                      setPaymentDate(e.target.value);
-                      if (fieldErrors.payment_date) setFieldErrors((prev) => ({ ...prev, payment_date: '' }));
-                    }}
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border ${
-                      fieldErrors.payment_date ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
-                    } rounded-lg text-xs text-white focus:outline-none`}
-                  />
-                  {fieldErrors.payment_date && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.payment_date}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Payment Method <span className="text-rose-400">*</span>
-                  </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="bank_transfer">Bank Transfer (NEFT/RTGS)</option>
-                    <option value="upi">UPI / Instant QR</option>
-                    <option value="cash">Cash in Hand</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / UTR #</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. UTR-554433221"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
+                {fieldErrors.amount && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.amount}</span>
+                )}
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Narration / Notes</label>
-                <textarea
-                  placeholder="Optional payment narration or reference notes..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Payment Date <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => {
+                    setPaymentDate(e.target.value);
+                    if (fieldErrors.payment_date) setFieldErrors((prev) => ({ ...prev, payment_date: '' }));
+                  }}
+                  className={`w-full px-3 py-2 bg-[#1a1a22] border ${
+                    fieldErrors.payment_date ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
+                  } rounded-lg text-xs text-white focus:outline-none`}
                 />
+                {fieldErrors.payment_date && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.payment_date}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Treasury & Bank Account Mapping */}
+            <div className="p-3.5 bg-[#17171e] border border-neutral-800 rounded-xl space-y-2">
+              <div className="flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-neutral-200">Deposit To / Disburse From Treasury Ledger</span>
+                <span className="text-[10px] text-neutral-500 ml-auto">Real-Time GL Double Entry</span>
+              </div>
+              <select
+                value={bankAccountId}
+                onChange={(e) => setBankAccountId(e.target.value ? Number(e.target.value) : '')}
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">Default (1110 Cash & Bank)</option>
+                {accounts
+                  .filter((a) => a.type === 'asset')
+                  .map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.code} - {acc.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Payment Method & Dynamic Reference */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Payment Method <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="bank_transfer">Bank Transfer (NEFT / RTGS / IMPS)</option>
+                  <option value="upi">UPI / Instant QR Payment</option>
+                  <option value="cash">Cash Counter Voucher</option>
+                  <option value="cheque">Bank Cheque</option>
+                </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsNewOpen(false);
-                    setAmount('');
-                    setReference('');
-                    setNotes('');
-                    setFieldErrors({});
-                    setFormError(null);
-                  }}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-                >
-                  {isSubmitting ? 'Posting...' : 'Record & Reconcile'}
-                </Button>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  {paymentMethod === 'bank_transfer'
+                    ? 'Bank UTR / Transaction Ref #'
+                    : paymentMethod === 'upi'
+                    ? 'UPI Reference ID'
+                    : paymentMethod === 'cheque'
+                    ? 'Cheque # & Issuing Bank'
+                    : 'Cash Voucher #'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={
+                    paymentMethod === 'bank_transfer'
+                      ? 'e.g. HDFCR520260905...'
+                      : paymentMethod === 'upi'
+                      ? 'e.g. 423910283921'
+                      : paymentMethod === 'cheque'
+                      ? 'e.g. CHQ-882014 (HDFC Bank)'
+                      : 'e.g. CSH-VCH-0042'
+                  }
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                />
               </div>
-            </form>
-          </div>
+            </div>
+
+            {/* Narration / Notes */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Narration / Audit Notes</label>
+              <textarea
+                placeholder="e.g. Advance payment for PO-2026-003, verified by treasury manager."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsNewOpen(false);
+                  setAmount('');
+                  setReference('');
+                  setNotes('');
+                  setInvoiceId('');
+                  setFieldErrors({});
+                  setFormError(null);
+                }}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                className={`text-white font-semibold shadow-md ${
+                  paymentType === 'customer_receipt'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20'
+                    : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/20'
+                }`}
+              >
+                {isSubmitting ? 'Posting Payment...' : 'Record & Reconcile'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </PortalModal>
 
       {/* Payment Voucher Detail Modal */}

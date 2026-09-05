@@ -602,7 +602,7 @@ export const AdminPage: React.FC = () => {
           </>
         )}
 
-        {/* Manager Onboarding Modal */}
+        {/* Onboard Manager / Accountant Modal */}
         <PortalModal
           isOpen={isOnboardModalOpen}
           onClose={() => {
@@ -610,20 +610,27 @@ export const AdminPage: React.FC = () => {
             setGeneratedCredentials(null);
           }}
           zIndex="z-[60]"
-          maxWidth="max-w-md"
+          containerClassName="max-w-lg max-h-[90vh] overflow-y-auto"
         >
-          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-purple-400" />
-                <h3 className="text-base font-bold">Onboard Accountant (Invoicing User)</h3>
+          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Provision Accountant / Manager</h3>
+                  <p className="text-xs text-neutral-400">
+                    Internal role clearance and cryptographic credential provisioning
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => {
                   setIsOnboardModalOpen(false);
                   setGeneratedCredentials(null);
                 }}
-                className="text-neutral-400 hover:text-white"
+                className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.05] transition-colors"
               >
                 ✕
               </button>
@@ -631,16 +638,18 @@ export const AdminPage: React.FC = () => {
 
             {generatedCredentials ? (
               <div className="space-y-4">
-                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-3">
                   <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
-                    <CheckCircle2 className="w-4 h-4" /> Accountant Account Initialized
+                    <CheckCircle2 className="w-4 h-4" /> Accountant Provisioned & Dispatched
                   </div>
                   <p className="text-xs text-neutral-300">
-                    Email with credentials has been queued and logged for: <strong className="text-white">{generatedCredentials.email}</strong>.
+                    A formal invitation with temporary login credentials has been queued for: <strong className="text-white">{generatedCredentials.email}</strong>.
                   </p>
-                  <div className="mt-2 p-3 bg-black/40 rounded-lg border border-white/10 font-mono text-xs flex justify-between items-center">
-                    <span className="text-neutral-400">Password:</span>
-                    <span className="font-bold text-purple-300">{generatedCredentials.temporary_password}</span>
+                  <div className="p-3 bg-black/40 rounded-xl border border-white/10 font-mono text-xs flex justify-between items-center">
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase font-sans">Temporary Password</span>
+                      <span className="font-bold text-purple-300 text-sm tracking-wider">{generatedCredentials.temporary_password}</span>
+                    </div>
                     <button
                       onClick={() => {
                         if (generatedCredentials.temporary_password) {
@@ -649,11 +658,14 @@ export const AdminPage: React.FC = () => {
                           setTimeout(() => setCopied(false), 2000);
                         }
                       }}
-                      className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white font-sans"
+                      className="text-xs bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-white font-sans font-medium transition-colors"
                     >
-                      {copied ? 'Copied!' : 'Copy'}
+                      {copied ? 'Copied to Clipboard!' : 'Copy Password'}
                     </button>
                   </div>
+                  <p className="text-[11px] text-neutral-400 italic">
+                    The user will be prompted to update their master password immediately upon their first login.
+                  </p>
                 </div>
 
                 <div className="flex justify-end">
@@ -662,20 +674,32 @@ export const AdminPage: React.FC = () => {
                       setIsOnboardModalOpen(false);
                       setGeneratedCredentials(null);
                     }}
-                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors"
                   >
-                    Done
+                    Done & Close
                   </button>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleOnboardManager} className="space-y-4">
-                <p className="text-xs text-neutral-400">
-                  Public registration is restricted to contact users. Use this admin form to provision Invoicing Users / Accountants with auto-generated secure credentials.
-                </p>
+                {/* Role Clearance Briefing Card */}
+                <div className="p-3.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-neutral-300 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-purple-400" />
+                      Assigned Clearance: Level 2 (Manager / Accountant)
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                      Standard
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 leading-relaxed">
+                    Granted authority to approve Purchase Orders, book Sales Orders, create manual Journal Entries, and execute treasury disbursements.
+                  </p>
+                </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Full Name</label>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Full Legal Name</label>
                   <input
                     type="text"
                     required
@@ -687,7 +711,7 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Corporate Email</label>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Corporate Email Address</label>
                   <input
                     type="email"
                     required
@@ -699,7 +723,7 @@ export const AdminPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone (Optional)</label>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Direct Contact Phone (Optional)</label>
                   <input
                     type="text"
                     placeholder="e.g. +91 98765 43210"
@@ -709,20 +733,20 @@ export const AdminPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setIsOnboardModalOpen(false)}
-                    className="px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 text-xs hover:bg-neutral-800"
+                    className="px-3.5 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 text-xs hover:bg-neutral-800 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isOnboarding}
-                    className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                    className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition-colors disabled:opacity-50"
                   >
-                    {isOnboarding ? 'Provisioning...' : 'Provision Accountant'}
+                    {isOnboarding ? 'Provisioning Credentials...' : 'Provision Accountant'}
                   </button>
                 </div>
               </form>

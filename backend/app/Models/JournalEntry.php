@@ -13,6 +13,7 @@ class JournalEntry extends Model
 
     protected $fillable = [
         "entry_number",
+        "journal_id",
         "type",
         "reference_type",
         "reference_id",
@@ -38,6 +39,11 @@ class JournalEntry extends Model
         "total_debit",
         "total_credit",
     ];
+
+    public function journal(): BelongsTo
+    {
+        return $this->belongsTo(Journal::class);
+    }
 
     public function lines(): HasMany
     {

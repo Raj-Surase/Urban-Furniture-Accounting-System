@@ -7,15 +7,30 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Filter,
+  Sparkles,
+  FolderTree,
+  AlertCircle,
+  HelpCircle,
+  Check,
+  Building2,
+  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { formatApiError } from '../lib/errorHandler';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import {
+  ACCOUNT_CLASSIFICATIONS,
+  PRESET_ACCOUNT_TEMPLATES,
+  suggestNextAccountCode,
+  PresetAccountTemplate,
+} from '../constants/formOptions';
 
 export const AccountsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -32,12 +47,21 @@ export const AccountsPage: React.FC = () => {
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
 
-  // New Account Modal
+  // New Account Modal State
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [creationMode, setCreationMode] = useState<'custom' | 'preset'>('custom');
+  const [selectedPresetCode, setSelectedPresetCode] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [type, setType] = useState('asset');
+  const [type, setType] = useState<string>('asset');
+  const [subType, setSubType] = useState<string>('cash_bank');
+  const [parentId, setParentId] = useState<number | ''>('');
+  const [normalBalance, setNormalBalance] = useState<'debit' | 'credit'>('debit');
+  const [openingBalance, setOpeningBalance] = useState<string>('0');
   const [description, setDescription] = useState('');
+  const [isCodeManuallyEdited, setIsCodeManuallyEdited] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchAccounts = async () => {
@@ -94,24 +118,106 @@ export const AccountsPage: React.FC = () => {
     }
   };
 
+  // Update suggested code and default normal balance when classification or subType changes
+  useEffect(() => {
+    if (creationMode !== 'custom') return;
+
+    const config = ACCOUNT_CLASSIFICATIONS[type];
+    if (config) {
+      setNormalBalance(config.normalBalance);
+
+      if (!isCodeManuallyEdited) {
+        const sub = config.subTypes.find((s) => s.key === subType);
+        const prefix = sub?.suggestedPrefix || config.prefix;
+        const fallback = prefix + '10';
+        const existingCodes = accounts.map((a) => String(a.code));
+        const suggested = suggestNextAccountCode(existingCodes, prefix, fallback);
+        setCode(suggested);
+      }
+    }
+  }, [type, subType, accounts, creationMode, isCodeManuallyEdited]);
+
+  const handleOpenNewModal = () => {
+    setFieldErrors({});
+    setFormError(null);
+    setCreationMode('custom');
+    setSelectedPresetCode('');
+    setIsCodeManuallyEdited(false);
+    setType('asset');
+    setSubType('cash_bank');
+    setName('');
+    setDescription('');
+    setOpeningBalance('0');
+    setParentId('');
+
+    // Pre-suggest initial code
+    const existingCodes = accounts.map((a) => String(a.code));
+    const suggested = suggestNextAccountCode(existingCodes, '111', '1111');
+    setCode(suggested);
+    setNormalBalance('debit');
+
+    setIsNewOpen(true);
+  };
+
+  const handlePresetSelect = (presetCode: string) => {
+    setSelectedPresetCode(presetCode);
+    const template = PRESET_ACCOUNT_TEMPLATES.find((t) => t.code === presetCode);
+    if (!template) return;
+
+    setCode(template.code);
+    setName(template.name);
+    setType(template.type);
+    setSubType(template.subType);
+    setNormalBalance(template.normalBalance);
+    setDescription(template.description);
+    setIsCodeManuallyEdited(true);
+    setFieldErrors({});
+    setFormError(null);
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    const errors: Record<string, string> = {};
+
+    if (!code.trim()) errors.code = 'Account Code is required.';
+    if (!name.trim()) errors.name = 'Account Title is required.';
+    if (!type) errors.type = 'Account Classification is required.';
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      addToast({ type: 'warning', title: 'Validation Error', message: 'Please fix the highlighted fields.' });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      const openingNum = parseFloat(openingBalance.trim()) || 0;
       await accountsApi.create({
-        code,
-        name,
+        code: code.trim(),
+        name: name.trim(),
         type,
-        description,
+        sub_type: subType || null,
+        parent_id: parentId ? Number(parentId) : null,
+        normal_balance: normalBalance,
+        opening_balance: openingNum,
+        description: description.trim() || null,
       });
-      addToast({ type: 'success', title: 'Account Created', message: `${code} - ${name} added.` });
+
+      addToast({ type: 'success', title: 'Account Created', message: `${code.trim()} - ${name.trim()} added to Chart of Accounts.` });
       setIsNewOpen(false);
-      setCode('');
-      setName('');
-      setDescription('');
       fetchAccounts();
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Creation Failed', message: err.response?.data?.message || 'Failed' });
+      const formatted = formatApiError(err);
+      setFormError(formatted.message);
+      if (formatted.fieldErrors && Object.keys(formatted.fieldErrors).length > 0) {
+        setFieldErrors(formatted.fieldErrors);
+      }
+      addToast({
+        type: 'error',
+        title: formatted.isValidationError ? 'Validation Failed' : 'Creation Failed',
+        message: formatted.message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -140,7 +246,7 @@ export const AccountsPage: React.FC = () => {
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => setIsNewOpen(true)}
+            onClick={handleOpenNewModal}
             className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -204,7 +310,7 @@ export const AccountsPage: React.FC = () => {
                       : 'Initialize standard chart of accounts or create custom ledgers.'
                   }
                   actionLabel={isAdmin || isManager ? 'Add General Ledger Account' : undefined}
-                  onAction={isAdmin || isManager ? () => setIsNewOpen(true) : undefined}
+                  onAction={isAdmin || isManager ? handleOpenNewModal : undefined}
                 />
               ) : (
                 filteredAccounts.map((acc) => (
@@ -338,61 +444,300 @@ export const AccountsPage: React.FC = () => {
         isOpen={isNewOpen}
         onClose={() => setIsNewOpen(false)}
         zIndex="z-[60]"
-        maxWidth="max-w-md"
+        maxWidth="max-w-2xl"
       >
-        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
-          <h3 className="text-base font-bold">Add Account to Chart</h3>
-          <form onSubmit={handleCreateAccount} className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Code</label>
-              <input
-                type="text"
-                placeholder="e.g. 1130 or 5010"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
-              />
+        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col text-white">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  Add General Ledger Account
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    Double-Entry Chart
+                  </span>
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Standard double-entry chart of accounts with statutory code classification.
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => setIsNewOpen(false)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+            >
+              ✕
+            </button>
+          </div>
 
-            <div>
-              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Title</label>
-              <input
-                type="text"
-                placeholder="e.g. Teakwood Raw Materials Inventory"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-              />
-            </div>
+          {/* Mode Tabs */}
+          <div className="px-6 pt-4 pb-0 bg-[#141418] flex gap-2 border-b border-neutral-800/60">
+            <button
+              type="button"
+              onClick={() => setCreationMode('custom')}
+              className={`pb-3 px-3 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors ${
+                creationMode === 'custom'
+                  ? 'border-purple-500 text-purple-400'
+                  : 'border-transparent text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Custom Ledger (Intelligent Code Gen)
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreationMode('preset')}
+              className={`pb-3 px-3 text-xs font-semibold flex items-center gap-1.5 border-b-2 transition-colors ${
+                creationMode === 'preset'
+                  ? 'border-purple-500 text-purple-400'
+                  : 'border-transparent text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Standard Corporate Presets
+            </button>
+          </div>
 
-            <div>
-              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Classification</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-              >
-                <option value="asset">Asset (1xxx) — Cash, HDFC Bank, Inventory, AR</option>
-                <option value="liability">Liability (2xxx) — AP, GST Payables, Advances</option>
-                <option value="equity">Capital / Equity (3xxx) — Owner Capital, Reserves</option>
-                <option value="revenue">Income / Revenue (4xxx) — Furniture Sales, Service Fees</option>
-                <option value="expense">Expense (5xxx) — COGS, Workshop Rent, Scrap</option>
-              </select>
-            </div>
+          <form onSubmit={handleCreateAccount} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            {formError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span className="flex-1">{formError}</span>
+              </div>
+            )}
 
-            <div>
-              <label className="text-xs font-semibold text-neutral-300 block mb-1">Description / Notes</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-              />
-            </div>
+            {creationMode === 'preset' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Select Standard Statutory Ledger <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={selectedPresetCode}
+                    onChange={(e) => handlePresetSelect(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="">Select from standard statutory templates...</option>
+                    {PRESET_ACCOUNT_TEMPLATES.map((t) => {
+                      const alreadyExists = accounts.some((a) => String(a.code) === t.code);
+                      return (
+                        <option key={t.code} value={t.code} disabled={alreadyExists}>
+                          {t.code} - {t.name} ({t.type.toUpperCase()}) {alreadyExists ? '— (Already exists)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    Select a standard corporate or GST ledger to auto-fill statutory code, classification, and normal balance.
+                  </p>
+                </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+                {selectedPresetCode && (
+                  <div className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-purple-400 text-sm">{code}</span>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                        {type} · Normal {normalBalance}
+                      </span>
+                    </div>
+                    <div className="font-semibold text-white">{name}</div>
+                    <div className="text-neutral-400 text-[11px]">{description}</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* 1. Account Classification Buttons */}
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
+                    Account Classification <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {Object.entries(ACCOUNT_CLASSIFICATIONS).map(([key, config]) => {
+                      const isSelected = type === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setType(key);
+                            setSubType(config.subTypes[0]?.key || '');
+                            setIsCodeManuallyEdited(false);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? 'bg-purple-600/20 border-purple-500 text-white shadow-sm ring-1 ring-purple-500/30'
+                              : 'bg-[#1a1a22] border-neutral-700/60 text-neutral-400 hover:text-white hover:border-neutral-600'
+                          }`}
+                        >
+                          <div className="text-[11px] font-bold capitalize">{key}</div>
+                          <div className="text-[10px] font-mono text-neutral-400 mt-0.5">{config.prefix}xxx</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Sub-Type Selection */}
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Account Group / Sub-Type <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={subType}
+                    onChange={(e) => {
+                      setSubType(e.target.value);
+                      setIsCodeManuallyEdited(false);
+                    }}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
+                  >
+                    {(ACCOUNT_CLASSIFICATIONS[type]?.subTypes || []).map((st) => (
+                      <option key={st.key} value={st.key}>
+                        {st.name} ({st.suggestedPrefix}xx) — {st.description}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Code & Title */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-neutral-300">
+                        Account Code <span className="text-rose-400">*</span>
+                      </label>
+                      <span className="text-[10px] font-mono text-purple-400">
+                        {isCodeManuallyEdited ? 'Custom' : 'Suggested'}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value);
+                          setIsCodeManuallyEdited(true);
+                          if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: '' }));
+                        }}
+                        required
+                        placeholder="e.g. 1135"
+                        className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white font-mono font-bold focus:outline-none ${
+                          fieldErrors.code
+                            ? 'border-rose-500 ring-1 ring-rose-500'
+                            : 'border-neutral-700 focus:border-purple-500'
+                        }`}
+                      />
+                    </div>
+                    {fieldErrors.code && (
+                      <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.code}</span>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                      Account Title / Ledger Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: '' }));
+                      }}
+                      required
+                      placeholder="e.g. Teak Wood Seasoning & Inventory"
+                      className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                        fieldErrors.name
+                          ? 'border-rose-500 ring-1 ring-rose-500'
+                          : 'border-neutral-700 focus:border-purple-500'
+                      }`}
+                    />
+                    {fieldErrors.name && (
+                      <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.name}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 4. Parent Account & Normal Balance */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1 flex items-center gap-1.5">
+                      <FolderTree className="w-3.5 h-3.5 text-neutral-400" />
+                      Parent Account (Hierarchical Grouping)
+                    </label>
+                    <select
+                      value={parentId}
+                      onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="">None (Top-level Ledger)</option>
+                      {accounts
+                        .filter((a) => a.type === type)
+                        .map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.code} - {a.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                      Normal Balance
+                    </label>
+                    <div className="flex items-center gap-2 h-9">
+                      <span
+                        className={`text-xs font-mono font-bold uppercase px-3 py-1.5 rounded-lg border flex-1 text-center ${
+                          normalBalance === 'debit'
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
+                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                        }`}
+                      >
+                        {normalBalance} Normal
+                      </span>
+                      <span className="text-[11px] text-neutral-400 leading-tight">
+                        {normalBalance === 'debit' ? 'Increased by Debits' : 'Increased by Credits'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Opening Balance */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                      Opening Balance (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={openingBalance}
+                      onChange={(e) => setOpeningBalance(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                      Description / Statutory Purpose
+                    </label>
+                    <input
+                      type="text"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="e.g. Raw teakwood timber holding"
+                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-800">
               <Button
                 type="button"
                 variant="outline"
@@ -406,9 +751,19 @@ export const AccountsPage: React.FC = () => {
                 type="submit"
                 size="sm"
                 disabled={isSubmitting}
-                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold flex items-center gap-1.5"
               >
-                {isSubmitting ? 'Creating...' : 'Create Account'}
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    Create General Ledger Account
+                  </>
+                )}
               </Button>
             </div>
           </form>

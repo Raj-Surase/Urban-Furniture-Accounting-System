@@ -96,6 +96,7 @@ class InvoiceController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['nullable', 'exists:products,id'],
             'items.*.account_id' => ['nullable', 'exists:accounts,id'],
+            'items.*.analytic_account_id' => ['nullable', 'exists:analytic_accounts,id'],
             'items.*.description' => ['required', 'string', 'max:255'],
             'items.*.quantity' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
@@ -157,6 +158,7 @@ class InvoiceController extends Controller
                 $itemsData[] = [
                     'product_id' => $product?->id,
                     'account_id' => $accountId,
+                    'analytic_account_id' => $item['analytic_account_id'] ?? null,
                     'hsn_code' => $product?->hsn_code ?? '94018000',
                     'description' => $item['description'],
                     'quantity' => $qty,

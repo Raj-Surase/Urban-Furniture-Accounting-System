@@ -8,6 +8,11 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldCheck,
+  Scale,
+  Sparkles,
+  Trash2,
+  AlertCircle,
+  Wand2,
 } from 'lucide-react';
 import { journalApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +22,50 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+
+// Standard corporate journal entry templates
+const JOURNAL_PRESETS = [
+  {
+    name: 'Depreciation Expense',
+    description: 'Monthly plant, machinery & showroom fixtures depreciation',
+    debitType: 'expense',
+    creditType: 'asset',
+    debitCodeHint: '5200',
+    creditCodeHint: '1220',
+  },
+  {
+    name: 'Salaries & Wages',
+    description: 'Accrual of monthly carpenter wages & corporate salaries',
+    debitType: 'expense',
+    creditType: 'liability',
+    debitCodeHint: '5300',
+    creditCodeHint: '2130',
+  },
+  {
+    name: 'Workshop Rent',
+    description: 'Monthly furniture manufacturing facility rental',
+    debitType: 'expense',
+    creditType: 'liability',
+    debitCodeHint: '5210',
+    creditCodeHint: '2110',
+  },
+  {
+    name: 'Factory Utilities',
+    description: 'Electricity & utility bills accrual',
+    debitType: 'expense',
+    creditType: 'liability',
+    debitCodeHint: '5220',
+    creditCodeHint: '2110',
+  },
+  {
+    name: 'Bank Charges',
+    description: 'Bank processing fees and financial transaction charges',
+    debitType: 'expense',
+    creditType: 'asset',
+    debitCodeHint: '5240',
+    creditCodeHint: '1110',
+  },
+];
 
 export const JournalPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -93,6 +142,68 @@ export const JournalPage: React.FC = () => {
   const totalDebits = lines.reduce((sum, l) => sum + Number(l.debit || 0), 0);
   const totalCredits = lines.reduce((sum, l) => sum + Number(l.credit || 0), 0);
   const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01 && totalDebits > 0;
+
+  // Group accounts by classification for semantic dropdown optgroups
+  const groupedAccounts = {
+    asset: accounts.filter((a) => a.type === 'asset'),
+    liability: accounts.filter((a) => a.type === 'liability'),
+    equity: accounts.filter((a) => a.type === 'equity'),
+    revenue: accounts.filter((a) => a.type === 'revenue'),
+    expense: accounts.filter((a) => a.type === 'expense'),
+  };
+
+  const applyPreset = (preset: typeof JOURNAL_PRESETS[0]) => {
+    setDescription(preset.description);
+    const debitAcc =
+      accounts.find((a) => a.code === preset.debitCodeHint) ||
+      accounts.find((a) => a.type === preset.debitType);
+    const creditAcc =
+      accounts.find((a) => a.code === preset.creditCodeHint) ||
+      accounts.find((a) => a.type === preset.creditType && a.id !== debitAcc?.id);
+
+    setLines([
+      { account_id: debitAcc ? debitAcc.id : '', debit: 0, credit: 0, description: preset.description },
+      { account_id: creditAcc ? creditAcc.id : '', debit: 0, credit: 0, description: preset.description },
+    ]);
+    addToast({
+      type: 'info',
+      title: 'Template Applied',
+      message: `Loaded accounts for "${preset.name}". Fill in voucher amounts.`,
+    });
+  };
+
+  const handleAutoBalance = () => {
+    const diff = totalDebits - totalCredits;
+    if (Math.abs(diff) < 0.01) return;
+
+    if (diff > 0) {
+      const posDiff = Number(diff.toFixed(2));
+      const lastLine = lines[lines.length - 1];
+      if (lastLine && !lastLine.debit && !lastLine.credit) {
+        const updated = [...lines];
+        updated[lines.length - 1].credit = posDiff;
+        setLines(updated);
+      } else {
+        setLines([
+          ...lines,
+          { account_id: '', debit: 0, credit: posDiff, description: description || 'Balancing line' },
+        ]);
+      }
+    } else {
+      const posDiff = Number(Math.abs(diff).toFixed(2));
+      const lastLine = lines[lines.length - 1];
+      if (lastLine && !lastLine.debit && !lastLine.credit) {
+        const updated = [...lines];
+        updated[lines.length - 1].debit = posDiff;
+        setLines(updated);
+      } else {
+        setLines([
+          ...lines,
+          { account_id: '', debit: posDiff, credit: 0, description: description || 'Balancing line' },
+        ]);
+      }
+    }
+  };
 
   const handleAddLine = () => {
     setLines([...lines, { account_id: '', debit: 0, credit: 0, description: '' }]);
@@ -351,26 +462,61 @@ export const JournalPage: React.FC = () => {
         isOpen={isNewOpen}
         onClose={() => setIsNewOpen(false)}
         zIndex="z-[60]"
-        maxWidth="max-w-3xl"
+        maxWidth="max-w-4xl"
+        containerClassName="max-w-4xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-bold">Post General Ledger Journal Entry</h3>
-            <button onClick={() => setIsNewOpen(false)} className="text-neutral-400 hover:text-white">
+        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400">
+                <Scale className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Post General Ledger Journal Entry</h3>
+                <p className="text-xs text-neutral-400">
+                  Record balanced double-entry adjustments, depreciation, accruals & manual ledger transfers
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsNewOpen(false)}
+              className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.05] transition-colors"
+            >
               ✕
             </button>
           </div>
 
+          {/* Quick Presets Strip */}
+          <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              Quick Journal Presets:
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {JOURNAL_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="px-2.5 py-1 text-xs bg-[#1a1a22] hover:bg-purple-600/20 hover:text-purple-300 hover:border-purple-500/30 border border-neutral-700 rounded-lg text-neutral-300 transition-colors"
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={handleCreateEntry} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Entry Date</label>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Entry / Posting Date</label>
                 <input
                   type="date"
                   value={entryDate}
                   onChange={(e) => setEntryDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
                 />
               </div>
 
@@ -378,10 +524,10 @@ export const JournalPage: React.FC = () => {
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / Document #</label>
                 <input
                   type="text"
-                  placeholder="e.g. JV-2026-004 or Direct Vendor Debit Note"
+                  placeholder="e.g. JV-2026-004, Cheque #8812, or Debit Note #12"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -390,43 +536,57 @@ export const JournalPage: React.FC = () => {
               <label className="text-xs font-semibold text-neutral-300 block mb-1">Narration / Description</label>
               <input
                 type="text"
-                placeholder="e.g. Monthly workshop electricity accrual & factory overhead"
+                placeholder="e.g. Monthly manufacturing facility rent & workshop power accrual"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
               />
             </div>
 
             {/* Line Items Table */}
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold text-neutral-300">Journal Lines (Double Entry)</label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddLine}
-                  className="text-xs h-7 gap-1 border-neutral-700 text-neutral-300"
-                >
-                  <Plus className="w-3 h-3" /> Add Account Line
-                </Button>
+                <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                  <FileCode2 className="w-3.5 h-3.5 text-purple-400" />
+                  Journal Lines ({lines.length})
+                </label>
+                <div className="flex items-center gap-2">
+                  {!isBalanced && (totalDebits > 0 || totalCredits > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleAutoBalance}
+                      className="text-xs px-2.5 py-1 bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 rounded-lg flex items-center gap-1 font-medium transition-colors"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" /> Auto-Balance Line
+                    </button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddLine}
+                    className="text-xs h-7 gap-1 border-neutral-700 text-neutral-300 hover:bg-white/[0.05]"
+                  >
+                    <Plus className="w-3 h-3" /> Add Account Line
+                  </Button>
+                </div>
               </div>
 
               <div className="border border-neutral-800 rounded-xl overflow-hidden bg-black/30">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#1a1a22] border-b border-neutral-800 text-neutral-400">
                     <tr>
-                      <th className="py-2 px-3">General Ledger Account</th>
-                      <th className="py-2 px-3">Narration (Optional)</th>
-                      <th className="py-2 px-3 w-28 text-right">Debit (₹)</th>
-                      <th className="py-2 px-3 w-28 text-right">Credit (₹)</th>
-                      <th className="py-2 px-2 w-10"></th>
+                      <th className="py-2.5 px-3 w-[40%]">General Ledger Account</th>
+                      <th className="py-2.5 px-3">Narration (Optional)</th>
+                      <th className="py-2.5 px-3 w-32 text-right">Debit (₹)</th>
+                      <th className="py-2.5 px-3 w-32 text-right">Credit (₹)</th>
+                      <th className="py-2.5 px-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
                     {lines.map((line, idx) => (
-                      <tr key={idx} className="hover:bg-white/[0.01]">
+                      <tr key={idx} className="hover:bg-white/[0.01] transition-colors">
                         <td className="p-2">
                           <select
                             value={line.account_id}
@@ -436,14 +596,54 @@ export const JournalPage: React.FC = () => {
                               setLines(updated);
                             }}
                             required
-                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white"
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
                           >
                             <option value="">Select GL Account...</option>
-                            {accounts.map((acc) => (
-                              <option key={acc.id} value={acc.id}>
-                                {acc.code} - {acc.name} ({acc.type})
-                              </option>
-                            ))}
+                            {groupedAccounts.asset.length > 0 && (
+                              <optgroup label="Assets (1000s) — Dr">
+                                {groupedAccounts.asset.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.code} - {acc.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {groupedAccounts.liability.length > 0 && (
+                              <optgroup label="Liabilities (2000s) — Cr">
+                                {groupedAccounts.liability.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.code} - {acc.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {groupedAccounts.equity.length > 0 && (
+                              <optgroup label="Equity (3000s) — Cr">
+                                {groupedAccounts.equity.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.code} - {acc.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {groupedAccounts.revenue.length > 0 && (
+                              <optgroup label="Revenue (4000s) — Cr">
+                                {groupedAccounts.revenue.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.code} - {acc.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {groupedAccounts.expense.length > 0 && (
+                              <optgroup label="Expenses (5000s) — Dr">
+                                {groupedAccounts.expense.map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.code} - {acc.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
                           </select>
                         </td>
                         <td className="p-2">
@@ -456,7 +656,7 @@ export const JournalPage: React.FC = () => {
                               updated[idx].description = e.target.value;
                               setLines(updated);
                             }}
-                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white"
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
                           />
                         </td>
                         <td className="p-2">
@@ -464,6 +664,7 @@ export const JournalPage: React.FC = () => {
                             type="number"
                             step="0.01"
                             min="0"
+                            placeholder="0.00"
                             value={line.debit || ''}
                             onChange={(e) => {
                               const updated = [...lines];
@@ -472,7 +673,7 @@ export const JournalPage: React.FC = () => {
                               if (val > 0) updated[idx].credit = 0;
                               setLines(updated);
                             }}
-                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-emerald-400 font-mono font-bold"
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-emerald-400 font-mono font-bold focus:border-emerald-500 focus:outline-none"
                           />
                         </td>
                         <td className="p-2">
@@ -480,6 +681,7 @@ export const JournalPage: React.FC = () => {
                             type="number"
                             step="0.01"
                             min="0"
+                            placeholder="0.00"
                             value={line.credit || ''}
                             onChange={(e) => {
                               const updated = [...lines];
@@ -488,7 +690,7 @@ export const JournalPage: React.FC = () => {
                               if (val > 0) updated[idx].debit = 0;
                               setLines(updated);
                             }}
-                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-indigo-400 font-mono font-bold"
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-indigo-400 font-mono font-bold focus:border-indigo-500 focus:outline-none"
                           />
                         </td>
                         <td className="p-2 text-center">
@@ -496,9 +698,10 @@ export const JournalPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleRemoveLine(idx)}
-                              className="text-neutral-500 hover:text-rose-400 text-sm font-bold"
+                              className="text-neutral-500 hover:text-rose-400 p-1 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Delete line"
                             >
-                              ✕
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </td>
@@ -509,8 +712,8 @@ export const JournalPage: React.FC = () => {
               </div>
 
               {/* Balance Verification Footer */}
-              <div className="p-3 bg-black/40 rounded-xl border border-neutral-800 flex items-center justify-between text-xs font-mono">
-                <div className="space-x-4">
+              <div className="p-3.5 bg-black/40 rounded-xl border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between text-xs font-mono gap-2">
+                <div className="flex items-center space-x-4">
                   <span>
                     Total Debits: <strong className="text-emerald-400">₹{totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
                   </span>
@@ -521,19 +724,28 @@ export const JournalPage: React.FC = () => {
 
                 <div>
                   {isBalanced ? (
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> BALANCED
+                    <span className="text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 font-sans text-xs">
+                      <ShieldCheck className="w-4 h-4" /> BALANCED & VERIFIED
                     </span>
                   ) : (
-                    <span className="text-rose-400 font-bold">
-                      DIFF: ₹{Math.abs(totalDebits - totalCredits).toFixed(2)} (Out of Balance)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-rose-400 font-bold flex items-center gap-1 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20 font-sans text-xs">
+                        <AlertCircle className="w-4 h-4" /> DIFF: ₹{Math.abs(totalDebits - totalCredits).toFixed(2)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleAutoBalance}
+                        className="text-[11px] px-2.5 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg border border-purple-500/30 flex items-center gap-1 font-sans font-semibold transition-colors"
+                      >
+                        <Wand2 className="w-3 h-3" /> Auto-Balance
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.08]">
               <Button
                 type="button"
                 variant="outline"
@@ -547,7 +759,7 @@ export const JournalPage: React.FC = () => {
                 type="submit"
                 size="sm"
                 disabled={!isBalanced || isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
               >
                 {isSubmitting ? 'Posting...' : 'Post Journal Entry'}
               </Button>

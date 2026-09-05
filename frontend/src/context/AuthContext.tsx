@@ -5,7 +5,8 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'user';
+  login_id?: string;
+  role: 'admin' | 'manager' | 'accountant' | 'user';
   permissions?: string[];
   is_admin?: boolean;
   created_at?: string;
@@ -17,6 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isManager: boolean;
+  isAccountant: boolean;
   isStandardUser: boolean;
   isLoading: boolean;
   hasRole: (roles: string | string[]) => boolean;
@@ -130,6 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = user?.role === 'admin' || !!user?.is_admin;
   const isManager = user?.role === 'manager';
+  const isAccountant = user?.role === 'accountant' || user?.role === 'manager' || user?.role === 'admin';
   const isStandardUser = user?.role === 'user';
 
   const hasRole = useCallback((roles: string | string[]) => {
@@ -154,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isAdmin,
         isManager,
+        isAccountant,
         isStandardUser,
         isLoading,
         hasRole,

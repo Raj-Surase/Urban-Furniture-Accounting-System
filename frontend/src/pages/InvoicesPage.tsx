@@ -16,9 +16,12 @@ import {
   CreditCard,
   Percent,
   AlertCircle,
+  X,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi } from '../lib/api';
+import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi, salesOrdersApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -29,6 +32,7 @@ import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfMod
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 
 export const InvoicesPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
@@ -57,6 +61,7 @@ export const InvoicesPage: React.FC = () => {
   const [createType, setCreateType] = useState<'customer' | 'vendor'>('customer');
   const [selectedPartyId, setSelectedPartyId] = useState<number | ''>('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -140,6 +145,41 @@ export const InvoicesPage: React.FC = () => {
       }
     }
   }, [searchParams, invoices]);
+
+  // Deep link handling for from_so (Create Invoice from Sales Order)
+  useEffect(() => {
+    const soIdParam = searchParams.get('from_so');
+    if (soIdParam) {
+      setCreateType('customer');
+      setIsCreateModalOpen(true);
+      salesOrdersApi
+        .get(parseInt(soIdParam, 10))
+        .then((res: any) => {
+          const soData = res?.data || res;
+          if (soData) {
+            if (soData.customer_id) {
+              setSelectedPartyId(soData.customer_id);
+            }
+            if (soData.order_number) {
+              setNotes(`Sales Order #${soData.order_number}`);
+            }
+            if (soData.items && soData.items.length > 0) {
+              setLineItems(
+                soData.items.map((it: any) => ({
+                  product_id: it.product_id,
+                  description: it.product?.name || `SO Item #${it.id}`,
+                  hsn_code: it.product?.hsn_code || '9403',
+                  quantity: it.quantity,
+                  unit_price: it.unit_price,
+                  gst_rate: it.gst_rate || 18,
+                }))
+              );
+            }
+          }
+        })
+        .catch((err) => console.error('Failed to prefill invoice from SO:', err));
+    }
+  }, [searchParams]);
 
   // Determine place of supply and interstate
   const selectedParty =
@@ -798,8 +838,8 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Party selection & Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Party selection, Payment Terms & Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
                     {createType === 'customer' ? 'Customer (Buyer)' : 'Vendor (Supplier)'} <span className="text-rose-400">*</span>
@@ -807,13 +847,21 @@ export const InvoicesPage: React.FC = () => {
                   <select
                     value={selectedPartyId}
                     onChange={(e) => {
-                      setSelectedPartyId(Number(e.target.value));
+                      const pId = Number(e.target.value);
+                      setSelectedPartyId(pId);
                       if (createFieldErrors.party_id) {
                         setCreateFieldErrors((prev) => {
                           const next = { ...prev };
                           delete next.party_id;
                           return next;
                         });
+                      }
+                      // Auto-apply customer/vendor payment terms if set
+                      const p = (createType === 'customer' ? customers : vendors).find((x) => x.id === pId);
+                      if (p?.payment_terms_days !== undefined) {
+                        const days = Number(p.payment_terms_days);
+                        setPaymentTermsDays(days);
+                        setDueDate(calculateDueDate(invoiceDate, days));
                       }
                     }}
                     required
@@ -826,19 +874,34 @@ export const InvoicesPage: React.FC = () => {
                     <option value="">Select party...</option>
                     {(createType === 'customer' ? customers : vendors).map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} ({p.gstin || 'No GSTIN'}) - {p.state || 'MH'}
+                        {p.name} {p.gstin ? `(${p.gstin})` : ''} - {p.state || 'MH'}
                       </option>
                     ))}
                   </select>
                   {createFieldErrors.party_id && (
                     <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.party_id}</span>
                   )}
-                  {selectedParty && (
-                    <div className="text-[10px] text-neutral-400 mt-1">
-                      GSTIN: {selectedParty.gstin || 'Unregistered'} · Supply: {selectedParty.state || 'MH'} (
-                      {isInterstate ? 'Inter-state IGST' : 'Intra-state CGST+SGST'})
-                    </div>
-                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Payment Terms
+                  </label>
+                  <select
+                    value={paymentTermsDays}
+                    onChange={(e) => {
+                      const days = Number(e.target.value);
+                      setPaymentTermsDays(days);
+                      setDueDate(calculateDueDate(invoiceDate, days));
+                    }}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    {PAYMENT_TERMS_OPTIONS.map((pt) => (
+                      <option key={pt.days} value={pt.days}>
+                        {pt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -849,7 +912,9 @@ export const InvoicesPage: React.FC = () => {
                     type="date"
                     value={invoiceDate}
                     onChange={(e) => {
-                      setInvoiceDate(e.target.value);
+                      const val = e.target.value;
+                      setInvoiceDate(val);
+                      setDueDate(calculateDueDate(val, paymentTermsDays));
                       if (createFieldErrors.invoice_date) {
                         setCreateFieldErrors((prev) => {
                           const next = { ...prev };
@@ -900,6 +965,31 @@ export const InvoicesPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Statutory Place of Supply & Tax Treatment Strip */}
+              {selectedParty && (
+                <div
+                  className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                    isInterstate
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className={`w-4 h-4 ${isInterstate ? 'text-amber-400' : 'text-emerald-400'}`} />
+                    <span className="font-semibold">
+                      Place of Supply: {selectedParty.state || 'Maharashtra'}
+                    </span>
+                    <span className="font-mono text-neutral-400">·</span>
+                    <span className="font-medium">
+                      {isInterstate ? 'Inter-State Supply (IGST 18%)' : 'Intra-State Supply (CGST 9% + SGST 9%)'}
+                    </span>
+                  </div>
+                  <div className="font-mono text-[11px] text-neutral-300">
+                    GSTIN: <span className="text-white font-bold">{selectedParty.gstin || 'Unregistered'}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Line Items Section */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -925,7 +1015,7 @@ export const InvoicesPage: React.FC = () => {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-neutral-800 bg-neutral-900/60 text-neutral-400 text-[10px] uppercase">
-                        <th className="py-2.5 px-3">Product</th>
+                        <th className="py-2.5 px-3">Product SKU & Inventory</th>
                         <th className="py-2.5 px-2 w-20">HSN</th>
                         <th className="py-2.5 px-2 w-16 text-right">Qty</th>
                         <th className="py-2.5 px-2 w-24 text-right">Price (₹)</th>
@@ -947,12 +1037,12 @@ export const InvoicesPage: React.FC = () => {
                                 value={line.product_id}
                                 onChange={(e) => handleProductSelect(idx, Number(e.target.value))}
                                 required
-                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white"
+                                className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white truncate focus:border-purple-500 focus:outline-none"
                               >
                                 <option value="">Select product SKU...</option>
                                 {products.map((p) => (
                                   <option key={p.id} value={p.id}>
-                                    {p.name} ({p.sku})
+                                    {p.sku} — {p.name} (Stock: {p.current_stock ?? 0} {p.unit_of_measure || 'pcs'})
                                   </option>
                                 ))}
                               </select>

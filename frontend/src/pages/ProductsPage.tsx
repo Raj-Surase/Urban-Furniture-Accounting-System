@@ -10,9 +10,16 @@ import {
   Edit2,
   DollarSign,
   TrendingDown,
+  TrendingUp,
   AlertCircle,
+  Calculator,
+  Tag,
+  Building2,
+  RefreshCw,
+  FolderTree,
+  X,
 } from 'lucide-react';
-import { productsApi } from '../lib/api';
+import { productsApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -21,12 +28,18 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import {
+  FURNITURE_CATEGORIES,
+  FURNITURE_HSN_CODES,
+  UNITS_OF_MEASURE,
+} from '../constants/formOptions';
 
 export const ProductsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
   const [products, setProducts] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -41,18 +54,24 @@ export const ProductsPage: React.FC = () => {
   const [adjustFieldErrors, setAdjustFieldErrors] = useState<Record<string, string>>({});
   const [adjustFormError, setAdjustFormError] = useState<string | null>(null);
 
-  // New Product Modal
+  // New Product Modal State
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('goods');
-  const [newCategory, setNewCategory] = useState('Chairs');
-  const [newHsn, setNewHsn] = useState('9403');
+  const [newCategorySelect, setNewCategorySelect] = useState<string>('Chairs');
+  const [newCustomCategory, setNewCustomCategory] = useState<string>('');
+  const [newHsnSelect, setNewHsnSelect] = useState<string>('94018000');
+  const [newCustomHsn, setNewCustomHsn] = useState<string>('');
+  const [newUnitOfMeasure, setNewUnitOfMeasure] = useState<string>('unit');
   const [newPrice, setNewPrice] = useState<string>('');
   const [newCostPrice, setNewCostPrice] = useState<string>('');
   const [newGstRate, setNewGstRate] = useState<number>(18);
   const [newMinStock, setNewMinStock] = useState<string>('5');
   const [newInitialStock, setNewInitialStock] = useState<string>('0');
+  const [newInventoryAccountId, setNewInventoryAccountId] = useState<number | ''>('');
+  const [newCogsAccountId, setNewCogsAccountId] = useState<number | ''>('');
+  const [newRevenueAccountId, setNewRevenueAccountId] = useState<number | ''>('');
   const [isCreating, setIsCreating] = useState(false);
   const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({});
   const [createFormError, setCreateFormError] = useState<string | null>(null);
@@ -63,12 +82,17 @@ export const ProductsPage: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await productsApi.list();
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const [prodRes, accRes] = await Promise.all([
+        productsApi.list(),
+        accountsApi.list().catch(() => ({ data: [] })),
+      ]);
+      const list = Array.isArray(prodRes?.data) ? prodRes.data : Array.isArray(prodRes) ? prodRes : [];
       setProducts(list.filter(Boolean));
+      const accList = Array.isArray(accRes?.data) ? accRes.data : Array.isArray(accRes) ? accRes : [];
+      setAccounts(accList);
     } catch (err) {
       console.error(err);
-      addToast({ type: 'error', title: 'Error', message: 'Failed to load products.' });
+      addToast({ type: 'error', title: 'Error', message: 'Failed to load products and accounts.' });
     } finally {
       setLoading(false);
     }
@@ -83,6 +107,34 @@ export const ProductsPage: React.FC = () => {
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
+
+  const handleOpenNewModal = () => {
+    setCreateFieldErrors({});
+    setCreateFormError(null);
+    setNewSku('');
+    setNewName('');
+    setNewType('goods');
+    setNewCategorySelect('Chairs');
+    setNewCustomCategory('');
+    setNewHsnSelect('94018000');
+    setNewCustomHsn('');
+    setNewPrice('');
+    setNewCostPrice('');
+    setNewGstRate(18);
+    setNewUnitOfMeasure('unit');
+    setNewMinStock('5');
+    setNewInitialStock('0');
+
+    // Auto-select standard GL accounts
+    const invAcc = accounts.find((a) => a.code === '1130');
+    const cogsAcc = accounts.find((a) => a.code === '5100');
+    const revAcc = accounts.find((a) => a.code === '4100');
+    setNewInventoryAccountId(invAcc?.id || '');
+    setNewCogsAccountId(cogsAcc?.id || '');
+    setNewRevenueAccountId(revAcc?.id || '');
+
+    setIsNewOpen(true);
+  };
 
   const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,9 +191,13 @@ export const ProductsPage: React.FC = () => {
     setCreateFormError(null);
     const errors: Record<string, string> = {};
 
+    const resolvedCategory = newCategorySelect === 'custom' ? newCustomCategory.trim() : newCategorySelect.trim();
+    const resolvedHsn = newHsnSelect === 'custom' ? newCustomHsn.trim() : newHsnSelect.trim();
+
     if (!newSku.trim()) errors.sku = 'SKU Code is required.';
     if (!newName.trim()) errors.name = 'Product name is required.';
-    if (!newCategory.trim()) errors.category = 'Category is required.';
+    if (!resolvedCategory) errors.category = 'Category is required.';
+    if (!resolvedHsn) errors.hsn_code = 'HSN Code is required.';
 
     const costNum = parseFloat(newCostPrice.trim());
     if (!newCostPrice.trim() || isNaN(costNum) || costNum < 0) {
@@ -168,8 +224,9 @@ export const ProductsPage: React.FC = () => {
         sku: newSku.trim(),
         name: newName.trim(),
         type: newType,
-        category: newCategory.trim(),
-        hsn_code: newHsn.trim() || '9403',
+        category: resolvedCategory,
+        hsn_code: resolvedHsn,
+        unit_of_measure: newUnitOfMeasure,
         price: priceNum,
         unit_price: priceNum,
         cost_price: costNum,
@@ -177,22 +234,12 @@ export const ProductsPage: React.FC = () => {
         min_stock_alert: minStockNum,
         minimum_stock: minStockNum,
         current_stock: initStockNum,
+        inventory_account_id: newInventoryAccountId ? Number(newInventoryAccountId) : null,
+        cogs_account_id: newCogsAccountId ? Number(newCogsAccountId) : null,
+        revenue_account_id: newRevenueAccountId ? Number(newRevenueAccountId) : null,
       });
       addToast({ type: 'success', title: 'Product Created', message: `${newName.trim()} added to inventory catalog.` });
       setIsNewOpen(false);
-      // Reset
-      setNewSku('');
-      setNewName('');
-      setNewType('goods');
-      setNewCategory('Chairs');
-      setNewHsn('9403');
-      setNewPrice('');
-      setNewCostPrice('');
-      setNewGstRate(18);
-      setNewMinStock('5');
-      setNewInitialStock('0');
-      setCreateFieldErrors({});
-      setCreateFormError(null);
       fetchProducts();
     } catch (err: any) {
       const formatted = formatApiError(err);
@@ -248,11 +295,7 @@ export const ProductsPage: React.FC = () => {
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => {
-              setCreateFieldErrors({});
-              setCreateFormError(null);
-              setIsNewOpen(true);
-            }}
+            onClick={handleOpenNewModal}
             className="bg-amber-600 hover:bg-amber-500 text-white gap-2 shadow-lg shadow-amber-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -538,260 +581,446 @@ export const ProductsPage: React.FC = () => {
         isOpen={isNewOpen}
         onClose={() => setIsNewOpen(false)}
         zIndex="z-[60]"
-        containerClassName="max-w-lg"
+        containerClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
-            <h3 className="text-base font-bold">Add Product SKU</h3>
-
-            <form onSubmit={handleCreateProduct} className="space-y-4">
-              {createFormError && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                  <span>{createFormError}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    SKU Code <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newSku}
-                    onChange={(e) => {
-                      setNewSku(e.target.value);
-                      if (createFieldErrors.sku) {
-                        setCreateFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.sku;
-                          return next;
-                        });
-                      }
-                    }}
-                    required
-                    placeholder="e.g. OFC-CHR-01"
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white font-mono focus:outline-none ${
-                      createFieldErrors.sku
-                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                        : 'border-neutral-700 focus:border-amber-500'
-                    }`}
-                  />
-                  {createFieldErrors.sku && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.sku}</span>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Product Type</label>
-                  <select
-                    value={newType}
-                    onChange={(e) => setNewType(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white capitalize"
-                  >
-                    <option value="goods">Goods (Stock)</option>
-                    <option value="service">Service</option>
-                    <option value="combo">Combo</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Category <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newCategory}
-                    onChange={(e) => {
-                      setNewCategory(e.target.value);
-                      if (createFieldErrors.category) {
-                        setCreateFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.category;
-                          return next;
-                        });
-                      }
-                    }}
-                    required
-                    placeholder="e.g. Chairs, Tables, Sofas"
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                      createFieldErrors.category
-                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                        : 'border-neutral-700 focus:border-amber-500'
-                    }`}
-                  />
-                  {createFieldErrors.category && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.category}</span>
-                  )}
-                </div>
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <Package className="w-5 h-5" />
               </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Add Product SKU</h3>
+                <p className="text-xs text-neutral-400">
+                  Item classification, GST taxation, margin calculation, and GL accounting.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsNewOpen(false)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
+          <form onSubmit={handleCreateProduct} className="space-y-4">
+            {createFormError && (
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{createFormError}</span>
+              </div>
+            )}
+
+            {/* Row 1: SKU, Type, UOM */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Product Name <span className="text-rose-400">*</span>
+                  SKU Code <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
-                  value={newName}
+                  value={newSku}
                   onChange={(e) => {
-                    setNewName(e.target.value);
-                    if (createFieldErrors.name) {
+                    setNewSku(e.target.value.toUpperCase());
+                    if (createFieldErrors.sku) {
                       setCreateFieldErrors((prev) => {
                         const next = { ...prev };
-                        delete next.name;
+                        delete next.sku;
                         return next;
                       });
                     }
                   }}
                   required
-                  placeholder="e.g. Office Chair, Wooden Table, Sofa, Dining Table"
-                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                    createFieldErrors.name
+                  placeholder="e.g. OFC-CHR-01"
+                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white font-mono focus:outline-none ${
+                    createFieldErrors.sku
                       ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
                       : 'border-neutral-700 focus:border-amber-500'
                   }`}
                 />
-                {createFieldErrors.name && (
-                  <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.name}</span>
+                {createFieldErrors.sku && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.sku}</span>
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">HSN Code</label>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Product Type</label>
+                <select
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white capitalize focus:outline-none focus:border-amber-500"
+                >
+                  <option value="goods">Goods (Stock Item)</option>
+                  <option value="service">Service</option>
+                  <option value="combo">Combo Bundle</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Unit of Measure</label>
+                <select
+                  value={newUnitOfMeasure}
+                  onChange={(e) => setNewUnitOfMeasure(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  {UNITS_OF_MEASURE.map((uom) => (
+                    <option key={uom.value} value={uom.value}>
+                      {uom.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2: Product Name */}
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                Product Name <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  if (createFieldErrors.name) {
+                    setCreateFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.name;
+                      return next;
+                    });
+                  }
+                }}
+                required
+                placeholder="e.g. Executive High-Back Mesh Ergonomic Office Chair"
+                className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                  createFieldErrors.name
+                    ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                    : 'border-neutral-700 focus:border-amber-500'
+                }`}
+              />
+              {createFieldErrors.name && (
+                <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.name}</span>
+              )}
+            </div>
+
+            {/* Row 3: Category & HSN Code */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Furniture Category <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={newCategorySelect}
+                  onChange={(e) => setNewCategorySelect(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  {FURNITURE_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                  <option value="__custom__">+ Custom Category...</option>
+                </select>
+                {newCategorySelect === '__custom__' && (
                   <input
                     type="text"
-                    value={newHsn}
-                    onChange={(e) => setNewHsn(e.target.value)}
+                    value={newCustomCategory}
+                    onChange={(e) => setNewCustomCategory(e.target.value)}
+                    placeholder="Enter custom category name"
+                    className="mt-1.5 w-full px-3 py-1.5 bg-[#1a1a22] border border-amber-500/50 rounded-lg text-xs text-white focus:outline-none"
                     required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono text-center"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Cost Price (₹) <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={newCostPrice}
-                    onChange={(e) => {
-                      setNewCostPrice(e.target.value);
-                      if (createFieldErrors.cost_price) {
-                        setCreateFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.cost_price;
-                          return next;
-                        });
-                      }
-                    }}
-                    required
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white text-right font-mono focus:outline-none ${
-                      createFieldErrors.cost_price
-                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                        : 'border-neutral-700 focus:border-amber-500'
-                    }`}
-                  />
-                  {createFieldErrors.cost_price && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.cost_price}</span>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    Selling Price (₹) <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={newPrice}
-                    onChange={(e) => {
-                      setNewPrice(e.target.value);
-                      if (createFieldErrors.price || createFieldErrors.unit_price) {
-                        setCreateFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.price;
-                          delete next.unit_price;
-                          return next;
-                        });
-                      }
-                    }}
-                    required
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white text-right font-mono focus:outline-none ${
-                      createFieldErrors.price || createFieldErrors.unit_price
-                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                        : 'border-neutral-700 focus:border-amber-500'
-                    }`}
-                  />
-                  {(createFieldErrors.price || createFieldErrors.unit_price) && (
-                    <span className="text-[11px] text-rose-400 mt-1 block">
-                      {createFieldErrors.price || createFieldErrors.unit_price}
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  HSN / GST Code <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={newHsnSelect}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewHsnSelect(val);
+                    const matched = FURNITURE_HSN_CODES.find((h) => h.code === val);
+                    if (matched) {
+                      setNewGstRate(matched.gstRate);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  {FURNITURE_HSN_CODES.map((hsn) => (
+                    <option key={hsn.code} value={hsn.code}>
+                      {hsn.name}
+                    </option>
+                  ))}
+                  <option value="__custom__">+ Custom HSN Code...</option>
+                </select>
+                {newHsnSelect === '__custom__' && (
+                  <input
+                    type="text"
+                    value={newCustomHsn}
+                    onChange={(e) => setNewCustomHsn(e.target.value)}
+                    placeholder="Enter 4-8 digit HSN code"
+                    className="mt-1.5 w-full px-3 py-1.5 bg-[#1a1a22] border border-amber-500/50 rounded-lg text-xs text-white font-mono focus:outline-none"
+                    required
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Row 4: Pricing & Tax Rates */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Cost Price (₹) <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={newCostPrice}
+                  onChange={(e) => {
+                    setNewCostPrice(e.target.value);
+                    if (createFieldErrors.cost_price) {
+                      setCreateFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.cost_price;
+                        return next;
+                      });
+                    }
+                  }}
+                  required
+                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white text-right font-mono focus:outline-none ${
+                    createFieldErrors.cost_price
+                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                      : 'border-neutral-700 focus:border-amber-500'
+                  }`}
+                />
+                {createFieldErrors.cost_price && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.cost_price}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Selling Price (₹) <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={newPrice}
+                  onChange={(e) => {
+                    setNewPrice(e.target.value);
+                    if (createFieldErrors.price || createFieldErrors.unit_price) {
+                      setCreateFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.price;
+                        delete next.unit_price;
+                        return next;
+                      });
+                    }
+                  }}
+                  required
+                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white text-right font-mono focus:outline-none ${
+                    createFieldErrors.price || createFieldErrors.unit_price
+                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                      : 'border-neutral-700 focus:border-amber-500'
+                  }`}
+                />
+                {(createFieldErrors.price || createFieldErrors.unit_price) && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">
+                    {createFieldErrors.price || createFieldErrors.unit_price}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">GST Rate %</label>
+                <select
+                  value={newGstRate}
+                  onChange={(e) => setNewGstRate(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
+                >
+                  <option value="18">18% (Standard Furniture)</option>
+                  <option value="12">12% (Concessional)</option>
+                  <option value="28">28% (Luxury / Metal)</option>
+                  <option value="5">5% (Raw Materials)</option>
+                  <option value="0">0% (Nil / Exempt)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Live Profit & Margin Indicator */}
+            {(() => {
+              const cost = parseFloat(newCostPrice) || 0;
+              const price = parseFloat(newPrice) || 0;
+              if (cost <= 0 && price <= 0) return null;
+              const profit = price - cost;
+              const margin = price > 0 ? ((profit / price) * 100).toFixed(1) : '0.0';
+              const isProfitable = profit >= 0;
+
+              return (
+                <div
+                  className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                    isProfitable
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isProfitable ? (
+                      <TrendingUp className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400" />
+                    )}
+                    <span className="font-medium">
+                      {isProfitable ? 'Unit Margin:' : 'Warning: Below Cost!'}
+                    </span>
+                    <span className="font-mono font-bold">
+                      {profit >= 0 ? `+₹${profit.toFixed(2)}` : `-₹${Math.abs(profit).toFixed(2)}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono">
+                    <span className="text-neutral-400 text-[11px]">Markup:</span>
+                    <span
+                      className={`px-2 py-0.5 rounded font-bold ${
+                        isProfitable
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : 'bg-rose-500/20 text-rose-300'
+                      }`}
+                    >
+                      {margin}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Row 5: Stock Quantities */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Initial Stock on Hand</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={newInitialStock}
+                  onChange={(e) => setNewInitialStock(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Min Stock Alert Threshold</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="5"
+                  value={newMinStock}
+                  onChange={(e) => setNewMinStock(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* General Ledger Account Mapping */}
+            <div className="p-3.5 bg-[#17171e] border border-neutral-800 rounded-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <FolderTree className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-neutral-200">General Ledger Account Routing</span>
+                <span className="text-[10px] text-neutral-500 ml-auto">Automated Double-Entry</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">GST Rate %</label>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Inventory Asset (1130)
+                  </label>
                   <select
-                    value={newGstRate}
-                    onChange={(e) => setNewGstRate(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                    value={newInventoryAccountId}
+                    onChange={(e) => setNewInventoryAccountId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500 truncate"
                   >
-                    <option value="18">18% (Standard Furniture)</option>
-                    <option value="12">12%</option>
-                    <option value="28">28%</option>
-                    <option value="5">5%</option>
-                    <option value="0">0%</option>
+                    <option value="">Default (1130 Merchandise)</option>
+                    {accounts
+                      .filter((a) => a.type === 'asset')
+                      .map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Initial Stock</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={newInitialStock}
-                    onChange={(e) => setNewInitialStock(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Min Stock Alert</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="5"
-                    value={newMinStock}
-                    onChange={(e) => setNewMinStock(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white text-right font-mono focus:border-amber-500 focus:outline-none"
-                  />
-                </div>
-              </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsNewOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isCreating}
-                  className="bg-amber-600 hover:bg-amber-500 text-white font-semibold"
-                >
-                  {isCreating ? 'Creating...' : 'Save Product'}
-                </Button>
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    COGS Expense (5100)
+                  </label>
+                  <select
+                    value={newCogsAccountId}
+                    onChange={(e) => setNewCogsAccountId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500 truncate"
+                  >
+                    <option value="">Default (5100 COGS)</option>
+                    {accounts
+                      .filter((a) => a.type === 'expense')
+                      .map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Sales Revenue (4100)
+                  </label>
+                  <select
+                    value={newRevenueAccountId}
+                    onChange={(e) => setNewRevenueAccountId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500 truncate"
+                  >
+                    <option value="">Default (4100 Sales)</option>
+                    {accounts
+                      .filter((a) => a.type === 'revenue')
+                      .map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
-            </form>
-          </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsNewOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isCreating}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-semibold shadow-md shadow-amber-600/20"
+              >
+                {isCreating ? 'Creating Product...' : 'Save Product SKU'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </PortalModal>
 
       {/* Product Detail Modal */}

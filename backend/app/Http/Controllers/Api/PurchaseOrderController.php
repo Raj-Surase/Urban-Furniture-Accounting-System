@@ -78,6 +78,7 @@ class PurchaseOrderController extends Controller
             'terms_conditions' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
+            'items.*.analytic_account_id' => ['nullable', 'exists:analytic_accounts,id'],
             'items.*.quantity_ordered' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -113,6 +114,7 @@ class PurchaseOrderController extends Controller
 
                 $itemsData[] = [
                     'product_id' => $product->id,
+                    'analytic_account_id' => $item['analytic_account_id'] ?? null,
                     'hsn_code' => $product->hsn_code ?? '94018000',
                     'description' => $product->name,
                     'quantity_ordered' => $qty,

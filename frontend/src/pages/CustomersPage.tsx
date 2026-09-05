@@ -8,8 +8,13 @@ import {
   Phone,
   MapPin,
   AlertCircle,
+  X,
+  CreditCard,
+  FolderTree,
+  ShieldCheck,
+  FileText,
 } from 'lucide-react';
-import { customersApi } from '../lib/api';
+import { customersApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -18,25 +23,37 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import {
+  INDIAN_STATES,
+  PAYMENT_TERMS_OPTIONS,
+  extractPanFromGstin,
+  getStateFromGstin,
+} from '../constants/formOptions';
 
 export const CustomersPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
   const [customers, setCustomers] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Create Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
   const [gstin, setGstin] = useState('');
   const [pan, setPan] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [state, setState] = useState('Maharashtra');
   const [address, setAddress] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [sameShipping, setSameShipping] = useState(true);
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
+  const [creditLimit, setCreditLimit] = useState<string>('500000');
+  const [receivableAccountId, setReceivableAccountId] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -47,8 +64,18 @@ export const CustomersPage: React.FC = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const res = await customersApi.list();
-      setCustomers(res.data || res || []);
+      const [custRes, accRes] = await Promise.all([
+        customersApi.list(),
+        accountsApi.list().catch(() => ({ data: [] })),
+      ]);
+      const list = custRes?.data || custRes || [];
+      setCustomers(Array.isArray(list) ? list : []);
+      const accList = accRes?.data || accRes || [];
+      setAccounts(Array.isArray(accList) ? accList : []);
+      const defaultAr = (Array.isArray(accList) ? accList : []).find((a: any) => a.code === '1120');
+      if (defaultAr && !receivableAccountId) {
+        setReceivableAccountId(defaultAr.id);
+      }
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load customers.' });
@@ -67,14 +94,50 @@ export const CustomersPage: React.FC = () => {
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
+  const resetForm = () => {
+    setName('');
+    setContactPerson('');
+    setGstin('');
+    setPan('');
+    setEmail('');
+    setPhone('');
+    setState('Maharashtra');
+    setAddress('');
+    setShippingAddress('');
+    setSameShipping(true);
+    setPaymentTermsDays(30);
+    setCreditLimit('500000');
+    const defaultAr = accounts.find((a: any) => a.code === '1120');
+    setReceivableAccountId(defaultAr ? defaultAr.id : '');
+    setFieldErrors({});
+    setFormError(null);
+  };
+
+  const handleOpenModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const handleGstinChange = (val: string) => {
+    const upper = val.toUpperCase();
+    setGstin(upper);
+    const extractedState = getStateFromGstin(upper);
+    if (extractedState) {
+      setState(extractedState.name);
+    }
+    const extractedPan = extractPanFromGstin(upper);
+    if (extractedPan) {
+      setPan(extractedPan);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
     const errors: Record<string, string> = {};
 
-    if (!name.trim()) errors.name = 'Contact name is required.';
-    if (!companyName.trim()) errors.company_name = 'Company name is required.';
-    if (!state.trim()) errors.state = 'State is required.';
+    if (!name.trim()) errors.name = 'Client or Company name is required.';
+    if (!state.trim()) errors.state = 'State selection is required.';
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -86,26 +149,21 @@ export const CustomersPage: React.FC = () => {
       setIsSubmitting(true);
       await customersApi.create({
         name: name.trim(),
-        company_name: companyName.trim(),
-        gstin: gstin.trim(),
-        pan: pan.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
+        contact_person: contactPerson.trim() || undefined,
+        gstin: gstin.trim() || undefined,
+        pan: pan.trim() || undefined,
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
         state: state.trim(),
-        billing_address: address.trim(),
+        billing_address: address.trim() || undefined,
+        shipping_address: sameShipping ? (address.trim() || undefined) : (shippingAddress.trim() || undefined),
+        payment_terms_days: paymentTermsDays,
+        credit_limit: creditLimit ? parseFloat(creditLimit) : 500000,
+        receivable_account_id: receivableAccountId ? Number(receivableAccountId) : undefined,
       });
       addToast({ type: 'success', title: 'Customer Added', message: `${name.trim()} has been added.` });
       setIsModalOpen(false);
-      setName('');
-      setCompanyName('');
-      setGstin('');
-      setPan('');
-      setEmail('');
-      setPhone('');
-      setState('Maharashtra');
-      setAddress('');
-      setFieldErrors({});
-      setFormError(null);
+      resetForm();
       fetchCustomers();
     } catch (err: any) {
       const formatted = formatApiError(err);
@@ -126,7 +184,7 @@ export const CustomersPage: React.FC = () => {
   const filtered = customers.filter(
     (c) =>
       c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.gstin?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -145,11 +203,7 @@ export const CustomersPage: React.FC = () => {
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => {
-              setFieldErrors({});
-              setFormError(null);
-              setIsModalOpen(true);
-            }}
+            onClick={handleOpenModal}
             className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 shadow-lg shadow-emerald-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -238,10 +292,31 @@ export const CustomersPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         zIndex="z-[60]"
-        maxWidth="max-w-lg"
+        containerClassName="max-w-2xl max-h-[90vh] overflow-y-auto"
       >
-        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
-          <h3 className="text-base font-bold">Add Customer Account</h3>
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Add Customer Account</h3>
+                <p className="text-xs text-neutral-400">
+                  Client profile, GST place of supply, commercial credit terms, and receivable ledger.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           <form onSubmit={handleCreate} className="space-y-4">
             {formError && (
               <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
@@ -250,10 +325,11 @@ export const CustomersPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 1: Company Name & Contact Person */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Contact Name <span className="text-rose-400">*</span>
+                  Customer / Corporate Entity Name <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -269,7 +345,7 @@ export const CustomersPage: React.FC = () => {
                     }
                   }}
                   required
-                  placeholder="e.g. Nimesh Pathak"
+                  placeholder="e.g. Acme Commercial Workspace Ltd"
                   className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
                     fieldErrors.name
                       ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
@@ -280,90 +356,44 @@ export const CustomersPage: React.FC = () => {
                   <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.name}</span>
                 )}
               </div>
+
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  Company / Entity Name <span className="text-rose-400">*</span>
+                  Primary Contact Person
                 </label>
                 <input
                   type="text"
-                  value={companyName}
-                  onChange={(e) => {
-                    setCompanyName(e.target.value);
-                    if (fieldErrors.company_name) {
-                      setFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.company_name;
-                        return next;
-                      });
-                    }
-                  }}
-                  required
-                  placeholder="e.g. Pathak Design Studio"
-                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                    fieldErrors.company_name
-                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                      : 'border-neutral-700 focus:border-emerald-500'
-                  }`}
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
+                  placeholder="e.g. Nimesh Pathak (Procurement Head)"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
-                {fieldErrors.company_name && (
-                  <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.company_name}</span>
-                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: GSTIN & State Selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">GSTIN</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-neutral-300">
+                    GSTIN (GST Number)
+                  </label>
+                  <span className="text-[10.5px] text-emerald-400 font-mono">Auto-detects State & PAN</span>
+                </div>
                 <input
                   type="text"
                   placeholder="e.g. 27ABCDE1234F1Z5"
                   value={gstin}
-                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
+                  onChange={(e) => handleGstinChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono uppercase focus:border-emerald-500 focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">PAN</label>
-                <input
-                  type="text"
-                  placeholder="e.g. ABCDE1234F"
-                  value={pan}
-                  onChange={(e) => setPan(e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. nimesh.pathak@example.com"
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. +91 98200 12345"
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  State <span className="text-rose-400">*</span>
+                  State / Place of Supply <span className="text-rose-400">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={state}
                   onChange={(e) => {
                     setState(e.target.value);
@@ -375,31 +405,161 @@ export const CustomersPage: React.FC = () => {
                       });
                     }
                   }}
-                  required
-                  placeholder="e.g. Maharashtra"
-                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                    fieldErrors.state
-                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                      : 'border-neutral-700 focus:border-emerald-500'
-                  }`}
-                />
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {INDIAN_STATES.map((st) => (
+                    <option key={st.code} value={st.name}>
+                      {st.code} - {st.name}
+                    </option>
+                  ))}
+                </select>
                 {fieldErrors.state && (
                   <span className="text-[11px] text-rose-400 mt-1 block">{fieldErrors.state}</span>
                 )}
               </div>
+            </div>
+
+            {/* Auto-extracted PAN Banner */}
+            {(pan || gstin) && (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>GST Tax Verification:</span>
+                  <span className="font-mono font-bold">{state}</span>
+                </div>
+                <div className="font-mono text-neutral-300 text-[11px]">
+                  PAN: <span className="text-white font-bold">{pan || 'Auto from GSTIN'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Row 3: Email & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. accounts@acme.com"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone Number</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +91 98200 12345"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Row 4: Addresses */}
+            <div className="space-y-2">
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">Billing Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. Suite 402, High Street Phoenix, Lower Parel, Mumbai"
+                  placeholder="e.g. Suite 402, High Street Phoenix, Lower Parel, Mumbai, Maharashtra 400013"
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="sameShippingCheck"
+                  checked={sameShipping}
+                  onChange={(e) => setSameShipping(e.target.checked)}
+                  className="rounded border-neutral-700 text-emerald-600 focus:ring-emerald-500 bg-[#1a1a22]"
+                />
+                <label htmlFor="sameShippingCheck" className="text-xs text-neutral-300 cursor-pointer">
+                  Delivery / site shipping address is same as billing address
+                </label>
+              </div>
+
+              {!sameShipping && (
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Shipping / Site Address</label>
+                  <input
+                    type="text"
+                    value={shippingAddress}
+                    onChange={(e) => setShippingAddress(e.target.value)}
+                    placeholder="e.g. Floor 3, Building B, Nesco IT Park, Goregaon East, Mumbai"
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Commercial Credit Terms & GL Accounts */}
+            <div className="p-3.5 bg-[#17171e] border border-neutral-800 rounded-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <FolderTree className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-neutral-200">Commercial Credit Terms & General Ledger</span>
+                <span className="text-[10px] text-neutral-500 ml-auto">Accounts Receivable Routing</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Payment Terms
+                  </label>
+                  <select
+                    value={paymentTermsDays}
+                    onChange={(e) => setPaymentTermsDays(Number(e.target.value))}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    {PAYMENT_TERMS_OPTIONS.map((pt) => (
+                      <option key={pt.days} value={pt.days}>
+                        {pt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Credit Limit (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="5000"
+                    value={creditLimit}
+                    onChange={(e) => setCreditLimit(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono text-right focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-neutral-400 block mb-1">
+                    Receivable Ledger (1120)
+                  </label>
+                  <select
+                    value={receivableAccountId}
+                    onChange={(e) => setReceivableAccountId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-2.5 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500 truncate"
+                  >
+                    <option value="">Default (1120 Accounts Receivable)</option>
+                    {accounts
+                      .filter((a) => a.type === 'asset')
+                      .map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.code} - {acc.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/[0.06]">
               <Button
                 type="button"
                 variant="outline"
@@ -413,9 +573,9 @@ export const CustomersPage: React.FC = () => {
                 type="submit"
                 size="sm"
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-600/20"
               >
-                {isSubmitting ? 'Adding...' : 'Save Customer'}
+                {isSubmitting ? 'Creating Customer...' : 'Save Customer Account'}
               </Button>
             </div>
           </form>

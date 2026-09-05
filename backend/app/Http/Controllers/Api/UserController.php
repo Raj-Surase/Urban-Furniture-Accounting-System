@@ -153,6 +153,57 @@ class UserController extends Controller
     }
 
     /**
+     * Create user matching Excalidraw Create User page.
+     * Roles: user, admin, accountant.
+     */
+    public function createUser(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'login_id' => ['required', 'string', 'min:6', 'max:12', 'unique:users,login_id'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['required', 'string', 'in:user,admin,accountant,manager'],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[@$!%*?&#^()_+={}\[\]:;"\'<>,.\/\\|~`-]/',
+            ],
+            're_enter_password' => ['required', 'same:password'],
+        ], [
+            'login_id.min' => 'Login Id must be between 6-12 characters.',
+            'login_id.max' => 'Login Id must be between 6-12 characters.',
+            'login_id.unique' => 'Login Id should be unique.',
+            'email.unique' => 'Email should not be a duplicate in database.',
+            'password.regex' => 'Password must contain a small case, a large case and a special character.',
+            'password.min' => 'Password length must have more than 8 characters.',
+            're_enter_password.same' => 'Passwords do not match.',
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'login_id' => $validated['login_id'],
+            'email' => $validated['email'],
+            'role' => $validated['role'],
+            'password' => \Illuminate\Support\Facades\Hash::make($validated['password']),
+        ]);
+
+        return response()->json([
+            'message' => 'User created successfully',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'login_id' => $user->login_id,
+                'email' => $user->email,
+                'role' => $user->role,
+                'created_at' => $user->created_at,
+            ],
+        ], 201);
+    }
+
+    /**
      * Return the complete RBAC matrix definition.
      */
     public function matrix(Request $request): JsonResponse

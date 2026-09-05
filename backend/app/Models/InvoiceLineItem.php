@@ -14,6 +14,7 @@ class InvoiceLineItem extends Model
         "invoice_id",
         "product_id",
         "account_id",
+        "analytic_account_id",
         "hsn_code",
         "description",
         "quantity",
@@ -44,6 +45,11 @@ class InvoiceLineItem extends Model
         "tax_amount" => "decimal:2",
         "line_total" => "decimal:2",
     ];
+
+    public function analyticAccount(): BelongsTo
+    {
+        return $this->belongsTo(AnalyticAccount::class);
+    }
 
     public function invoice(): BelongsTo
     {
