@@ -15,6 +15,8 @@ interface Contact {
   state?: string;
   country?: string;
   pincode?: string;
+  gstin?: string;
+  pan?: string;
   image?: string;
 }
 
@@ -37,6 +39,8 @@ export const ContactsPage: React.FC = () => {
     state: 'Maharashtra',
     country: 'India',
     pincode: '',
+    gstin: '',
+    pan: '',
     image: '',
   });
   const [formError, setFormError] = useState<string | null>(null);
@@ -74,6 +78,8 @@ export const ContactsPage: React.FC = () => {
         state: contact.state || 'Maharashtra',
         country: contact.country || 'India',
         pincode: contact.pincode || '',
+        gstin: contact.gstin || '',
+        pan: contact.pan || '',
         image: contact.image || '',
       });
     } else {
@@ -88,6 +94,8 @@ export const ContactsPage: React.FC = () => {
         state: 'Maharashtra',
         country: 'India',
         pincode: '',
+        gstin: '',
+        pan: '',
         image: '',
       });
     }
@@ -302,6 +310,41 @@ export const ContactsPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Statutory & Tax Details */}
+              <div className="pt-2">
+                <h3 className="text-xs font-bold text-[#c084fc] uppercase tracking-wider mb-3">
+                  Tax & Identification
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                      GSTIN (15 characters)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={15}
+                      value={formData.gstin}
+                      onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                      placeholder="27ABCDE1234F1Z5"
+                      className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-[#7042f4]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                      PAN Number (10 characters)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={formData.pan}
+                      onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                      placeholder="ABCDE1234F"
+                      className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white font-mono uppercase focus:outline-none focus:border-[#7042f4]"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right 1 Col: Image / Avatar Card */}
@@ -360,6 +403,11 @@ export const ContactsPage: React.FC = () => {
                     <span>{c.phone}</span>
                   </div>
                 )}
+                {c.gstin && (
+                  <div className="flex items-center gap-2 truncate font-mono text-[10px] text-[#c084fc]">
+                    <span>GSTIN: {c.gstin}</span>
+                  </div>
+                )}
                 {c.city && (
                   <div className="flex items-center gap-2 truncate">
                     <MapPin className="w-3.5 h-3.5 text-amber-400" />
@@ -382,6 +430,7 @@ export const ContactsPage: React.FC = () => {
                   <th className="py-3.5 px-4">Contact Name</th>
                   <th className="py-3.5 px-4">Email</th>
                   <th className="py-3.5 px-4">Phone</th>
+                  <th className="py-3.5 px-4">GSTIN</th>
                   <th className="py-3.5 px-4">Type</th>
                 </tr>
               </thead>
@@ -403,6 +452,7 @@ export const ContactsPage: React.FC = () => {
                     <td className="py-3 px-4 font-semibold text-white">{c.name}</td>
                     <td className="py-3 px-4 text-[#a0a0b0]">{c.email}</td>
                     <td className="py-3 px-4 text-[#a0a0b0]">{c.phone || '—'}</td>
+                    <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                         c.contact_type === 'customer'

@@ -89,7 +89,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               <DropdownTrigger>
                 <button
                   className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/sales-orders', '/invoices'])
+                    isModuleActive(['/sales-orders', '/invoices']) || (location.pathname === '/payments' && location.search.includes('receive'))
                       ? 'bg-white text-black font-semibold shadow-sm'
                       : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
                   }`}
@@ -134,7 +134,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               <DropdownTrigger>
                 <button
                   className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/purchase-orders', '/bills'])
+                    isModuleActive(['/purchase-orders', '/bills']) || (location.pathname === '/payments' && !location.search.includes('receive'))
                       ? 'bg-white text-black font-semibold shadow-sm'
                       : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
                   }`}
@@ -179,7 +179,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               <DropdownTrigger>
                 <button
                   className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/contacts', '/products', '/analyticals', '/budgets', '/accounts', '/journals', '/journal'])
+                    isModuleActive(['/contacts', '/products', '/accounts', '/journals', '/journal', '/analyticals', '/budgets'])
                       ? 'bg-white text-black font-semibold shadow-sm'
                       : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
                   }`}
@@ -256,7 +256,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               <DropdownTrigger>
                 <button
                   className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/reports', '/reports/balance-sheet', '/reports/profit-loss', '/reports/budget'])
+                    isModuleActive(['/reports'])
                       ? 'bg-white text-black font-semibold shadow-sm'
                       : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
                   }`}
@@ -497,11 +497,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
                   <div className="pl-2 space-y-1">
                     <Link to="/contacts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Contact</Link>
                     <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Product</Link>
-                    <Link to="/analyticals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analyticals</Link>
-                    <Link to="/budgets" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analytical Budget</Link>
                     <Link to="/accounts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Chart of Account</Link>
                     <Link to="/journals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journals</Link>
                     <Link to="/journal" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journal Entries</Link>
+                    <Link to="/analyticals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analyticals</Link>
+                    <Link to="/budgets" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analytical Budget</Link>
                   </div>
                 </div>
 

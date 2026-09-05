@@ -16,7 +16,6 @@ import { formatApiError } from '../lib/errorHandler';
 import { PageTransition } from '../components/layout/PageTransition';
 import { Logo } from '../components/common/Logo';
 import {
-  UserPlus,
   ArrowRight,
   User,
   Mail,
@@ -31,7 +30,6 @@ export const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState('user');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});

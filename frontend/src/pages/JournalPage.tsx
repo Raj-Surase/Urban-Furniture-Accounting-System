@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Wand2,
 } from 'lucide-react';
-import { journalApi, accountsApi } from '../lib/api';
+import { journalApi, accountsApi, journalsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
@@ -73,12 +73,14 @@ export const JournalPage: React.FC = () => {
 
   const [entries, setEntries] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [journals, setJournals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Record<number, boolean>>({});
 
   // New Journal Entry Modal
   const [isNewOpen, setIsNewOpen] = useState(false);
+  const [journalId, setJournalId] = useState<number | ''>('');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
@@ -96,9 +98,16 @@ export const JournalPage: React.FC = () => {
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const [jRes, accRes] = await Promise.all([journalApi.list(), accountsApi.list()]);
-      setEntries(jRes.data || jRes || []);
+      const [jRes, accRes, journalsRes] = await Promise.all([
+        journalApi.list(),
+        accountsApi.list(),
+        journalsApi.list().catch(() => ({ data: [] })),
+      ]);
+      const entryList = Array.isArray(jRes?.data) ? jRes.data : Array.isArray(jRes) ? jRes : [];
+      setEntries(entryList);
       setAccounts(accRes.data || accRes || []);
+      const jList = Array.isArray(journalsRes?.data) ? journalsRes.data : Array.isArray(journalsRes) ? journalsRes : [];
+      setJournals(jList);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load journal entries.' });
@@ -228,6 +237,7 @@ export const JournalPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       await journalApi.create({
+        journal_id: journalId ? Number(journalId) : undefined,
         posting_date: entryDate,
         entry_date: entryDate,
         reference_number: reference,
@@ -247,6 +257,9 @@ export const JournalPage: React.FC = () => {
         message: 'Balanced double-entry journal posted to General Ledger.',
       });
       setIsNewOpen(false);
+      setJournalId('');
+      setReference('');
+      setDescription('');
       setLines([
         { account_id: '', debit: 0, credit: 0, description: '' },
         { account_id: '', debit: 0, credit: 0, description: '' },
@@ -310,6 +323,7 @@ export const JournalPage: React.FC = () => {
               <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
                 <th className="py-3 px-4 w-10"></th>
                 <th className="py-3 px-4">Entry Number</th>
+                <th className="py-3 px-4">Journal</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">Narration / Description</th>
                 <th className="py-3 px-4">Origin / Source</th>
@@ -321,10 +335,10 @@ export const JournalPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <TableSkeleton columns={9} rows={6} />
+                <TableSkeleton columns={10} rows={6} />
               ) : filteredEntries.length === 0 ? (
                 <EmptyState
-                  colSpan={9}
+                  colSpan={10}
                   icon={FileCode2}
                   title="No journal entries recorded"
                   description={
@@ -360,6 +374,11 @@ export const JournalPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-indigo-400 group-hover:underline">
                           {je.entry_number}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                            {je.journal?.name || 'General'}
+                          </span>
                         </td>
                         <td className="py-3 px-4 text-neutral-400">{je.posting_date || je.entry_date}</td>
                         <td className="py-3 px-4 text-neutral-200">
@@ -406,7 +425,7 @@ export const JournalPage: React.FC = () => {
                       {/* Expanded Sub-lines */}
                       {isExpanded && (
                         <tr className="bg-[#121218] border-b border-white/[0.04]">
-                          <td colSpan={9} className="p-4 pl-12">
+                          <td colSpan={10} className="p-4 pl-12">
                             <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
                               <table className="w-full text-left text-xs">
                                 <thead>
@@ -508,7 +527,23 @@ export const JournalPage: React.FC = () => {
           </div>
 
           <form onSubmit={handleCreateEntry} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Journal Registry</label>
+                <select
+                  value={journalId}
+                  onChange={(e) => setJournalId(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                >
+                  <option value="">General / Operations</option>
+                  {journals.map((j) => (
+                    <option key={j.id} value={j.id}>
+                      {j.name} ({j.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">Entry / Posting Date</label>
                 <input
@@ -524,7 +559,7 @@ export const JournalPage: React.FC = () => {
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / Document #</label>
                 <input
                   type="text"
-                  placeholder="e.g. JV-2026-004, Cheque #8812, or Debit Note #12"
+                  placeholder="e.g. JV-2026-004, Cheque #8812"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"

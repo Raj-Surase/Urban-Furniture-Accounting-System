@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, ArrowLeft, ShieldCheck, Calendar, Scale } from 'lucide-react';
+import { Printer, ArrowLeft, ShieldCheck, Calendar, Scale, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../lib/api';
+import { exportBalanceSheetPdf } from '../components/pdf/ReportPdfGenerator';
 
 export const BalanceSheetReportPage: React.FC = () => {
   const navigate = useNavigate();
-  const [fiscalYear, setFiscalYear] = useState<string>('2026');
+  const currentYear = new Date().getFullYear();
+  const [asOfDate, setAsOfDate] = useState<string>(`${currentYear}-12-31`);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -14,7 +16,7 @@ export const BalanceSheetReportPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await reportsApi.getBalanceSheet({
-        to_date: `${fiscalYear}-12-31`,
+        to_date: asOfDate,
       });
       setData(res);
     } catch (err) {
@@ -26,10 +28,16 @@ export const BalanceSheetReportPage: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [fiscalYear]);
+  }, [asOfDate]);
 
   const handlePrint = () => {
-    window.print();
+    if (data) {
+      exportBalanceSheetPdf(data, {
+        toDate: asOfDate,
+      });
+    } else {
+      window.print();
+    }
   };
 
   const assets = data?.assets || [];
@@ -38,13 +46,13 @@ export const BalanceSheetReportPage: React.FC = () => {
 
   // Group assets into Bank, Cash, Debtors matching Excalidraw
   const bankAssets = assets.filter((a: any) =>
-    a.name.toLowerCase().includes('bank') || a.code === '1111'
+    a.sub_type === 'cash_bank' || a.name.toLowerCase().includes('bank') || a.code === '1111'
   );
   const cashAssets = assets.filter((a: any) =>
     a.name.toLowerCase().includes('cash') || a.code === '1112'
   );
   const debtorAssets = assets.filter((a: any) =>
-    a.name.toLowerCase().includes('debtor') || a.name.toLowerCase().includes('receivable') || a.code === '1120' || a.code === '1121'
+    a.sub_type === 'receivable' || a.name.toLowerCase().includes('debtor') || a.name.toLowerCase().includes('receivable') || a.code === '1120' || a.code === '1121'
   );
   const otherAssets = assets.filter((a: any) =>
     !bankAssets.includes(a) && !cashAssets.includes(a) && !debtorAssets.includes(a)
@@ -52,7 +60,7 @@ export const BalanceSheetReportPage: React.FC = () => {
 
   // Group liabilities into Creditors and Capital
   const creditorLiab = liabilities.filter((l: any) =>
-    l.name.toLowerCase().includes('creditor') || l.name.toLowerCase().includes('payable') || l.code === '2110' || l.code === '2111'
+    l.sub_type === 'payable' || l.name.toLowerCase().includes('creditor') || l.name.toLowerCase().includes('payable') || l.code === '2110' || l.code === '2111'
   );
   const otherLiab = liabilities.filter((l: any) => !creditorLiab.includes(l));
 
@@ -67,7 +75,7 @@ export const BalanceSheetReportPage: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Top Header Controls matching Excalidraw: Back, Year, Print */}
+      {/* Top Header Controls matching Excalidraw: Back, Date, Print */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#18181f]/90 border border-white/[0.08] p-5 rounded-2xl shadow-obsidian-card print:hidden">
         <div className="flex items-center gap-3">
           <button
@@ -88,24 +96,29 @@ export const BalanceSheetReportPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Year selector matching Excalidraw 2026 */}
+          {/* As of Date picker */}
           <div className="flex items-center gap-2 bg-[#121216] border border-white/[0.08] px-3 py-1.5 rounded-xl text-xs text-white">
-            <Calendar className="w-3.5 h-3.5 text-[#7042f4]" />
-            <select
-              value={fiscalYear}
-              onChange={(e) => setFiscalYear(e.target.value)}
-              className="bg-transparent font-bold focus:outline-none cursor-pointer"
-            >
-              <option value="2026" className="bg-[#121216]">2026</option>
-              <option value="2025" className="bg-[#121216]">2025</option>
-              <option value="2027" className="bg-[#121216]">2027</option>
-            </select>
+            <span className="text-[10px] uppercase text-[#707080] font-semibold">As of</span>
+            <input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value)}
+              className="bg-transparent font-mono text-white text-xs focus:outline-none cursor-pointer"
+            />
           </div>
+
+          <button
+            onClick={fetchReport}
+            className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
+            title="Refresh Report"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
 
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-lg shadow-[#7042f4]/25 transition-all cursor-pointer"
-            title="Pdf download on click"
+            title="Export and Print PDF"
           >
             <Printer className="w-4 h-4" />
             <span>Print PDF</span>
@@ -124,7 +137,7 @@ export const BalanceSheetReportPage: React.FC = () => {
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">Statement of Financial Position</h2>
             <p className="text-xs text-[#8a8a9a] mt-1">
-              Urban Furniture Platform • As of December 31, {fiscalYear}
+              Urban Furniture Platform • As of {asOfDate}
             </p>
           </div>
           <div className="text-right">

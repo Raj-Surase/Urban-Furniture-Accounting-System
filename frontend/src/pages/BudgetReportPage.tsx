@@ -47,8 +47,8 @@ const DonutChart: React.FC<DonutProps> = ({
       viewBox={`0 0 ${size} ${size}`}
       className={onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}
       onClick={onClick}
-      title="Click to view detail"
     >
+      <title>Click to view detail</title>
       {/* Track */}
       <circle
         cx={center}

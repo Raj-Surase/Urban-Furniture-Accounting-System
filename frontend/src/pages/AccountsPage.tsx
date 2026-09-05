@@ -47,6 +47,37 @@ export const AccountsPage: React.FC = () => {
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
 
+  // Inline Ledger Drilldown State
+  const [expandedLedgerId, setExpandedLedgerId] = useState<number | null>(null);
+  const [expandedLedgerLines, setExpandedLedgerLines] = useState<any[]>([]);
+  const [expandedLedgerLoading, setExpandedLedgerLoading] = useState(false);
+
+  const handleToggleExpandLedger = async (acc: any) => {
+    if (expandedLedgerId === acc.id) {
+      setExpandedLedgerId(null);
+      return;
+    }
+    setExpandedLedgerId(acc.id);
+    setExpandedLedgerLines([]);
+    try {
+      setExpandedLedgerLoading(true);
+      const res = await accountsApi.getLedger(acc.id);
+      const raw =
+        res?.ledger?.data ??
+        res?.ledger ??
+        res?.data ??
+        res?.lines ??
+        res ??
+        [];
+      setExpandedLedgerLines(Array.isArray(raw) ? raw : []);
+    } catch (err) {
+      console.error(err);
+      setExpandedLedgerLines([]);
+    } finally {
+      setExpandedLedgerLoading(false);
+    }
+  };
+
   // New Account Modal State
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [creationMode, setCreationMode] = useState<'custom' | 'preset'>('custom');
@@ -231,6 +262,31 @@ export const AccountsPage: React.FC = () => {
     return matchesSearch && matchesType;
   });
 
+  const typeOrderMap: Record<string, number> = {
+    asset: 1,
+    liability: 2,
+    equity: 3,
+    revenue: 4,
+    expense: 5,
+  };
+
+  const typeMeta: Record<string, { label: string; range: string; color: string; badge: string }> = {
+    asset: { label: 'Assets', range: '1000 - 1999', color: 'text-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    liability: { label: 'Liabilities & Statutory GST', range: '2000 - 2999', color: 'text-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    equity: { label: 'Equity & Capital Reserves', range: '3000 - 3999', color: 'text-purple-400', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+    revenue: { label: 'Revenue & Operating Income', range: '4000 - 4999', color: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    expense: { label: 'Cost of Goods Sold & Expenses', range: '5000 - 5999', color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
+  };
+
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+    const tA = typeOrderMap[a.type] || 99;
+    const tB = typeOrderMap[b.type] || 99;
+    if (tA !== tB) return tA - tB;
+    return String(a.code || '').localeCompare(String(b.code || ''));
+  });
+
+  let lastAccountType = '';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -299,7 +355,7 @@ export const AccountsPage: React.FC = () => {
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton columns={6} rows={6} />
-              ) : filteredAccounts.length === 0 ? (
+              ) : sortedAccounts.length === 0 ? (
                 <EmptyState
                   colSpan={6}
                   icon={BookOpen}
@@ -313,55 +369,175 @@ export const AccountsPage: React.FC = () => {
                   onAction={isAdmin || isManager ? handleOpenNewModal : undefined}
                 />
               ) : (
-                filteredAccounts.map((acc) => (
-                  <tr
-                    key={acc.id}
-                    onClick={() => handleOpenLedger(acc)}
-                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                  >
-                    <td className="py-3 px-4 font-mono font-bold text-purple-400 group-hover:underline">{acc.code}</td>
-                    <td className="py-3 px-4 font-semibold text-white">
-                      {acc.name}
-                      {acc.description && (
-                        <span className="block text-[10px] text-neutral-500 font-normal">
-                          {acc.description}
-                        </span>
+                sortedAccounts.map((acc) => {
+                  const isNewGroup = acc.type !== lastAccountType;
+                  if (isNewGroup) {
+                    lastAccountType = acc.type;
+                  }
+                  const isExpanded = expandedLedgerId === acc.id;
+
+                  return (
+                    <React.Fragment key={acc.id}>
+                      {isNewGroup && (
+                        <tr className="bg-[#181822] border-y border-white/[0.08]">
+                          <td colSpan={6} className="py-2.5 px-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${typeMeta[acc.type]?.badge || ''}`}>
+                                  {typeMeta[acc.type]?.label || acc.type}
+                                </span>
+                                <span className="text-[10px] font-mono text-neutral-400">
+                                  {typeMeta[acc.type]?.range}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-neutral-500 font-medium">
+                                {sortedAccounts.filter((a) => a.type === acc.type).length} accounts
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          acc.type === 'asset'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : acc.type === 'liability'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : acc.type === 'equity'
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                            : acc.type === 'revenue'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                      <tr
+                        onClick={() => handleToggleExpandLedger(acc)}
+                        className={`hover:bg-white/[0.04] transition-colors cursor-pointer group ${
+                          isExpanded ? 'bg-purple-950/20' : ''
                         }`}
                       >
-                        {acc.type}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center font-mono text-neutral-400 uppercase text-[10px]">
-                      {acc.type === 'asset' || acc.type === 'expense' ? 'Debit' : 'Credit'}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                      ₹{Number(acc.current_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleOpenLedger(acc)}
-                        className="px-2 py-1 rounded bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Ledger View
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        <td className="py-3 px-4 font-mono font-bold text-purple-400 group-hover:underline">
+                          {acc.code}
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white">
+                          <div className="flex items-center gap-2">
+                            <span>{acc.name}</span>
+                            {isExpanded && (
+                              <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+                                Ledger Open
+                              </span>
+                            )}
+                          </div>
+                          {acc.description && (
+                            <span className="block text-[10px] text-neutral-500 font-normal">
+                              {acc.description}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              acc.type === 'asset'
+                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                : acc.type === 'liability'
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                : acc.type === 'equity'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                : acc.type === 'revenue'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}
+                          >
+                            {acc.type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-neutral-400 uppercase text-[10px]">
+                          {acc.type === 'asset' || acc.type === 'expense' ? 'Debit' : 'Credit'}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                          ₹{Number(acc.current_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => handleToggleExpandLedger(acc)}
+                              className="px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.1] text-neutral-300 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                              title="Toggle inline ledger"
+                            >
+                              {isExpanded ? 'Collapse' : 'Drilldown'}
+                            </button>
+                            <button
+                              onClick={() => handleOpenLedger(acc)}
+                              className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                              title="Open Full Ledger Modal"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Inline Expanded Ledger View */}
+                      {isExpanded && (
+                        <tr className="bg-[#121218]">
+                          <td colSpan={6} className="p-4 border-y border-purple-500/20">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-white font-mono">
+                                    Ledger: {acc.code} — {acc.name}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-400">
+                                    Normal Balance: {acc.type === 'asset' || acc.type === 'expense' ? 'Debit' : 'Credit'}
+                                  </span>
+                                </div>
+                                <div className="text-xs font-mono font-bold text-white">
+                                  Ending Balance: ₹{Number(acc.current_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </div>
+                              </div>
+
+                              {expandedLedgerLoading ? (
+                                <div className="py-4 text-center text-xs text-neutral-400">Loading ledger entries…</div>
+                              ) : expandedLedgerLines.length === 0 ? (
+                                <div className="py-4 text-center text-xs text-neutral-500">
+                                  No transaction journal lines found for this account.
+                                </div>
+                              ) : (
+                                <div className="max-h-64 overflow-y-auto rounded-xl border border-white/[0.06]">
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="bg-[#161620] text-[10px] text-neutral-400 uppercase font-bold sticky top-0">
+                                      <tr>
+                                        <th className="py-2 px-3">Date</th>
+                                        <th className="py-2 px-3">Entry #</th>
+                                        <th className="py-2 px-3">Description</th>
+                                        <th className="py-2 px-3 text-right">Debit (₹)</th>
+                                        <th className="py-2 px-3 text-right">Credit (₹)</th>
+                                        <th className="py-2 px-3 text-right">Running (₹)</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/[0.04]">
+                                      {expandedLedgerLines.map((line, idx) => (
+                                        <tr key={line.id || idx} className="hover:bg-white/[0.02]">
+                                          <td className="py-1.5 px-3 font-mono text-neutral-400 text-[11px]">
+                                            {line.journal_entry?.posting_date
+                                              ? String(line.journal_entry.posting_date).slice(0, 10)
+                                              : line.entry_date || (line.created_at ? String(line.created_at).slice(0, 10) : '-')}
+                                          </td>
+                                          <td className="py-1.5 px-3 font-mono text-purple-300">
+                                            {line.journal_entry?.entry_number || line.reference || '-'}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-neutral-300">
+                                            {line.description || line.journal_entry?.description || '-'}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-right font-mono text-neutral-200">
+                                            {Number(line.debit) > 0 ? `₹${Number(line.debit).toLocaleString('en-IN')}` : '-'}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-right font-mono text-neutral-200">
+                                            {Number(line.credit) > 0 ? `₹${Number(line.credit).toLocaleString('en-IN')}` : '-'}
+                                          </td>
+                                          <td className="py-1.5 px-3 text-right font-mono font-bold text-white">
+                                            ₹{Number(line.running_balance || 0).toLocaleString('en-IN')}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>

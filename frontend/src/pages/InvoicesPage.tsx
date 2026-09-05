@@ -755,7 +755,7 @@ export const InvoicesPage: React.FC = () => {
                             </button>
                           )}
 
-                          {/* Record Payment Button */}
+                          {/* Record Payment / Receipt Button */}
                           {inv.status === 'approved' && (inv.balance_due === undefined || inv.balance_due > 0) && (
                             <button
                               onClick={(e) => {
@@ -767,9 +767,9 @@ export const InvoicesPage: React.FC = () => {
                                 setIsPayModalOpen(true);
                               }}
                               className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
-                              title="Record Payment & Reconcile"
+                              title={inv.invoice_type === 'vendor' ? 'Record Vendor Payment' : 'Register Customer Receipt & Reconcile'}
                             >
-                              Pay
+                              {inv.invoice_type === 'vendor' ? 'Pay Bill' : 'Receipt'}
                             </button>
                           )}
 
@@ -1514,7 +1514,7 @@ export const InvoicesPage: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <CreditCard className="w-3.5 h-3.5" />
-                    Record Payment
+                    {detailInvoice.invoice_type === 'vendor' ? 'Record Payment' : 'Register Receipt'}
                   </button>
                 )}
 

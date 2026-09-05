@@ -105,8 +105,33 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
-  // Deep linking and navigation support (Record Payment from Dashboard / Transactions)
+  // Deep linking and navigation support (Record Payment from Dashboard / Transactions / Invoices)
   useEffect(() => {
+    const typeParam = searchParams.get('type');
+    if (typeParam === 'receive' || typeParam === 'customer_receipt') {
+      setPaymentType('customer_receipt');
+      setTypeFilter('customer_receipt');
+    } else if (typeParam === 'send' || typeParam === 'vendor_payment') {
+      setPaymentType('vendor_payment');
+      setTypeFilter('vendor_payment');
+    }
+
+    const invIdParam = searchParams.get('invoice_id');
+    if (invIdParam) {
+      setInvoiceId(Number(invIdParam));
+      setIsNewOpen(true);
+    }
+
+    const partyParam = searchParams.get('party_id');
+    if (partyParam) {
+      setPartyId(Number(partyParam));
+    }
+
+    const amountParam = searchParams.get('amount');
+    if (amountParam) {
+      setAmount(amountParam);
+    }
+
     if (openNew || searchParams.get('new') === 'true') {
       setIsNewOpen(true);
     }

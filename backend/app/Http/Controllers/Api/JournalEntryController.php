@@ -19,10 +19,14 @@ class JournalEntryController extends Controller
     {
         Gate::authorize('viewAny', JournalEntry::class);
 
-        $query = JournalEntry::with(['lines.account', 'creator', 'poster'])->latest('posting_date');
+        $query = JournalEntry::with(['lines.account', 'journal', 'creator', 'poster'])->latest('posting_date');
 
         if ($type = $request->query('type')) {
             $query->where('type', $type);
+        }
+
+        if ($journalId = $request->query('journal_id')) {
+            $query->where('journal_id', $journalId);
         }
 
         if ($status = $request->query('status')) {
@@ -40,7 +44,10 @@ class JournalEntryController extends Controller
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('entry_number', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhereHas('journal', function ($jq) use ($search) {
+                      $jq->where('name', 'like', "%{$search}%");
+                  });
             });
         }
 
@@ -54,6 +61,7 @@ class JournalEntryController extends Controller
         Gate::authorize('create', JournalEntry::class);
 
         $validated = $request->validate([
+            'journal_id' => ['nullable', 'exists:journals,id'],
             'description' => ['required', 'string', 'max:500'],
             'posting_date' => ['required', 'date'],
             'lines' => ['required', 'array', 'min:2'],
@@ -89,6 +97,7 @@ class JournalEntryController extends Controller
         return DB::transaction(function () use ($validated, $entryNumber, $request) {
             $je = JournalEntry::create([
                 'entry_number' => $entryNumber,
+                'journal_id' => $validated['journal_id'] ?? null,
                 'type' => 'manual',
                 'description' => $validated['description'],
                 'posting_date' => $validated['posting_date'],

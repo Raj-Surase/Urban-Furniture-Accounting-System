@@ -37,6 +37,8 @@ class ContactController extends Controller
                     'state' => $c->state ?? $c->billing_state,
                     'country' => $c->country ?? $c->billing_country ?? 'India',
                     'pincode' => $c->pincode ?? $c->billing_postal_code,
+                    'gstin' => $c->gstin,
+                    'pan' => substr($c->gstin ?? '', 2, 10) ?: null,
                     'image' => $c->avatar_url ?? null,
                     'created_at' => $c->created_at,
                 ];
@@ -46,7 +48,8 @@ class ContactController extends Controller
             ->when($search, function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('gstin', 'like', "%{$search}%");
             })
             ->get()
             ->map(function ($v) {
@@ -61,6 +64,8 @@ class ContactController extends Controller
                     'state' => $v->state,
                     'country' => $v->country ?? 'India',
                     'pincode' => $v->pincode ?? $v->postal_code,
+                    'gstin' => $v->gstin,
+                    'pan' => $v->pan ?? (substr($v->gstin ?? '', 2, 10) ?: null),
                     'image' => $v->avatar_url ?? null,
                     'created_at' => $v->created_at,
                 ];
@@ -97,6 +102,8 @@ class ContactController extends Controller
             'state' => 'nullable|string|max:100',
             'country' => 'nullable|string|max:100',
             'pincode' => 'nullable|string|max:20',
+            'gstin' => 'nullable|string|max:20',
+            'pan' => 'nullable|string|max:20',
             'image' => 'nullable|string',
         ]);
 
@@ -112,6 +119,7 @@ class ContactController extends Controller
                 'billing_state' => $validated['state'],
                 'billing_postal_code' => $validated['pincode'],
                 'billing_country' => $validated['country'] ?? 'India',
+                'gstin' => $validated['gstin'] ?? null,
                 'customer_code' => 'CUST-' . strtoupper(substr(uniqid(), -6)),
             ]);
             $created['customer'] = $customer;
@@ -127,6 +135,8 @@ class ContactController extends Controller
                 'state' => $validated['state'],
                 'postal_code' => $validated['pincode'],
                 'country' => $validated['country'] ?? 'India',
+                'gstin' => $validated['gstin'] ?? null,
+                'pan' => $validated['pan'] ?? null,
                 'vendor_code' => 'VEND-' . strtoupper(substr(uniqid(), -6)),
             ]);
             $created['vendor'] = $vendor;

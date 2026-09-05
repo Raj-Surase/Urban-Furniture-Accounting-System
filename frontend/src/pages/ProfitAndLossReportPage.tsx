@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Printer, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
+import { Printer, ArrowLeft, TrendingUp, TrendingDown, DollarSign, Calendar, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../lib/api';
+import { exportIncomeStatementPdf } from '../components/pdf/ReportPdfGenerator';
 
 export const ProfitAndLossReportPage: React.FC = () => {
   const navigate = useNavigate();
-  const [fiscalYear, setFiscalYear] = useState<string>('2026');
+  const currentYear = new Date().getFullYear();
+  const [fromDate, setFromDate] = useState<string>(`${currentYear}-01-01`);
+  const [toDate, setToDate] = useState<string>(`${currentYear}-12-31`);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -14,8 +17,8 @@ export const ProfitAndLossReportPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await reportsApi.getIncomeStatement({
-        from_date: `${fiscalYear}-01-01`,
-        to_date: `${fiscalYear}-12-31`,
+        from_date: fromDate,
+        to_date: toDate,
       });
       setData(res);
     } catch (err) {
@@ -27,10 +30,17 @@ export const ProfitAndLossReportPage: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [fiscalYear]);
+  }, [fromDate, toDate]);
 
   const handlePrint = () => {
-    window.print();
+    if (data) {
+      exportIncomeStatementPdf(data, {
+        fromDate,
+        toDate,
+      });
+    } else {
+      window.print();
+    }
   };
 
   const revenues = data?.revenues || [];
@@ -41,7 +51,7 @@ export const ProfitAndLossReportPage: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Top Header Controls matching Excalidraw: Back, Year, Print */}
+      {/* Top Header Controls matching Excalidraw: Back, Dates, Print */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#18181f]/90 border border-white/[0.08] p-5 rounded-2xl shadow-obsidian-card print:hidden">
         <div className="flex items-center gap-3">
           <button
@@ -61,25 +71,40 @@ export const ProfitAndLossReportPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Year selector matching Excalidraw 2026 */}
-          <div className="flex items-center gap-2 bg-[#121216] border border-white/[0.08] px-3 py-1.5 rounded-xl text-xs text-white">
-            <Calendar className="w-3.5 h-3.5 text-[#7042f4]" />
-            <select
-              value={fiscalYear}
-              onChange={(e) => setFiscalYear(e.target.value)}
-              className="bg-transparent font-bold focus:outline-none cursor-pointer"
-            >
-              <option value="2026" className="bg-[#121216]">2026</option>
-              <option value="2025" className="bg-[#121216]">2025</option>
-              <option value="2027" className="bg-[#121216]">2027</option>
-            </select>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Date range pickers */}
+          <div className="flex items-center gap-1.5 bg-[#121216] border border-white/[0.08] px-2.5 py-1.5 rounded-xl text-xs text-white">
+            <span className="text-[10px] uppercase text-[#707080] font-semibold">From</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-transparent font-mono text-white text-xs focus:outline-none cursor-pointer"
+            />
           </div>
+
+          <div className="flex items-center gap-1.5 bg-[#121216] border border-white/[0.08] px-2.5 py-1.5 rounded-xl text-xs text-white">
+            <span className="text-[10px] uppercase text-[#707080] font-semibold">To</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-transparent font-mono text-white text-xs focus:outline-none cursor-pointer"
+            />
+          </div>
+
+          <button
+            onClick={fetchReport}
+            className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
+            title="Refresh Report"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
 
           <button
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-lg shadow-[#7042f4]/25 transition-all cursor-pointer"
-            title="Pdf download on click"
+            title="Export and Print PDF"
           >
             <Printer className="w-4 h-4" />
             <span>Print PDF</span>
@@ -98,7 +123,7 @@ export const ProfitAndLossReportPage: React.FC = () => {
           <div>
             <h2 className="text-2xl font-bold text-white tracking-tight">Profit and Loss Statement</h2>
             <p className="text-xs text-[#8a8a9a] mt-1">
-              Urban Furniture Platform • For Year Ending December 31, {fiscalYear}
+              Urban Furniture Platform • {fromDate} to {toDate}
             </p>
           </div>
           <div className="text-right">
@@ -121,7 +146,10 @@ export const ProfitAndLossReportPage: React.FC = () => {
             {revenues.length > 0 ? (
               revenues.map((rev: any, idx: number) => (
                 <div key={idx} className="flex justify-between text-xs py-1 text-[#d0d0dc]">
-                  <span>{rev.name}</span>
+                  <span>
+                    {rev.code && <span className="font-mono text-[#707080] mr-2">[{rev.code}]</span>}
+                    {rev.name}
+                  </span>
                   <span className="font-mono font-semibold text-white">₹{Number(rev.amount).toLocaleString()}</span>
                 </div>
               ))
@@ -153,7 +181,10 @@ export const ProfitAndLossReportPage: React.FC = () => {
             {expenses.length > 0 ? (
               expenses.map((exp: any, idx: number) => (
                 <div key={idx} className="flex justify-between text-xs py-1 text-[#d0d0dc]">
-                  <span>{exp.name}</span>
+                  <span>
+                    {exp.code && <span className="font-mono text-[#707080] mr-2">[{exp.code}]</span>}
+                    {exp.name}
+                  </span>
                   <span className="font-mono font-semibold text-white">₹{Number(exp.amount).toLocaleString()}</span>
                 </div>
               ))

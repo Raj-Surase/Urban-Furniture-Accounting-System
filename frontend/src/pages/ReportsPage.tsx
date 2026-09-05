@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   Calendar,
   Filter,
   X,
+  PieChart,
 } from 'lucide-react';
 import { reportsApi } from '../lib/api';
 import { useToast } from '../context/ToastContext';
@@ -29,10 +31,11 @@ import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 
 export const ReportsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<
-    'trial-balance' | 'income-statement' | 'balance-sheet' | 'aging' | 'gst-summary'
+    'trial-balance' | 'income-statement' | 'balance-sheet' | 'aging' | 'gst-summary' | 'budget-report'
   >('trial-balance');
 
   const [loading, setLoading] = useState(false);
@@ -324,6 +327,18 @@ export const ReportsPage: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab('budget-report')}
+          className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === 'budget-report'
+              ? 'bg-[#141418] text-white border-t border-x border-white/[0.08] -mb-px'
+              : 'text-neutral-400 hover:text-white'
+          }`}
+        >
+          <PieChart className="w-4 h-4 text-purple-400" />
+          Budget Report
+        </button>
+
+        <button
           onClick={() => setActiveTab('aging')}
           className={`px-4 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'aging'
@@ -449,20 +464,30 @@ export const ReportsPage: React.FC = () => {
       {activeTab === 'income-statement' && (
         <div className="space-y-4 max-w-4xl">
           <Card className="p-6 bg-[#141418] border-white/[0.06] text-white space-y-6">
-            <div className="border-b border-white/[0.06] pb-4 flex justify-between items-center">
+            <div className="border-b border-white/[0.06] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold">Income Statement (Profit & Loss)</h3>
                 <p className="text-xs text-neutral-400">{pnlData?.period || 'Current Fiscal Period'}</p>
               </div>
-              <div className="text-right">
-                <span className="text-xs text-neutral-400 block">Net Income</span>
-                <span
-                  className={`text-xl font-bold font-mono ${
-                    (pnlData?.net_profit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => navigate('/reports/profit-loss')}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  ₹{formatCurrency(pnlData?.net_profit)}
-                </span>
+                  <span>View Dedicated P&L Report</span>
+                  <span>→</span>
+                </button>
+                <div className="text-right">
+                  <span className="text-xs text-neutral-400 block">Net Income</span>
+                  <span
+                    className={`text-xl font-bold font-mono ${
+                      (pnlData?.net_profit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    ₹{formatCurrency(pnlData?.net_profit)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -532,9 +557,44 @@ export const ReportsPage: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: BUDGET REPORT */}
+      {activeTab === 'budget-report' && (
+        <div className="space-y-4 max-w-4xl">
+          <Card className="p-8 bg-[#141418] border-white/[0.06] text-white text-center space-y-6">
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto">
+                <PieChart className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Analytical Budget Performance</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Analytical budget tracking comparing committed allocations with actual GL transactions, cost center breakdowns, and interactive performance donut visualizers.
+              </p>
+              <div className="pt-2">
+                <Button
+                  onClick={() => navigate('/reports/budget')}
+                  className="bg-[#7042f4] hover:bg-[#5f32e6] text-white font-semibold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-purple-600/20"
+                >
+                  Open Dedicated Budget Report →
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* TAB 3: BALANCE SHEET */}
       {activeTab === 'balance-sheet' && (
         <div className="space-y-4 max-w-5xl">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => navigate('/reports/balance-sheet')}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>View Dedicated Balance Sheet →</span>
+            </button>
+          </div>
+
           {balanceSheetData && (
             <div
               className={`p-4 rounded-xl border flex items-center justify-between ${

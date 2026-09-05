@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Plus, Check, ArrowLeft, Building2 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
@@ -18,6 +19,7 @@ interface Journal {
 }
 
 export const JournalsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [journals, setJournals] = useState<Journal[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -29,6 +31,7 @@ export const JournalsPage: React.FC = () => {
   const [name, setName] = useState<string>('');
   const [type, setType] = useState<'sales' | 'purchase' | 'bank' | 'cash'>('sales');
   const [defaultAccountId, setDefaultAccountId] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,11 +61,13 @@ export const JournalsPage: React.FC = () => {
       setName(journal.name);
       setType(journal.type);
       setDefaultAccountId(journal.default_account_id ? journal.default_account_id.toString() : '');
+      setDescription(journal.description || '');
     } else {
       setActiveJournal(null);
       setName('');
       setType('sales');
       setDefaultAccountId('');
+      setDescription('');
     }
     setError(null);
     setViewMode('form');
@@ -84,6 +89,7 @@ export const JournalsPage: React.FC = () => {
         name,
         type,
         default_account_id: defaultAccountId ? parseInt(defaultAccountId, 10) : null,
+        description: description.trim() || null,
       };
 
       if (activeJournal) {
@@ -209,6 +215,32 @@ export const JournalsPage: React.FC = () => {
                 From Chart of Accounts (Many to one)
               </span>
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                Description / Notes
+              </label>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Operational purpose of this journal (e.g. Customer Sales Invoices & Credit Memos)"
+                className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] resize-none"
+              />
+            </div>
+
+            {activeJournal && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/journal?search=${encodeURIComponent(activeJournal.name)}`)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-300 border border-purple-500/20 text-xs font-semibold flex items-center justify-between transition-colors"
+                >
+                  <span>Inspect Entries for {activeJournal.name}</span>
+                  <span>View Journal Entries →</span>
+                </button>
+              </div>
+            )}
           </div>
         </form>
       ) : (
@@ -220,6 +252,8 @@ export const JournalsPage: React.FC = () => {
                   <th className="py-3.5 px-4">Journal Name</th>
                   <th className="py-3.5 px-4">Type</th>
                   <th className="py-3.5 px-4">Default Account</th>
+                  <th className="py-3.5 px-4">Description</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
@@ -241,11 +275,23 @@ export const JournalsPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-[#a0a0b0]">
                       {j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '—'}
                     </td>
+                    <td className="py-3.5 px-4 text-[#8a8a9a] max-w-xs truncate">
+                      {j.description || '—'}
+                    </td>
+                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => navigate(`/journal?search=${encodeURIComponent(j.name)}`)}
+                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-[#a0a0b0] text-[11px] font-semibold transition-colors"
+                        title="View Journal Entries for this journal"
+                      >
+                        Entries →
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {filteredJournals.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={3} className="text-center py-8 text-[#707080]">
+                    <td colSpan={5} className="text-center py-8 text-[#707080]">
                       No journals found. Click "+ New" to create one.
                     </td>
                   </tr>
