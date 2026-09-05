@@ -12,7 +12,6 @@ import { useAuth } from '../../context/AuthContext';
 export interface HeroMetricsSectionProps {
   onNewItem?: () => void;
   onRecordPayment?: () => void;
-  onBroadcast?: () => void;
   timeRange?: 'week' | 'month' | 'year';
   onTimeRangeChange?: (range: 'week' | 'month' | 'year') => void;
   summaryData?: any;
