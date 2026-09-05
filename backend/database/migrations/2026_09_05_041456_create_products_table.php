@@ -14,7 +14,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('hsn_code')->default('94018000');
             $table->text('description')->nullable();
-            $table->enum('category', ['bench', 'lamp', 'planter', 'bollard', 'bin', 'signage', 'other'])->default('bench');
+            $table->string('category')->default('Chairs');
+            $table->string('type')->default('goods');
             $table->decimal('unit_price', 15, 2)->default(0);
             $table->decimal('cost_price', 15, 2)->default(0);
             $table->decimal('gst_rate', 5, 2)->default(18.00);
