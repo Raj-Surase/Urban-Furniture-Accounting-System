@@ -27,7 +27,7 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->isAdmin() || $user->isManager()) {
-            // --- Admin / Manager: Full financial + operations KPIs ---
+             // --- Admin / Manager: Full financial + operations KPIs ---
 
             // Cash & Bank: pull balance from GL account code 1110
             $bankAcc = Account::where('code', '1110')->first();

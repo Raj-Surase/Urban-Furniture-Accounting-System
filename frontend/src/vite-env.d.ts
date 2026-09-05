@@ -9,3 +9,6 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
+declare module 'lucide-react';
+
+
