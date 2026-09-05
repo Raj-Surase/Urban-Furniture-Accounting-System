@@ -7,6 +7,35 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Invoice Model
+ *
+ * Represents both accounts-receivable (sales) and accounts-payable (purchase)
+ * invoices. Stores GST breakdown (CGST / SGST / IGST), discount amounts, and
+ * payment tracking. Status flows: draft → approved → partially_paid → paid | void.
+ *
+ * @property int         $id
+ * @property string      $invoice_number
+ * @property string      $type              receivable|payable
+ * @property string      $status            draft|approved|partially_paid|paid|void
+ * @property string      $party_type        customer|vendor
+ * @property int         $party_id
+ * @property string      $place_of_supply
+ * @property bool        $is_interstate
+ * @property string|null $gstin
+ * @property string      $invoice_date
+ * @property string      $due_date
+ * @property float       $subtotal
+ * @property float       $tax_amount
+ * @property float       $cgst_amount
+ * @property float       $sgst_amount
+ * @property float       $igst_amount
+ * @property float       $discount_amount
+ * @property float       $total_amount
+ * @property float       $amount_paid
+ * @property float       $balance_due
+ * @property string      $currency
+ */
 class Invoice extends Model
 {
     use HasFactory;
