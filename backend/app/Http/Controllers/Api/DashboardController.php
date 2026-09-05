@@ -16,29 +16,39 @@ class DashboardController extends Controller
 {
     /**
      * Return role-scoped KPI cards and executive metrics.
+     * Admins and managers receive full financial KPIs (AR, AP, cash, revenue).
+     * Standard users receive a personal work summary (drafts, order count).
+     *
+     * @param  Request  $request
+     * @return JsonResponse
      */
     public function summary(Request $request): JsonResponse
     {
         $user = $request->user();
 
         if ($user->isAdmin() || $user->isManager()) {
-            // High clearance financial & operations KPIs
+            // --- Admin / Manager: Full financial + operations KPIs ---
+
+            // Cash & Bank: pull balance from GL account code 1110
             $bankAcc = Account::where('code', '1110')->first();
             $bankBalance = $bankAcc ? (float) $bankAcc->current_balance : 0.00;
 
-            // Compute gross revenue and COGS
+            // Gross revenue from GL account code 4100 (Sales Revenue)
             $revAcc = Account::where('code', '4100')->first();
             $revAcc?->recalculateBalance();
             $totalRevenue = $revAcc ? (float) $revAcc->current_balance : 0.00;
 
+            // Accounts Receivable: sum of balance_due on approved/partially-paid sales invoices
             $arTotal = (float) Invoice::where('type', 'receivable')
                 ->whereIn('status', ['approved', 'partially_paid'])
                 ->sum('balance_due');
 
+            // Accounts Payable: sum of balance_due on approved/partially-paid purchase invoices
             $apTotal = (float) Invoice::where('type', 'payable')
                 ->whereIn('status', ['approved', 'partially_paid'])
                 ->sum('balance_due');
 
+            // Operational KPIs: stock alerts, pending orders, and open invoice count
             $lowStockCount = Product::whereColumn('current_stock', '<=', 'reorder_point')->count();
             $pendingPos = PurchaseOrder::whereIn('status', ['draft', 'submitted'])->count();
             $pendingSos = SalesOrder::whereIn('status', ['draft', 'confirmed'])->count();
@@ -59,7 +69,7 @@ class DashboardController extends Controller
             ]);
         }
 
-        // Standard User / Clerk KPIs
+        // --- Standard User / Clerk: personal work summary ---
         $myDraftPos = PurchaseOrder::where('created_by', $user->id)->where('status', 'draft')->count();
         $myDraftSos = SalesOrder::where('created_by', $user->id)->where('status', 'draft')->count();
         $myTotalOrders = SalesOrder::where('created_by', $user->id)->count() + PurchaseOrder::where('created_by', $user->id)->count();
@@ -92,7 +102,11 @@ class DashboardController extends Controller
     }
 
     /**
-     * Return actionable alerts (low stock, overdue invoices, pending approvals).
+     * Return actionable alerts (low stock, overdue invoices, pending PO approvals).
+     * Intended for the dashboard notification panel — returns lightweight projections.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
      */
     public function alerts(Request $request): JsonResponse
     {
