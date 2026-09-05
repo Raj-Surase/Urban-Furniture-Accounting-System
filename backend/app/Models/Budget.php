@@ -115,6 +115,8 @@ class Budget extends Model
 
             $achievedPercent = $committed > 0 ? round(($achieved / $committed) * 100, 2) : 0;
             $amountToAchieve = max(0, $committed - $achieved);
+            $isExceeded = ($committed > 0 && $achieved > $committed);
+            $exceededAmount = $isExceeded ? round($achieved - $committed, 2) : 0;
 
             $computed[] = [
                 'id' => $line->id,
@@ -125,6 +127,8 @@ class Budget extends Model
                 'achieved_amount' => $achieved,
                 'achieved_percent' => $achievedPercent,
                 'amount_to_achieve' => $amountToAchieve,
+                'is_exceeded' => $isExceeded,
+                'exceeded_amount' => $exceededAmount,
             ];
         }
 

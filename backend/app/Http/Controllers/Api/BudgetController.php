@@ -303,6 +303,10 @@ class BudgetController extends Controller
 
         // Ensure responsible contact is properly resolved
         $arr['responsible'] = $b->responsible_contact;
+        $hasExceededLines = count(array_filter($computed, fn($c) => !empty($c['is_exceeded']))) > 0;
+        $arr['has_exceeded_lines'] = $hasExceededLines;
+        $arr['is_over_budget'] = ($bCommitted > 0 && $bAchieved > $bCommitted) || $hasExceededLines;
+        $arr['total_exceeded_amount'] = max(0, $bAchieved - $bCommitted);
 
         if ($b->originalBudget) {
             $arr['original_budget'] = [
@@ -321,6 +325,87 @@ class BudgetController extends Controller
         }
 
         return $arr;
+    }
+
+    /**
+     * Check if a proposed transaction line will exceed active budget limit
+     */
+    public function checkLimit(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'analytic_account_id' => 'required|exists:analytic_accounts,id',
+            'amount' => 'required|numeric|min:0',
+            'type' => 'nullable|in:income,expense',
+            'date' => 'nullable|date',
+        ]);
+
+        $analyticId = $validated['analytic_account_id'];
+        $amount = (float) $validated['amount'];
+        $type = $validated['type'] ?? 'expense';
+
+        $budgetLines = DB::table('budget_lines')
+            ->join('budgets', 'budgets.id', '=', 'budget_lines.budget_id')
+            ->where('budget_lines.analytic_account_id', $analyticId)
+            ->whereIn('budgets.status', ['confirm', 'draft'])
+            ->select(
+                'budgets.id as budget_id',
+                'budgets.name as budget_name',
+                'budgets.start_date',
+                'budgets.end_date',
+                'budgets.status as budget_status',
+                'budget_lines.type as line_type',
+                'budget_lines.committed_amount'
+            )
+            ->get();
+
+        $exceededBudgets = [];
+
+        foreach ($budgetLines as $bl) {
+            $committed = (float) $bl->committed_amount;
+            if ($committed <= 0) continue;
+
+            $query = DB::table('invoice_line_items')
+                ->join('invoices', 'invoices.id', '=', 'invoice_line_items.invoice_id')
+                ->where('invoice_line_items.analytic_account_id', $analyticId)
+                ->where('invoices.status', '!=', 'draft')
+                ->where('invoices.status', '!=', 'void');
+
+            if ($bl->start_date && $bl->end_date) {
+                $query->whereBetween('invoices.invoice_date', [$bl->start_date, $bl->end_date]);
+            }
+
+            if ($bl->line_type === 'income') {
+                $query->where('invoices.type', '=', 'receivable');
+            } else {
+                $query->where('invoices.type', '=', 'payable');
+            }
+
+            $currentAchieved = (float) $query->sum('invoice_line_items.line_total');
+            $projectedAchieved = $currentAchieved + $amount;
+
+            $isAlreadyExceeded = $currentAchieved > $committed;
+            $willExceed = $projectedAchieved > $committed;
+
+            if ($willExceed || $isAlreadyExceeded) {
+                $exceededBudgets[] = [
+                    'budget_id' => $bl->budget_id,
+                    'budget_name' => $bl->budget_name,
+                    'status' => $bl->budget_status,
+                    'committed_amount' => $committed,
+                    'current_achieved' => $currentAchieved,
+                    'proposed_amount' => $amount,
+                    'projected_achieved' => $projectedAchieved,
+                    'exceeded_by' => round(max(0, $projectedAchieved - $committed), 2),
+                    'is_already_exceeded' => $isAlreadyExceeded,
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_exceeded' => count($exceededBudgets) > 0,
+            'exceeded_budgets' => $exceededBudgets,
+        ]);
     }
 
     /**

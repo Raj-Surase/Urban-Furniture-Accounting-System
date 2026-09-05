@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/budgets/{budget}/confirm', [BudgetController::class, 'confirm']);
     Route::post('/budgets/{budget}/revise', [BudgetController::class, 'revise']);
     Route::post('/budgets/{budget}/cancel', [BudgetController::class, 'cancel']);
+    Route::post('/budgets/check-limit', [BudgetController::class, 'checkLimit']);
     Route::get('/budgets/{budget}/analytic-transactions', [BudgetController::class, 'analyticTransactions']);
     Route::apiResource('budgets', BudgetController::class);
 

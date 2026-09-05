@@ -8,6 +8,7 @@ use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class AccountController extends Controller
@@ -171,9 +172,72 @@ class AccountController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        // Check if any invoice line items associated with this account are linked to analytic accounts with exceeded budgets
+        $analyticAccountIds = DB::table('invoice_line_items')
+            ->where('account_id', $account->id)
+            ->whereNotNull('analytic_account_id')
+            ->distinct()
+            ->pluck('analytic_account_id');
+
+        $exceededBudgets = [];
+        if ($analyticAccountIds->isNotEmpty()) {
+            $budgetLines = DB::table('budget_lines')
+                ->join('budgets', 'budgets.id', '=', 'budget_lines.budget_id')
+                ->join('analytic_accounts', 'analytic_accounts.id', '=', 'budget_lines.analytic_account_id')
+                ->whereIn('budget_lines.analytic_account_id', $analyticAccountIds)
+                ->whereIn('budgets.status', ['confirm', 'draft'])
+                ->select(
+                    'budgets.id as budget_id',
+                    'budgets.name as budget_name',
+                    'budgets.start_date',
+                    'budgets.end_date',
+                    'analytic_accounts.name as analytic_name',
+                    'budget_lines.analytic_account_id',
+                    'budget_lines.committed_amount',
+                    'budget_lines.type as line_type'
+                )
+                ->get();
+
+            foreach ($budgetLines as $bl) {
+                $committed = (float) $bl->committed_amount;
+                if ($committed <= 0) continue;
+
+                $query = DB::table('invoice_line_items')
+                    ->join('invoices', 'invoices.id', '=', 'invoice_line_items.invoice_id')
+                    ->where('invoice_line_items.analytic_account_id', $bl->analytic_account_id)
+                    ->where('invoices.status', '!=', 'draft')
+                    ->where('invoices.status', '!=', 'void');
+
+                if ($bl->start_date && $bl->end_date) {
+                    $query->whereBetween('invoices.invoice_date', [$bl->start_date, $bl->end_date]);
+                }
+
+                if ($bl->line_type === 'income') {
+                    $query->where('invoices.type', '=', 'receivable');
+                } else {
+                    $query->where('invoices.type', '=', 'payable');
+                }
+
+                $achieved = (float) $query->sum('invoice_line_items.line_total');
+                if ($achieved > $committed) {
+                    $exceededBudgets[] = [
+                        'budget_id' => $bl->budget_id,
+                        'budget_name' => $bl->budget_name,
+                        'analytic_id' => $bl->analytic_account_id,
+                        'analytic_name' => $bl->analytic_name,
+                        'committed_amount' => $committed,
+                        'achieved_amount' => $achieved,
+                        'exceeded_amount' => round($achieved - $committed, 2),
+                        'percentage' => round(($achieved / $committed) * 100, 2),
+                    ];
+                }
+            }
+        }
+
         return response()->json([
             'account' => $account,
             'ledger' => $paginated,
+            'exceeded_budgets' => $exceededBudgets,
         ]);
     }
 }

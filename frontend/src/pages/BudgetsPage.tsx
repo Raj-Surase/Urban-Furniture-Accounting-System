@@ -18,6 +18,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
+import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
 
 interface BudgetLineItem {
@@ -29,6 +30,8 @@ interface BudgetLineItem {
   achieved_amount?: number;
   achieved_percent?: number;
   amount_to_achieve?: number;
+  is_exceeded?: boolean;
+  exceeded_amount?: number;
 }
 
 interface BudgetRecord {
@@ -48,6 +51,9 @@ interface BudgetRecord {
   total_committed?: number;
   total_achieved?: number;
   progress_percent?: number;
+  has_exceeded_lines?: boolean;
+  is_over_budget?: boolean;
+  total_exceeded_amount?: number;
 }
 
 export const BudgetsPage: React.FC = () => {
@@ -207,6 +213,29 @@ export const BudgetsPage: React.FC = () => {
     updated[idx] = { ...updated[idx], [field]: value };
     setLines(updated);
   };
+
+  // Dynamic recalculation of budget limit overruns as user modifies any form operations
+  const exceededLines = lines
+    .map((l, idx) => {
+      const comm = Number(l.committed_amount) || 0;
+      const ach = Number(l.achieved_amount) || 0;
+      const isExceeded = comm > 0 && ach > comm;
+      const exceededBy = isExceeded ? ach - comm : 0;
+      const anObj = analytics.find((a) => a.id === l.analytic_account_id);
+      const anName = anObj?.name || l.analytic_account_name || `Line #${idx + 1}`;
+      return {
+        lineIndex: idx,
+        accountName: anName,
+        budgetName: name || activeBudget?.name || 'Current Budget',
+        budgetId: activeBudget?.id,
+        committed: comm,
+        achieved: ach,
+        exceededBy,
+        type: l.type,
+        isExceeded,
+      };
+    })
+    .filter((l) => l.isExceeded);
 
   const handleSaveBudget = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -413,6 +442,19 @@ export const BudgetsPage: React.FC = () => {
       {/* FORM VIEW */}
       {viewMode === 'form' ? (
         <form onSubmit={handleSaveBudget} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6">
+          {/* Real-time Budget Exceeded Limit Alert */}
+          {exceededLines.length > 0 && (
+            <BudgetExceededAlert
+              title="Budget Exceeded Limit Alert"
+              subtitle={`Committed budget limit is less than actual expenditures for ${exceededLines.length} analytic account line(s)! Adjust limits or revise budget.`}
+              items={exceededLines}
+              showReviseButton={activeBudget?.status === 'confirm'}
+              onReviseBudget={() => {
+                if (activeBudget) handleRevise();
+              }}
+            />
+          )}
+
           {/* Form Notifications */}
           <AnimatePresence>
             {error && (
@@ -716,29 +758,38 @@ export const BudgetsPage: React.FC = () => {
                     {lines.map((line, idx) => {
                       const comm = Number(line.committed_amount) || 0;
                       const ach = Number(line.achieved_amount) || 0;
+                      const isLineExceeded = comm > 0 && ach > comm;
                       const pct = comm > 0 ? ((ach / comm) * 100).toFixed(1) : '0';
                       const rem = Math.max(0, comm - ach);
                       const anObj = analytics.find((a) => a.id === line.analytic_account_id);
                       const anName = anObj?.name || line.analytic_account_name || 'Analytic';
 
                       return (
-                        <tr key={idx} className="hover:bg-white/[0.02]">
+                        <tr key={idx} className={isLineExceeded ? 'bg-rose-500/[0.08] hover:bg-rose-500/[0.14] border-l-2 border-rose-500 transition-colors' : 'hover:bg-white/[0.02]'}>
                           <td className="py-3 px-4">
-                            {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
-                              <span className="font-semibold text-white">{anName}</span>
-                            ) : (
-                              <select
-                                value={line.analytic_account_id}
-                                onChange={(e) => handleAnalyticAccountChange(idx, parseInt(e.target.value, 10))}
-                                className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-[#7042f4]"
-                              >
-                                {analytics.map((a) => (
-                                  <option key={a.id} value={a.id}>
-                                    {a.name} ({a.type})
-                                  </option>
-                                ))}
-                              </select>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
+                                <span className="font-semibold text-white">{anName}</span>
+                              ) : (
+                                <select
+                                  value={line.analytic_account_id}
+                                  onChange={(e) => handleAnalyticAccountChange(idx, parseInt(e.target.value, 10))}
+                                  className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-[#7042f4]"
+                                >
+                                  {analytics.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                      {a.name} ({a.type})
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              {isLineExceeded && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 whitespace-nowrap">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                  Exceeded
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4">
                             {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
@@ -762,16 +813,27 @@ export const BudgetsPage: React.FC = () => {
                           </td>
                           <td className="py-3 px-4 text-right">
                             {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
-                              <span className="font-mono text-white font-semibold">₹{comm.toLocaleString()}</span>
+                              <span className={`font-mono font-semibold ${isLineExceeded ? 'text-rose-400' : 'text-white'}`}>₹{comm.toLocaleString()}</span>
                             ) : (
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={line.committed_amount}
-                                onChange={(e) => handleLineFieldChange(idx, 'committed_amount', e.target.value)}
-                                className="w-28 text-right px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white focus:outline-none focus:border-[#7042f4]"
-                              />
+                              <div className="inline-flex flex-col items-end">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={line.committed_amount}
+                                  onChange={(e) => handleLineFieldChange(idx, 'committed_amount', e.target.value)}
+                                  className={`w-28 text-right px-2.5 py-1.5 bg-[#18181f] border rounded-lg text-xs focus:outline-none ${
+                                    isLineExceeded
+                                      ? 'border-rose-500 text-rose-300 focus:border-rose-400'
+                                      : 'border-white/[0.08] text-white focus:border-[#7042f4]'
+                                  }`}
+                                />
+                                {isLineExceeded && (
+                                  <span className="text-[10px] text-rose-400 mt-0.5">
+                                    Limit &lt; Achieved
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -780,7 +842,9 @@ export const BudgetsPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleOpenAchievedBreakdown(line.analytic_account_id, line.type, anName)}
-                                className="font-mono font-semibold text-emerald-400 hover:text-emerald-300 underline inline-flex items-center gap-1"
+                                className={`font-mono font-semibold underline inline-flex items-center gap-1 ${
+                                  isLineExceeded ? 'text-rose-400 hover:text-rose-300' : 'text-emerald-400 hover:text-emerald-300'
+                                }`}
                                 title="Click to view all Invoices/Bills having this analytic account for the budget period"
                               >
                                 ₹{ach.toLocaleString()}
@@ -791,10 +855,19 @@ export const BudgetsPage: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <span className="font-mono text-[#a0a0b0] font-semibold">{pct}%</span>
+                            <span className={`font-mono font-semibold ${isLineExceeded ? 'text-rose-400' : 'text-[#a0a0b0]'}`}>
+                              {pct}% {isLineExceeded && '⚠️'}
+                            </span>
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <span className="font-mono text-amber-300 font-semibold">₹{rem.toLocaleString()}</span>
+                            {isLineExceeded ? (
+                              <span className="font-mono text-rose-400 font-bold inline-flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 shrink-0" />
+                                +₹{Math.round(ach - comm).toLocaleString()} over
+                              </span>
+                            ) : (
+                              <span className="font-mono text-amber-300 font-semibold">₹{rem.toLocaleString()}</span>
+                            )}
                           </td>
                           {(!activeBudget || activeBudget.status === 'draft') && (
                             <td className="py-3 px-4 text-center">
@@ -831,15 +904,22 @@ export const BudgetsPage: React.FC = () => {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-white tracking-tight">{b.name}</h3>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                  b.status === 'confirm'
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : b.status === 'revised'
-                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                    : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
-                }`}>
-                  {b.status}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    b.status === 'confirm'
+                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                      : b.status === 'revised'
+                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                      : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
+                  }`}>
+                    {b.status}
+                  </span>
+                  {(b.is_over_budget || b.has_exceeded_lines) && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-rose-400" /> Over Budget
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 text-xs text-[#8a8a9a]">
@@ -855,7 +935,7 @@ export const BudgetsPage: React.FC = () => {
                 </div>
                 <div className="w-full h-2 rounded-full bg-white/[0.06] overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-[#7042f4] to-emerald-400 rounded-full"
+                    className={`h-full rounded-full ${(b.is_over_budget || b.has_exceeded_lines) ? 'bg-gradient-to-r from-amber-500 to-rose-500' : 'bg-gradient-to-r from-[#7042f4] to-emerald-400'}`}
                     style={{ width: `${Math.min(100, b.progress_percent || 0)}%` }}
                   />
                 </div>
@@ -884,16 +964,26 @@ export const BudgetsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {budgets.map((b) => (
-                  <tr
-                    key={b.id}
-                    onClick={() => handleOpenForm(b.id)}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
-                      <PieChart className="w-4 h-4 text-[#7042f4]" />
-                      <span>{b.name}</span>
-                    </td>
+                {budgets.map((b) => {
+                  const isOver = b.is_over_budget || b.has_exceeded_lines || (b.total_committed && b.total_achieved && b.total_achieved > b.total_committed);
+                  return (
+                    <tr
+                      key={b.id}
+                      onClick={() => handleOpenForm(b.id)}
+                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-bold text-white">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <PieChart className="w-4 h-4 text-[#7042f4] shrink-0" />
+                          <span>{b.name}</span>
+                          {isOver && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                              <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                              Limit Exceeded
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.start_date}</td>
                     <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
                     <td className="py-3.5 px-4">
@@ -917,7 +1007,8 @@ export const BudgetsPage: React.FC = () => {
                       <span className="font-mono text-xs text-[#a0a0b0]">{b.progress_percent || 0}%</span>
                     </td>
                   </tr>
-                ))}
+                );
+              })}
                 {budgets.length === 0 && !loading && (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-[#707080]">

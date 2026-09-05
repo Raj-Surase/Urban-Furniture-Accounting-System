@@ -12,11 +12,13 @@ import {
   Trash2,
   Calendar,
   Layers,
-  Scale
+  Scale,
+  AlertTriangle,
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
-import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi } from '../lib/api';
+import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
+import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi, budgetsApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
 
 export const VendorBillsPage: React.FC = () => {
@@ -27,6 +29,7 @@ export const VendorBillsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
+  const [budgets, setBudgets] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
@@ -52,24 +55,89 @@ export const VendorBillsPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [bRes, vRes, pRes, aRes, anRes] = await Promise.all([
+      const [bRes, vRes, pRes, aRes, anRes, bgRes] = await Promise.all([
         invoicesApi.list({ type: 'payable', search: search || undefined }),
         vendorsApi.list(),
         productsApi.list(),
         accountsApi.list(),
         analyticAccountsApi.list(),
+        budgetsApi.list().catch(() => ({ data: [] })),
       ]);
       setBills(bRes?.data || []);
       setVendors(vRes?.data || []);
       setProducts(pRes?.data || []);
       setAccounts(aRes?.data || []);
       setAnalytics(anRes?.data || []);
+      setBudgets(bgRes?.data || []);
     } catch (err) {
       console.error('Failed to load vendor bills data:', err);
     } finally {
       setLoading(false);
     }
   };
+
+  // Dynamically calculate budget limit exceedances for current bill lines
+  const exceededBillBudgets = React.useMemo(() => {
+    if (!budgets || budgets.length === 0 || !lines || lines.length === 0) return [];
+
+    // Sum proposed line totals per analytic account in this bill
+    const proposedPerAnalytic: Record<number, number> = {};
+    lines.forEach((l) => {
+      const anId = Number(l.analytic_account_id);
+      if (anId) {
+        const lineTotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+        proposedPerAnalytic[anId] = (proposedPerAnalytic[anId] || 0) + lineTotal;
+      }
+    });
+
+    const exceeded: Array<{
+      budgetId: number;
+      budgetName: string;
+      analyticId: number;
+      analyticName: string;
+      committed: number;
+      currentAchieved: number;
+      projected: number;
+      exceededBy: number;
+      percentage: number;
+    }> = [];
+
+    budgets.forEach((b: any) => {
+      if (b.status === 'cancelled') return;
+      const bLines = b.lines || [];
+      bLines.forEach((bl: any) => {
+        if (bl.type !== 'expense') return;
+        const anId = Number(bl.analytic_account_id);
+        if (proposedPerAnalytic[anId] !== undefined) {
+          const committed = Number(bl.committed_amount) || 0;
+          const currentAchieved = Number(bl.achieved_amount) || 0;
+          const proposed = proposedPerAnalytic[anId] || 0;
+          const projected = currentAchieved + proposed;
+
+          if (committed > 0 && projected > committed) {
+            const analyticObj = analytics.find((a) => a.id === anId) || bl.analytic_account;
+            exceeded.push({
+              budgetId: b.id,
+              budgetName: b.name,
+              analyticId: anId,
+              analyticName: analyticObj?.name || bl.analytic_account?.name || `Analytic #${anId}`,
+              committed,
+              currentAchieved,
+              projected,
+              exceededBy: Math.round(projected - committed),
+              percentage: Math.round((projected / committed) * 100),
+            });
+          }
+        }
+      });
+    });
+
+    return exceeded;
+  }, [budgets, lines, analytics]);
+
+  const exceededAnalyticIds = React.useMemo(() => {
+    return new Set(exceededBillBudgets.map((eb) => eb.analyticId));
+  }, [exceededBillBudgets]);
 
   useEffect(() => {
     fetchData();
@@ -428,6 +496,27 @@ export const VendorBillsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Budget Limit Exceeded Alert Banner */}
+          {exceededBillBudgets.length > 0 && (
+            <div className="pt-2">
+              <BudgetExceededAlert
+                title="Budget Limit Exceeded Alert"
+                subtitle="One or more line items in this vendor bill will cause expenditures to exceed the active budget limits!"
+                items={exceededBillBudgets.map((b) => ({
+                  accountName: b.analyticName,
+                  budgetName: b.budgetName,
+                  budgetId: b.budgetId,
+                  committed: b.committed,
+                  achieved: b.projected,
+                  exceededBy: b.exceededBy,
+                  type: 'expense',
+                  message: `Projected: ₹${b.projected.toLocaleString('en-IN')} vs Committed: ₹${b.committed.toLocaleString('en-IN')} (${b.percentage}%)`,
+                }))}
+                onReviseBudget={(bId) => navigate(bId ? `/accounting/budgets?id=${bId}` : '/accounting/budgets')}
+              />
+            </div>
+          )}
+
           {/* Line Items Table matching Excalidraw */}
           <div className="space-y-3 pt-4 border-t border-white/[0.08]">
             <div className="flex items-center justify-between">
@@ -466,8 +555,18 @@ export const VendorBillsPage: React.FC = () => {
                   <tbody className="divide-y divide-white/[0.04]">
                     {lines.map((l, idx) => {
                       const lineTotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+                      const isLineOverBudget = l.analytic_account_id && exceededAnalyticIds.has(Number(l.analytic_account_id));
+                      const lineExceededInfo = exceededBillBudgets.find((eb) => eb.analyticId === Number(l.analytic_account_id));
+
                       return (
-                        <tr key={idx} className="hover:bg-white/[0.02]">
+                        <tr
+                          key={idx}
+                          className={`transition-colors ${
+                            isLineOverBudget
+                              ? 'bg-rose-950/20 hover:bg-rose-950/30 border-l-2 border-l-rose-500'
+                              : 'hover:bg-white/[0.02]'
+                          }`}
+                        >
                           <td className="py-3 px-3 text-center text-[#707080] font-mono">{idx + 1}</td>
                           <td className="py-3 px-4">
                             {activeBill && activeBill.status !== 'draft' ? (
@@ -501,20 +600,40 @@ export const VendorBillsPage: React.FC = () => {
                           </td>
                           <td className="py-3 px-4">
                             {activeBill && activeBill.status !== 'draft' ? (
-                              <span className="text-[#c084fc] font-semibold">
-                                {analytics.find((an) => an.id === l.analytic_account_id)?.name || 'Project 1'}
-                              </span>
+                              <div>
+                                <span className="text-[#c084fc] font-semibold">
+                                  {analytics.find((an) => an.id === l.analytic_account_id)?.name || 'Project 1'}
+                                </span>
+                                {isLineOverBudget && (
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] font-medium text-rose-400">
+                                    <AlertTriangle className="w-3 h-3 text-rose-400 flex-shrink-0 animate-pulse" />
+                                    <span>Budget limit exceeded (+₹{lineExceededInfo?.exceededBy.toLocaleString('en-IN')} over)</span>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
-                              <select
-                                value={l.analytic_account_id}
-                                onChange={(e) => handleLineChange(idx, 'analytic_account_id', parseInt(e.target.value, 10))}
-                                className="w-full px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white"
-                              >
-                                <option value="">-- None --</option>
-                                {analytics.map((an) => (
-                                  <option key={an.id} value={an.id}>{an.name}</option>
-                                ))}
-                              </select>
+                              <div>
+                                <select
+                                  value={l.analytic_account_id}
+                                  onChange={(e) => handleLineChange(idx, 'analytic_account_id', parseInt(e.target.value, 10))}
+                                  className={`w-full px-2.5 py-1.5 bg-[#18181f] border rounded-lg text-xs text-white ${
+                                    isLineOverBudget
+                                      ? 'border-rose-500/60 bg-rose-950/20 text-rose-200 focus:border-rose-500'
+                                      : 'border-white/[0.08]'
+                                  }`}
+                                >
+                                  <option value="">-- None --</option>
+                                  {analytics.map((an) => (
+                                    <option key={an.id} value={an.id}>{an.name}</option>
+                                  ))}
+                                </select>
+                                {isLineOverBudget && (
+                                  <div className="flex items-center gap-1 mt-1 text-[10px] font-medium text-rose-400">
+                                    <AlertTriangle className="w-3 h-3 text-rose-400 flex-shrink-0 animate-pulse" />
+                                    <span>Budget limit exceeded (+₹{lineExceededInfo?.exceededBy.toLocaleString('en-IN')} over)</span>
+                                  </div>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="py-3 px-3 text-right">
@@ -526,7 +645,9 @@ export const VendorBillsPage: React.FC = () => {
                                 step="1"
                                 value={l.quantity}
                                 onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)}
-                                className="w-16 text-right px-2 py-1 bg-[#18181f] border border-white/[0.08] rounded text-xs text-white"
+                                className={`w-16 text-right px-2 py-1 bg-[#18181f] border rounded text-xs text-white ${
+                                  isLineOverBudget ? 'border-rose-500/60 bg-rose-950/20' : 'border-white/[0.08]'
+                                }`}
                               />
                             )}
                           </td>
@@ -539,11 +660,13 @@ export const VendorBillsPage: React.FC = () => {
                                 step="0.01"
                                 value={l.unit_price}
                                 onChange={(e) => handleLineChange(idx, 'unit_price', e.target.value)}
-                                className="w-24 text-right px-2 py-1 bg-[#18181f] border border-white/[0.08] rounded text-xs text-white"
+                                className={`w-24 text-right px-2 py-1 bg-[#18181f] border rounded text-xs text-white ${
+                                  isLineOverBudget ? 'border-rose-500/60 bg-rose-950/20' : 'border-white/[0.08]'
+                                }`}
                               />
                             )}
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                          <td className={`py-3 px-4 text-right font-mono font-bold ${isLineOverBudget ? 'text-rose-400' : 'text-white'}`}>
                             ₹{lineTotal.toLocaleString()}
                           </td>
                           {(!activeBill || activeBill.status === 'draft') && (

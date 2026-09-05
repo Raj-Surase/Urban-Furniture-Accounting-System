@@ -12,9 +12,11 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   FolderTree,
 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
+import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { analyticAccountsApi } from '../lib/api';
 
 interface RelatedBudget {
@@ -25,6 +27,9 @@ interface RelatedBudget {
   status: string;
   committed: number;
   achieved: number;
+  is_exceeded?: boolean;
+  exceeded_amount?: number;
+  achieved_percent?: number;
 }
 
 interface AnalyticAccount {
@@ -35,6 +40,9 @@ interface AnalyticAccount {
   description?: string;
   is_active?: boolean;
   related_budgets?: RelatedBudget[];
+  has_budget_exceeded?: boolean;
+  max_exceeded_amount?: number;
+  exceeded_budget_name?: string;
 }
 
 export const AnalyticAccountsPage: React.FC = () => {
@@ -200,6 +208,26 @@ export const AnalyticAccountsPage: React.FC = () => {
     >
       {viewMode === 'form' ? (
         <form onSubmit={handleSave} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6">
+          {/* Real-time Budget Exceeded Limit Alert */}
+          {relatedBudgets.some((b) => b.is_exceeded || (b.committed > 0 && b.achieved > b.committed)) && (
+            <BudgetExceededAlert
+              title="Budget Exceeded Limit Alert"
+              subtitle={`Operations on analytic account "${name || activeAccount?.name || 'Account'}" have exceeded the allocated budget limit!`}
+              items={relatedBudgets
+                .filter((b) => b.is_exceeded || (b.committed > 0 && b.achieved > b.committed))
+                .map((b) => ({
+                  accountName: name || activeAccount?.name || 'Analytic Account',
+                  budgetName: b.budget_name,
+                  budgetId: b.budget_id,
+                  committed: b.committed,
+                  achieved: b.achieved,
+                  exceededBy: b.exceeded_amount ?? Math.max(0, b.achieved - b.committed),
+                  type,
+                }))}
+              onReviseBudget={() => navigate('/budgets')}
+            />
+          )}
+
           <AnimatePresence>
             {error && (
               <motion.div
@@ -366,6 +394,7 @@ export const AnalyticAccountsPage: React.FC = () => {
                 <tbody className="divide-y divide-white/[0.04]">
                   {relatedBudgets.map((b) => {
                     const achievementPct = b.committed > 0 ? Math.round((b.achieved / b.committed) * 100) : 0;
+                    const isRowExceeded = b.is_exceeded || (b.committed > 0 && b.achieved > b.committed);
                     const statusMap: Record<string, string> = {
                       draft: 'bg-[#2a2a3a] text-[#9090a0] border-white/[0.06]',
                       confirm: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
@@ -376,14 +405,15 @@ export const AnalyticAccountsPage: React.FC = () => {
                       draft: 'Draft', confirm: 'Confirmed', revised: 'Revised', cancelled: 'Cancelled',
                     };
                     return (
-                      <tr key={b.budget_id} className="hover:bg-white/[0.02]">
+                      <tr key={b.budget_id} className={isRowExceeded ? 'bg-rose-500/[0.08] hover:bg-rose-500/[0.14] border-l-2 border-rose-500 transition-colors' : 'hover:bg-white/[0.02]'}>
                         <td className="py-2.5 px-3">
                           <button
                             type="button"
                             onClick={() => navigate('/budgets')}
-                            className="font-semibold text-[#7042f4] hover:underline text-left"
+                            className="font-semibold text-[#7042f4] hover:underline text-left flex items-center gap-1.5"
                           >
-                            {b.budget_name}
+                            <span>{b.budget_name}</span>
+                            {isRowExceeded && <AlertTriangle className="w-3.5 h-3.5 text-rose-400 inline" />}
                           </button>
                         </td>
                         <td className="py-2.5 px-3">
@@ -394,11 +424,25 @@ export const AnalyticAccountsPage: React.FC = () => {
                         <td className="py-2.5 px-3 text-[#a0a0b0]">{b.start_date}</td>
                         <td className="py-2.5 px-3 text-[#a0a0b0]">{b.end_date}</td>
                         <td className="py-2.5 px-3 text-right text-white font-mono">₹{b.committed.toLocaleString('en-IN')}</td>
-                        <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">₹{b.achieved.toLocaleString('en-IN')}</td>
+                        <td className={`py-2.5 px-3 text-right font-mono font-semibold ${isRowExceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          ₹{b.achieved.toLocaleString('en-IN')}
+                        </td>
                         <td className="py-2.5 px-3 text-right">
-                          <span className={`text-xs font-bold font-mono ${achievementPct >= 80 ? 'text-emerald-400' : achievementPct >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
-                            {achievementPct}%
-                          </span>
+                          {isRowExceeded ? (
+                            <div className="flex flex-col items-end">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                {achievementPct}% EXCEEDED
+                              </span>
+                              <span className="text-[10px] text-rose-400 font-mono mt-0.5">
+                                +₹{Math.round(b.exceeded_amount ?? (b.achieved - b.committed)).toLocaleString('en-IN')} over
+                              </span>
+                            </div>
+                          ) : (
+                            <span className={`text-xs font-bold font-mono ${achievementPct >= 80 ? 'text-emerald-400' : achievementPct >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                              {achievementPct}%
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -487,6 +531,14 @@ export const AnalyticAccountsPage: React.FC = () => {
                   {a.description && (
                     <p className="text-xs text-[#8a8a9a] line-clamp-2">{a.description}</p>
                   )}
+                  {a.has_budget_exceeded && (
+                    <div className="pt-2 border-t border-rose-500/20">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold w-full">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                        <span>Budget Exceeded (+₹{Math.round(a.max_exceeded_amount || 0).toLocaleString('en-IN')})</span>
+                      </span>
+                    </div>
+                  )}
                   {a.is_active === false && (
                     <span className="inline-block text-[10px] text-amber-400 font-medium">Inactive</span>
                   )}
@@ -518,9 +570,17 @@ export const AnalyticAccountsPage: React.FC = () => {
                         onClick={() => handleOpenForm(a)}
                         className="hover:bg-white/[0.03] cursor-pointer transition-colors"
                       >
-                        <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
-                          <FolderTree className="w-4 h-4 text-[#7042f4]" />
-                          <span>{a.name}</span>
+                        <td className="py-3.5 px-4 font-semibold text-white">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <FolderTree className="w-4 h-4 text-[#7042f4] shrink-0" />
+                            <span>{a.name}</span>
+                            {a.has_budget_exceeded && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                Exceeded Limit
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4">
                           <span className={`capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${

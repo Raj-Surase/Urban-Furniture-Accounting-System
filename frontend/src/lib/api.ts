@@ -214,6 +214,8 @@ export const budgetsApi = {
   cancel: (id: number) => api.post(`/budgets/${id}/cancel`).then(res => res.data),
   getAnalyticTransactions: (id: number, params: { analytic_account_id: number; type: string }) =>
     api.get(`/budgets/${id}/analytic-transactions`, { params }).then(res => res.data),
+  checkLimit: (data: { analytic_account_id: number; amount: number; type?: string; date?: string }) =>
+    api.post('/budgets/check-limit', data).then(res => res.data),
 };
 
 export const contactsApi = {

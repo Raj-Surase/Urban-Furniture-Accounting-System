@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   RefreshCw,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -25,6 +26,7 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import {
   ACCOUNT_CLASSIFICATIONS,
   PRESET_ACCOUNT_TEMPLATES,
@@ -33,6 +35,7 @@ import {
 } from '../constants/formOptions';
 
 export const AccountsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
@@ -44,12 +47,14 @@ export const AccountsPage: React.FC = () => {
   // Ledger Drawer/Modal State
   const [ledgerAccount, setLedgerAccount] = useState<any>(null);
   const [ledgerLines, setLedgerLines] = useState<any[]>([]);
+  const [ledgerExceededBudgets, setLedgerExceededBudgets] = useState<any[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
 
   // Inline Ledger Drilldown State
   const [expandedLedgerId, setExpandedLedgerId] = useState<number | null>(null);
   const [expandedLedgerLines, setExpandedLedgerLines] = useState<any[]>([]);
+  const [expandedExceededBudgets, setExpandedExceededBudgets] = useState<any[]>([]);
   const [expandedLedgerLoading, setExpandedLedgerLoading] = useState(false);
 
   const handleToggleExpandLedger = async (acc: any) => {
@@ -59,6 +64,7 @@ export const AccountsPage: React.FC = () => {
     }
     setExpandedLedgerId(acc.id);
     setExpandedLedgerLines([]);
+    setExpandedExceededBudgets([]);
     try {
       setExpandedLedgerLoading(true);
       const res = await accountsApi.getLedger(acc.id);
@@ -70,9 +76,11 @@ export const AccountsPage: React.FC = () => {
         res ??
         [];
       setExpandedLedgerLines(Array.isArray(raw) ? raw : []);
+      setExpandedExceededBudgets(res?.exceeded_budgets || []);
     } catch (err) {
       console.error(err);
       setExpandedLedgerLines([]);
+      setExpandedExceededBudgets([]);
     } finally {
       setExpandedLedgerLoading(false);
     }
@@ -127,6 +135,7 @@ export const AccountsPage: React.FC = () => {
   const handleOpenLedger = async (acc: any) => {
     setLedgerAccount(acc);
     setLedgerLines([]);
+    setLedgerExceededBudgets([]);
     setIsLedgerOpen(true);
     try {
       setLedgerLoading(true);
@@ -140,9 +149,11 @@ export const AccountsPage: React.FC = () => {
         [];
       const lines = Array.isArray(raw) ? raw : [];
       setLedgerLines(lines);
+      setLedgerExceededBudgets(res?.exceeded_budgets || []);
     } catch (err) {
       console.error(err);
       setLedgerLines([]);
+      setLedgerExceededBudgets([]);
       addToast({ type: 'error', title: 'Error', message: 'Could not fetch account ledger.' });
     } finally {
       setLedgerLoading(false);
@@ -483,6 +494,22 @@ export const AccountsPage: React.FC = () => {
                                 </div>
                               </div>
 
+                              {expandedExceededBudgets.length > 0 && (
+                                <div className="py-1">
+                                  <BudgetExceededAlert
+                                    compact
+                                    items={expandedExceededBudgets.map((b) => ({
+                                      accountName: b.analytic_name,
+                                      budgetName: b.budget_name,
+                                      budgetId: b.budget_id,
+                                      committed: b.committed_amount,
+                                      achieved: b.achieved_amount,
+                                      exceededBy: b.exceeded_amount,
+                                    }))}
+                                  />
+                                </div>
+                              )}
+
                               {expandedLedgerLoading ? (
                                 <div className="py-4 text-center text-xs text-neutral-400">Loading ledger entries…</div>
                               ) : expandedLedgerLines.length === 0 ? (
@@ -566,6 +593,30 @@ export const AccountsPage: React.FC = () => {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[70vh]">
+              {/* Budget Limit Exceeded Alert Banner */}
+              {ledgerExceededBudgets.length > 0 && (
+                <div className="mb-4">
+                  <BudgetExceededAlert
+                    title="Budget Limit Exceeded Alert"
+                    subtitle={`Analytic accounts associated with ${ledgerAccount.name} have exceeded approved budget limits!`}
+                    items={ledgerExceededBudgets.map((b) => ({
+                      accountName: b.analytic_name,
+                      budgetName: b.budget_name,
+                      budgetId: b.budget_id,
+                      committed: b.committed_amount,
+                      achieved: b.achieved_amount,
+                      exceededBy: b.exceeded_amount,
+                      type: 'expense',
+                      message: `Actual: ₹${Number(b.achieved_amount).toLocaleString('en-IN')} vs Committed: ₹${Number(b.committed_amount).toLocaleString('en-IN')} (${b.percentage}%)`,
+                    }))}
+                    onReviseBudget={(bId) => {
+                      setIsLedgerOpen(false);
+                      navigate(bId ? `/accounting/budgets?id=${bId}` : '/accounting/budgets');
+                    }}
+                  />
+                </div>
+              )}
+
               {ledgerLoading ? (
                 <div className="py-12 text-center text-neutral-400">Loading ledger lines...</div>
               ) : !Array.isArray(ledgerLines) || ledgerLines.length === 0 ? (
