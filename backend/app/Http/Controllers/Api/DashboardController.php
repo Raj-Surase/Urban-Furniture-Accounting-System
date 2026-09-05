@@ -14,6 +14,7 @@ use App\Models\SalesOrder;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -27,142 +28,152 @@ class DashboardController extends Controller
         $user = $request->user();
         $timeRange = $request->query('time_range', 'month');
 
-        $now = now();
-        $startDate = match ($timeRange) {
-            'week' => $now->copy()->subDays(7)->startOfDay(),
-            'year' => $now->copy()->startOfYear(),
-            default => $now->copy()->subDays(30)->startOfDay(), // month
-        };
+        $cacheKey = "dashboard_summary_{$user->id}_{$user->role}_{$timeRange}";
 
-        if ($user->isAdmin() || $user->isManager()) {
-            // Cash & Bank: pull balance from GL account code 1110
-            $bankAcc = Account::where('code', '1110')->first();
-            $bankBalance = $bankAcc ? (float) $bankAcc->current_balance : 0.00;
+        $data = Cache::remember($cacheKey, 60, function () use ($user, $timeRange) {
+            $now = now();
+            $startDate = match ($timeRange) {
+                'week' => $now->copy()->subDays(7)->startOfDay(),
+                'year' => $now->copy()->startOfYear(),
+                default => $now->copy()->subDays(30)->startOfDay(), // month
+            };
 
-            // Total revenue from receivable invoices
-            $revQuery = Invoice::where('type', 'receivable')->whereIn('status', ['approved', 'partially_paid', 'paid']);
-            $totalRevenue = (float) (clone $revQuery)->where('created_at', '>=', $startDate)->sum('total_amount');
-            if ($totalRevenue <= 0) {
-                $totalRevenue = (float) (clone $revQuery)->sum('total_amount');
-            }
+            if ($user->isAdmin() || $user->isManager()) {
+                // Cash & Bank: pull balance from GL account code 1110
+                $bankAcc = Account::where('code', '1110')->first();
+                $bankBalance = $bankAcc ? (float) $bankAcc->current_balance : 0.00;
 
-            // Previous period revenue for growth computation
-            $prevDuration = $now->diffInDays($startDate) ?: 30;
-            $prevStartDate = $startDate->copy()->subDays($prevDuration);
-            $prevRevenue = (float) (clone $revQuery)->whereBetween('created_at', [$prevStartDate, $startDate])->sum('total_amount');
-            $revenueGrowth = $prevRevenue > 0
-                ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1)
-                : 18.4;
-
-            // Procurement / Accounts Payable
-            $procQuery = Invoice::where('type', 'payable')->whereIn('status', ['approved', 'partially_paid', 'paid']);
-            $procurementValue = (float) (clone $procQuery)->where('created_at', '>=', $startDate)->sum('total_amount');
-            if ($procurementValue <= 0) {
-                $procurementValue = (float) (clone $procQuery)->sum('total_amount');
-                if ($procurementValue <= 0) {
-                    $procurementValue = (float) PurchaseOrder::whereIn('status', ['approved', 'received'])->sum('total_amount');
+                // Total revenue from receivable invoices
+                $revQuery = Invoice::where('type', 'receivable')->whereIn('status', ['approved', 'partially_paid', 'paid']);
+                $totalRevenue = (float) (clone $revQuery)->where('created_at', '>=', $startDate)->sum('total_amount');
+                if ($totalRevenue <= 0) {
+                    $totalRevenue = (float) (clone $revQuery)->sum('total_amount');
                 }
+
+                // Previous period revenue for growth computation
+                $prevDuration = $now->diffInDays($startDate) ?: 30;
+                $prevStartDate = $startDate->copy()->subDays($prevDuration);
+                $prevRevenue = (float) (clone $revQuery)->whereBetween('created_at', [$prevStartDate, $startDate])->sum('total_amount');
+                $revenueGrowth = $prevRevenue > 0
+                    ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1)
+                    : 18.4;
+
+                // Procurement / Accounts Payable
+                $procQuery = Invoice::where('type', 'payable')->whereIn('status', ['approved', 'partially_paid', 'paid']);
+                $procurementValue = (float) (clone $procQuery)->where('created_at', '>=', $startDate)->sum('total_amount');
+                if ($procurementValue <= 0) {
+                    $procurementValue = (float) (clone $procQuery)->sum('total_amount');
+                    if ($procurementValue <= 0) {
+                        $procurementValue = (float) PurchaseOrder::whereIn('status', ['approved', 'received'])->sum('total_amount');
+                    }
+                }
+                $prevProcurement = (float) (clone $procQuery)->whereBetween('created_at', [$prevStartDate, $startDate])->sum('total_amount');
+                $procurementGrowth = $prevProcurement > 0
+                    ? round((($procurementValue - $prevProcurement) / $prevProcurement) * 100, 1)
+                    : 24.0;
+
+                // Top Products / Inventory Valuation
+                $inventoryValuation = (float) Product::selectRaw('SUM(current_stock * cost_price) as total_val')->value('total_val') ?: 0.00;
+                $topProductsValue = $inventoryValuation > 0 ? $inventoryValuation : 124000.00;
+                $topProductsGrowth = 15.0;
+
+                // Accounts Receivable: sum of balance_due on approved/partially-paid sales invoices
+                $arTotal = (float) Invoice::where('type', 'receivable')
+                    ->whereIn('status', ['approved', 'partially_paid'])
+                    ->sum('balance_due');
+
+                // Accounts Payable: sum of balance_due on approved/partially-paid purchase invoices
+                $apTotal = (float) Invoice::where('type', 'payable')
+                    ->whereIn('status', ['approved', 'partially_paid'])
+                    ->sum('balance_due');
+
+                // Working Capital
+                $workingCapital = $bankBalance > 0 ? $bankBalance : $totalRevenue;
+
+                // Dynamic Fiscal period
+                $quarter = ceil($now->month / 3);
+                $fiscalPeriod = "Fiscal Q{$quarter} • Active PO Fulfillment";
+
+                // Operational KPIs
+                $lowStockCount = Product::whereColumn('current_stock', '<=', 'reorder_point')->count();
+                $pendingPos = PurchaseOrder::whereIn('status', ['draft', 'submitted'])->count();
+                $pendingSos = SalesOrder::whereIn('status', ['draft', 'confirmed'])->count();
+                $unpaidInvoicesCount = Invoice::where('balance_due', '>', 0)->count();
+
+                // Order/item counts
+                $totalInvoices = Invoice::count();
+                $totalSalesOrders = SalesOrder::count();
+                $totalPOs = PurchaseOrder::count();
+                $totalItemsCount = $totalInvoices + $totalSalesOrders + $totalPOs;
+                $completedCount = Invoice::where('status', 'paid')->count() + SalesOrder::where('status', 'delivered')->count();
+                $inProgressCount = Invoice::whereIn('status', ['draft', 'approved', 'partially_paid'])->count() + SalesOrder::whereIn('status', ['draft', 'confirmed'])->count();
+
+                // Dynamic equalizer bars based on real activity
+                $equalizer = $this->generateEqualizerBars();
+
+                return [
+                    'role' => $user->role,
+                    'time_range' => $timeRange,
+                    'kpis' => [
+                        'cash_bank_balance' => round($bankBalance, 2),
+                        'total_revenue' => round($totalRevenue, 2),
+                        'revenue_growth' => $revenueGrowth,
+                        'procurement_value' => round($procurementValue, 2),
+                        'procurement_growth' => $procurementGrowth,
+                        'top_products_value' => round($topProductsValue, 2),
+                        'top_products_growth' => $topProductsGrowth,
+                        'working_capital' => round($workingCapital, 2),
+                        'fiscal_period' => $fiscalPeriod,
+                        'receivables_outstanding' => round($arTotal, 2),
+                        'payables_outstanding' => round($apTotal, 2),
+                        'low_stock_items_count' => $lowStockCount,
+                        'pending_purchase_orders' => $pendingPos,
+                        'pending_sales_orders' => $pendingSos,
+                        'unpaid_invoices_count' => $unpaidInvoicesCount,
+                        'total_items_count' => $totalItemsCount,
+                        'completed_count' => $completedCount,
+                        'in_progress_count' => $inProgressCount,
+                        'equalizer' => $equalizer,
+                    ],
+                ];
             }
-            $prevProcurement = (float) (clone $procQuery)->whereBetween('created_at', [$prevStartDate, $startDate])->sum('total_amount');
-            $procurementGrowth = $prevProcurement > 0
-                ? round((($procurementValue - $prevProcurement) / $prevProcurement) * 100, 1)
-                : 24.0;
 
-            // Top Products / Inventory Valuation
-            $inventoryValuation = (float) Product::selectRaw('SUM(current_stock * cost_price) as total_val')->value('total_val') ?: 0.00;
-            $topProductsValue = $inventoryValuation > 0 ? $inventoryValuation : 124000.00;
-            $topProductsGrowth = 15.0;
-
-            // Accounts Receivable: sum of balance_due on approved/partially-paid sales invoices
-            $arTotal = (float) Invoice::where('type', 'receivable')
-                ->whereIn('status', ['approved', 'partially_paid'])
-                ->sum('balance_due');
-
-            // Accounts Payable: sum of balance_due on approved/partially-paid purchase invoices
-            $apTotal = (float) Invoice::where('type', 'payable')
-                ->whereIn('status', ['approved', 'partially_paid'])
-                ->sum('balance_due');
-
-            // Working Capital
-            $workingCapital = $bankBalance > 0 ? $bankBalance : $totalRevenue;
-
-            // Dynamic Fiscal period
-            $quarter = ceil($now->month / 3);
-            $fiscalPeriod = "Fiscal Q{$quarter} • Active PO Fulfillment";
-
-            // Operational KPIs
+            // --- Standard User / Clerk: personal work summary ---
+            $myDraftPos = PurchaseOrder::where('created_by', $user->id)->where('status', 'draft')->count();
+            $myDraftSos = SalesOrder::where('created_by', $user->id)->where('status', 'draft')->count();
+            $myTotalOrders = SalesOrder::where('created_by', $user->id)->count() + PurchaseOrder::where('created_by', $user->id)->count();
             $lowStockCount = Product::whereColumn('current_stock', '<=', 'reorder_point')->count();
-            $pendingPos = PurchaseOrder::whereIn('status', ['draft', 'submitted'])->count();
-            $pendingSos = SalesOrder::whereIn('status', ['draft', 'confirmed'])->count();
-            $unpaidInvoicesCount = Invoice::where('balance_due', '>', 0)->count();
 
-            // Order/item counts
-            $totalInvoices = Invoice::count();
-            $totalSalesOrders = SalesOrder::count();
-            $totalPOs = PurchaseOrder::count();
-            $totalItemsCount = $totalInvoices + $totalSalesOrders + $totalPOs;
-            $completedCount = Invoice::where('status', 'paid')->count() + SalesOrder::where('status', 'delivered')->count();
-            $inProgressCount = Invoice::whereIn('status', ['draft', 'approved', 'partially_paid'])->count() + SalesOrder::whereIn('status', ['draft', 'confirmed'])->count();
-
-            // Dynamic equalizer bars based on real activity
-            $equalizer = $this->generateEqualizerBars();
-
-            return response()->json([
+            return [
                 'role' => $user->role,
                 'time_range' => $timeRange,
                 'kpis' => [
-                    'cash_bank_balance' => round($bankBalance, 2),
-                    'total_revenue' => round($totalRevenue, 2),
-                    'revenue_growth' => $revenueGrowth,
-                    'procurement_value' => round($procurementValue, 2),
-                    'procurement_growth' => $procurementGrowth,
-                    'top_products_value' => round($topProductsValue, 2),
-                    'top_products_growth' => $topProductsGrowth,
-                    'working_capital' => round($workingCapital, 2),
-                    'fiscal_period' => $fiscalPeriod,
-                    'receivables_outstanding' => round($arTotal, 2),
-                    'payables_outstanding' => round($apTotal, 2),
-                    'low_stock_items_count' => $lowStockCount,
-                    'pending_purchase_orders' => $pendingPos,
-                    'pending_sales_orders' => $pendingSos,
-                    'unpaid_invoices_count' => $unpaidInvoicesCount,
-                    'total_items_count' => $totalItemsCount,
-                    'completed_count' => $completedCount,
-                    'in_progress_count' => $inProgressCount,
-                    'equalizer' => $equalizer,
+                    'my_draft_pos' => $myDraftPos,
+                    'my_draft_sos' => $myDraftSos,
+                    'my_total_orders' => $myTotalOrders,
+                    'catalog_low_stock_count' => $lowStockCount,
+                    'total_items_count' => $myTotalOrders,
+                    'completed_count' => 0,
+                    'in_progress_count' => $myDraftPos + $myDraftSos,
+                    'equalizer' => $this->generateEqualizerBars(),
                 ],
-            ]);
-        }
+            ];
+        });
 
-        // --- Standard User / Clerk: personal work summary ---
-        $myDraftPos = PurchaseOrder::where('created_by', $user->id)->where('status', 'draft')->count();
-        $myDraftSos = SalesOrder::where('created_by', $user->id)->where('status', 'draft')->count();
-        $myTotalOrders = SalesOrder::where('created_by', $user->id)->count() + PurchaseOrder::where('created_by', $user->id)->count();
-        $lowStockCount = Product::whereColumn('current_stock', '<=', 'reorder_point')->count();
-
-        return response()->json([
-            'role' => $user->role,
-            'time_range' => $timeRange,
-            'kpis' => [
-                'my_draft_pos' => $myDraftPos,
-                'my_draft_sos' => $myDraftSos,
-                'my_total_orders' => $myTotalOrders,
-                'catalog_low_stock_count' => $lowStockCount,
-                'total_items_count' => $myTotalOrders,
-                'completed_count' => 0,
-                'in_progress_count' => $myDraftPos + $myDraftSos,
-                'equalizer' => $this->generateEqualizerBars(),
-            ],
-        ]);
+        return response()->json($data);
     }
 
     /**
-     * Return recent live invoices, bills, and payments mapped to transaction cards.
+     * Return recent live invoices, bills, and payments mapped to transaction cards with pagination support.
      */
     public function recentTransactions(Request $request): JsonResponse
     {
-        $invoices = Invoice::latest('created_at')->limit(10)->get();
-        $payments = Payment::with('bankAccount')->latest('created_at')->limit(10)->get();
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
+
+        $fetchLimit = max(50, $page * $perPage + 20);
+        $invoices = Invoice::latest('created_at')->limit($fetchLimit)->get();
+        $payments = Payment::with('bankAccount')->latest('created_at')->limit($fetchLimit)->get();
 
         $transactions = collect();
 
@@ -214,14 +225,22 @@ class DashboardController extends Controller
             ]);
         }
 
-        $sorted = $transactions->sortByDesc('created_at')->values()->take(10);
+        $sorted = $transactions->sortByDesc('created_at')->values();
+        $total = Invoice::count() + Payment::count();
+        $paginated = $sorted->forPage($page, $perPage)->values();
+        $lastPage = max(1, (int) ceil($total / $perPage));
 
         // Keep journal entries for backward compatibility
         $entries = JournalEntry::with('lines.account')->latest('posting_date')->limit(10)->get();
 
         return response()->json([
-            'data' => $sorted,
-            'total_count' => $sorted->count(),
+            'data' => $paginated,
+            'total' => $total,
+            'total_count' => $total,
+            'current_page' => $page,
+            'per_page' => $perPage,
+            'last_page' => $lastPage,
+            'has_more' => $page < $lastPage,
             'journal_entries' => $entries,
         ]);
     }
