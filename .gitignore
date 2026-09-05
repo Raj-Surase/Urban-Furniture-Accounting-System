@@ -1,0 +1,34 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vite / React
+frontend/dist/
+frontend/dist-ssr/
+*.local
+*.tsbuildinfo
+
+
+# Laravel
+backend/vendor/
+backend/bootstrap/cache/
+backend/storage/*.key
+backend/storage/framework/cache/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/storage/logs/
+backend/.env
+realtime/.env
+frontend/.env
+*.sqlite
+*.sqlite-journal
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+
