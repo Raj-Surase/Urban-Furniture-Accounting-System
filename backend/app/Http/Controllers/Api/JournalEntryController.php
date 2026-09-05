@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,8 +84,7 @@ class JournalEntryController extends Controller
         }
 
         $year = now()->format('Y');
-        $count = JournalEntry::whereYear('created_at', $year)->count() + 1;
-        $entryNumber = sprintf("JE-%s-%04d", $year, $count);
+        $entryNumber = SequenceService::generate('JE', (int) $year, 4);
 
         return DB::transaction(function () use ($validated, $entryNumber, $request) {
             $je = JournalEntry::create([
@@ -155,8 +155,7 @@ class JournalEntryController extends Controller
 
         return DB::transaction(function () use ($journalEntry, $request) {
             $year = now()->format('Y');
-            $count = JournalEntry::whereYear('created_at', $year)->count() + 1;
-            $reversalNumber = sprintf("JE-%s-%04d", $year, $count);
+            $reversalNumber = SequenceService::generate('JE', (int) $year, 4);
 
             $reversal = JournalEntry::create([
                 'entry_number' => $reversalNumber,

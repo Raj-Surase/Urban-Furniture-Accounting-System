@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Vendor;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -54,8 +55,7 @@ class VendorController extends Controller
         ]);
 
         if (empty($validated['code'])) {
-            $count = Vendor::count() + 1;
-            $validated['code'] = sprintf("VEN-%03d", $count);
+            $validated['code'] = SequenceService::generate('VEN', null, 3);
         }
 
         if (empty($validated['payable_account_id'])) {

@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\JournalPostingService;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -72,8 +73,7 @@ class PaymentController extends Controller
         ]);
 
         $year = now()->format('Y');
-        $count = Payment::whereYear('created_at', $year)->count() + 1;
-        $payNumber = sprintf("PAY-%s-%04d", $year, $count);
+        $payNumber = SequenceService::generate('PAY', (int) $year, 4);
 
         $defaultBank = Account::where('code', '1110')->first();
         $bankAccountId = $validated['bank_account_id'] ?? $defaultBank?->id;

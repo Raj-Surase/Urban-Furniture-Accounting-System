@@ -31,6 +31,15 @@ class PurchaseOrderItem extends Model
         "line_total" => "decimal:2",
     ];
 
+    protected $appends = [
+        "quantity",
+    ];
+
+    public function getQuantityAttribute(): float
+    {
+        return (float) $this->quantity_ordered;
+    }
+
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);

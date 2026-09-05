@@ -78,7 +78,6 @@ class AccountController extends Controller
     {
         Gate::authorize('view', $account);
 
-        $account->recalculateBalance();
         $account->load(['parent', 'children']);
 
         return response()->json([
@@ -132,8 +131,6 @@ class AccountController extends Controller
     public function ledger(Request $request, Account $account): JsonResponse
     {
         Gate::authorize('view', $account);
-
-        $account->recalculateBalance();
 
         $lines = $account->journalLines()
             ->with(['journalEntry'])

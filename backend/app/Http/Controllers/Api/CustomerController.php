@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Customer;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -55,8 +56,7 @@ class CustomerController extends Controller
         ]);
 
         if (empty($validated['code'])) {
-            $count = Customer::count() + 1;
-            $validated['code'] = sprintf("CUST-%03d", $count);
+            $validated['code'] = SequenceService::generate('CUST', null, 3);
         }
 
         if (empty($validated['receivable_account_id'])) {

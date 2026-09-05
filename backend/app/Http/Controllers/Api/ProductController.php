@@ -9,6 +9,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
 use App\Models\Product;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -205,8 +206,7 @@ class ProductController extends Controller
             $accounts = Account::whereIn('code', ['1130', '5300'])->get()->keyBy('code');
             if (isset($accounts['1130']) && isset($accounts['5300'])) {
                 $year = now()->format('Y');
-                $count = JournalEntry::whereYear('created_at', $year)->count() + 1;
-                $jeNum = sprintf("JE-%s-%04d", $year, $count);
+                $jeNum = SequenceService::generate('JE', (int) $year, 4);
 
                 $je = JournalEntry::create([
                     'entry_number' => $jeNum,
