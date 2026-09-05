@@ -146,6 +146,14 @@ export const App: React.FC = () => {
                         }
                       />
                       <Route
+                        path="payments/new"
+                        element={
+                          <ProtectedRoute>
+                            <PaymentsPage openNew={true} />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
                         path="customers"
                         element={
                           <ProtectedRoute>

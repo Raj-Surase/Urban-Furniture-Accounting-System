@@ -60,7 +60,14 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
     if (onItemClick) {
       onItemClick(tx);
     } else {
-      navigate('/invoices');
+      const isPayment = tx.id?.startsWith('pay-') || tx.category?.includes('Payment') || tx.category?.includes('Settlement');
+      if (isPayment) {
+        const payId = tx.id?.replace('pay-', '');
+        navigate(`/payments?id=${payId}&search=${encodeURIComponent(tx.reference_number || '')}`);
+      } else {
+        const invId = tx.id?.replace('inv-', '');
+        navigate(`/invoices?id=${invId}&search=${encodeURIComponent(tx.reference_number || '')}`);
+      }
     }
   };
 
@@ -139,10 +146,11 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate('/invoices');
+                    handleItemClick(tx);
                   }}
                   className="opacity-40 group-hover:opacity-100 text-[#a0a0b0] hover:text-white p-1 rounded transition-opacity"
                   aria-label="Item options"
+                  title="View Transaction Details"
                 >
                   <MoreVertical className="w-3.5 h-3.5" />
                 </button>

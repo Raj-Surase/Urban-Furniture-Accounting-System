@@ -214,6 +214,7 @@ export const DashboardPage: React.FC = () => {
         {/* 1. Top Greeting & 3-Column Hero Metrics Section (Exact match to target design) */}
         <HeroMetricsSection
           onNewItem={() => navigate('/invoices')}
+          onRecordPayment={() => navigate('/payments?new=true')}
           onBroadcast={() => setShowDeveloperStudio(true)}
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange}
@@ -232,7 +233,16 @@ export const DashboardPage: React.FC = () => {
           {/* Card 3: Recent Transactions / Real-Time Items */}
           <RecentTransactionsCard
             onSearchClick={() => navigate('/invoices')}
-            onItemClick={() => navigate('/invoices')}
+            onItemClick={(tx) => {
+              const isPayment = tx.id?.startsWith('pay-') || tx.category?.includes('Payment') || tx.category?.includes('Settlement');
+              if (isPayment) {
+                const payId = tx.id?.replace('pay-', '');
+                navigate(`/payments?id=${payId}&search=${encodeURIComponent(tx.reference_number || '')}`);
+              } else {
+                const invId = tx.id?.replace('inv-', '');
+                navigate(`/invoices?id=${invId}&search=${encodeURIComponent(tx.reference_number || '')}`);
+              }
+            }}
           />
         </div>
 
@@ -380,7 +390,9 @@ export const DashboardPage: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] text-[#6d6d7e] flex items-center justify-between pt-2 border-t border-white/[0.04]">
-                      <span>Real-time Telemetry &bull; Urban Furniture Accounting</span>
+                      <span>
+                        {apiHealth?.database ? `${apiHealth.database.toUpperCase()} • ${apiHealth.framework || 'Laravel 11'}` : 'Real-time WebSocket'} &bull; Urban Furniture Accounting
+                      </span>
                       <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms latency</span>
                     </div>
                   </div>

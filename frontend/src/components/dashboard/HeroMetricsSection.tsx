@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export interface HeroMetricsSectionProps {
   onNewItem?: () => void;
+  onRecordPayment?: () => void;
   onBroadcast?: () => void;
   timeRange?: 'week' | 'month' | 'year';
   onTimeRangeChange?: (range: 'week' | 'month' | 'year') => void;
@@ -20,6 +21,7 @@ export interface HeroMetricsSectionProps {
 
 export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
   onNewItem,
+  onRecordPayment,
   timeRange = 'month',
   onTimeRangeChange,
   summaryData,
@@ -114,7 +116,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
             </button>
 
             <button
-              onClick={() => navigate('/payments')}
+              onClick={onRecordPayment || (() => navigate('/payments?new=true'))}
               className="bg-[#24242e] text-white hover:bg-[#2e2e3a] font-medium rounded-full px-5 py-2 text-xs flex items-center gap-1.5 active:scale-95 transition-all select-none border border-white/[0.04]"
             >
               Record Payment <ArrowDownLeft className="w-3.5 h-3.5 stroke-[2]" />
