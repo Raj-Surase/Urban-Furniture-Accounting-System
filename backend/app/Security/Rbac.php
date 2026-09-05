@@ -25,6 +25,72 @@ class Rbac
     public const PERMISSION_SYSTEM_TELEMETRY = 'system:telemetry';
     public const PERMISSION_SYSTEM_BROADCAST = 'system:broadcast';
 
+    // Permissions: Accounts & Financial Reports
+    public const PERMISSION_ACCOUNTS_VIEW_ANY = 'accounts:view_any';
+    public const PERMISSION_ACCOUNTS_CREATE = 'accounts:create';
+    public const PERMISSION_ACCOUNTS_UPDATE = 'accounts:update';
+    public const PERMISSION_ACCOUNTS_DELETE = 'accounts:delete';
+    public const PERMISSION_REPORTS_VIEW_FINANCIAL = 'reports:view_financial';
+
+    // Permissions: Customers
+    public const PERMISSION_CUSTOMERS_VIEW_ANY = 'customers:view_any';
+    public const PERMISSION_CUSTOMERS_CREATE = 'customers:create';
+    public const PERMISSION_CUSTOMERS_UPDATE = 'customers:update';
+    public const PERMISSION_CUSTOMERS_DELETE = 'customers:delete';
+
+    // Permissions: Vendors
+    public const PERMISSION_VENDORS_VIEW_ANY = 'vendors:view_any';
+    public const PERMISSION_VENDORS_CREATE = 'vendors:create';
+    public const PERMISSION_VENDORS_UPDATE = 'vendors:update';
+    public const PERMISSION_VENDORS_DELETE = 'vendors:delete';
+
+    // Permissions: Products & Inventory
+    public const PERMISSION_PRODUCTS_VIEW_ANY = 'products:view_any';
+    public const PERMISSION_PRODUCTS_CREATE = 'products:create';
+    public const PERMISSION_PRODUCTS_UPDATE = 'products:update';
+    public const PERMISSION_PRODUCTS_DELETE = 'products:delete';
+    public const PERMISSION_INVENTORY_ADJUST = 'inventory:adjust';
+
+    // Permissions: Purchase Orders
+    public const PERMISSION_PURCHASE_ORDERS_VIEW_ANY = 'purchase_orders:view_any';
+    public const PERMISSION_PURCHASE_ORDERS_VIEW_OWN = 'purchase_orders:view_own';
+    public const PERMISSION_PURCHASE_ORDERS_CREATE = 'purchase_orders:create';
+    public const PERMISSION_PURCHASE_ORDERS_APPROVE = 'purchase_orders:approve';
+    public const PERMISSION_PURCHASE_ORDERS_REJECT = 'purchase_orders:reject';
+    public const PERMISSION_PURCHASE_ORDERS_UPDATE_OWN = 'purchase_orders:update_own';
+    public const PERMISSION_PURCHASE_ORDERS_RECEIVE = 'purchase_orders:receive';
+    public const PERMISSION_PURCHASE_ORDERS_DELETE = 'purchase_orders:delete';
+
+    // Permissions: Sales Orders
+    public const PERMISSION_SALES_ORDERS_VIEW_ANY = 'sales_orders:view_any';
+    public const PERMISSION_SALES_ORDERS_VIEW_OWN = 'sales_orders:view_own';
+    public const PERMISSION_SALES_ORDERS_CREATE = 'sales_orders:create';
+    public const PERMISSION_SALES_ORDERS_APPROVE = 'sales_orders:approve';
+    public const PERMISSION_SALES_ORDERS_UPDATE_OWN = 'sales_orders:update_own';
+    public const PERMISSION_SALES_ORDERS_INVOICE = 'sales_orders:invoice';
+    public const PERMISSION_SALES_ORDERS_DELIVER = 'sales_orders:deliver';
+    public const PERMISSION_SALES_ORDERS_DELETE = 'sales_orders:delete';
+
+    // Permissions: Invoices & Bills
+    public const PERMISSION_INVOICES_VIEW_ANY = 'invoices:view_any';
+    public const PERMISSION_INVOICES_VIEW_OWN = 'invoices:view_own';
+    public const PERMISSION_INVOICES_CREATE = 'invoices:create';
+    public const PERMISSION_INVOICES_APPROVE = 'invoices:approve';
+    public const PERMISSION_INVOICES_VOID = 'invoices:void';
+    public const PERMISSION_INVOICES_UPDATE_OWN = 'invoices:update_own';
+    public const PERMISSION_INVOICES_DELETE = 'invoices:delete';
+
+    // Permissions: Payments & Treasury
+    public const PERMISSION_PAYMENTS_VIEW_ANY = 'payments:view_any';
+    public const PERMISSION_PAYMENTS_CREATE = 'payments:create';
+    public const PERMISSION_PAYMENTS_RECONCILE = 'payments:reconcile';
+    public const PERMISSION_PAYMENTS_DELETE = 'payments:delete';
+
+    // Permissions: General Ledger Journal
+    public const PERMISSION_JOURNAL_VIEW_ANY = 'journal:view_any';
+    public const PERMISSION_JOURNAL_POST = 'journal:post';
+    public const PERMISSION_JOURNAL_REVERSE = 'journal:reverse';
+
     /**
      * All recognized system roles.
      *
@@ -122,35 +188,131 @@ class Rbac
      */
     public static function getRolePermissionsMap(): array
     {
+        $domainPermissions = [
+            self::PERMISSION_ITEMS_VIEW_ANY,
+            self::PERMISSION_ITEMS_VIEW,
+            self::PERMISSION_ITEMS_CREATE,
+            self::PERMISSION_ITEMS_UPDATE_OWN,
+            self::PERMISSION_ITEMS_UPDATE_ANY,
+            self::PERMISSION_ITEMS_DELETE_ANY,
+            self::PERMISSION_USERS_VIEW_ANY,
+            self::PERMISSION_USERS_MANAGE_ROLES,
+            self::PERMISSION_SYSTEM_TELEMETRY,
+            self::PERMISSION_SYSTEM_BROADCAST,
+            // Domain Accounting & Operations
+            self::PERMISSION_ACCOUNTS_VIEW_ANY,
+            self::PERMISSION_ACCOUNTS_CREATE,
+            self::PERMISSION_ACCOUNTS_UPDATE,
+            self::PERMISSION_ACCOUNTS_DELETE,
+            self::PERMISSION_REPORTS_VIEW_FINANCIAL,
+            self::PERMISSION_CUSTOMERS_VIEW_ANY,
+            self::PERMISSION_CUSTOMERS_CREATE,
+            self::PERMISSION_CUSTOMERS_UPDATE,
+            self::PERMISSION_CUSTOMERS_DELETE,
+            self::PERMISSION_VENDORS_VIEW_ANY,
+            self::PERMISSION_VENDORS_CREATE,
+            self::PERMISSION_VENDORS_UPDATE,
+            self::PERMISSION_VENDORS_DELETE,
+            self::PERMISSION_PRODUCTS_VIEW_ANY,
+            self::PERMISSION_PRODUCTS_CREATE,
+            self::PERMISSION_PRODUCTS_UPDATE,
+            self::PERMISSION_PRODUCTS_DELETE,
+            self::PERMISSION_INVENTORY_ADJUST,
+            self::PERMISSION_PURCHASE_ORDERS_VIEW_ANY,
+            self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
+            self::PERMISSION_PURCHASE_ORDERS_CREATE,
+            self::PERMISSION_PURCHASE_ORDERS_APPROVE,
+            self::PERMISSION_PURCHASE_ORDERS_REJECT,
+            self::PERMISSION_PURCHASE_ORDERS_UPDATE_OWN,
+            self::PERMISSION_PURCHASE_ORDERS_RECEIVE,
+            self::PERMISSION_PURCHASE_ORDERS_DELETE,
+            self::PERMISSION_SALES_ORDERS_VIEW_ANY,
+            self::PERMISSION_SALES_ORDERS_VIEW_OWN,
+            self::PERMISSION_SALES_ORDERS_CREATE,
+            self::PERMISSION_SALES_ORDERS_APPROVE,
+            self::PERMISSION_SALES_ORDERS_UPDATE_OWN,
+            self::PERMISSION_SALES_ORDERS_INVOICE,
+            self::PERMISSION_SALES_ORDERS_DELIVER,
+            self::PERMISSION_SALES_ORDERS_DELETE,
+            self::PERMISSION_INVOICES_VIEW_ANY,
+            self::PERMISSION_INVOICES_VIEW_OWN,
+            self::PERMISSION_INVOICES_CREATE,
+            self::PERMISSION_INVOICES_APPROVE,
+            self::PERMISSION_INVOICES_VOID,
+            self::PERMISSION_INVOICES_UPDATE_OWN,
+            self::PERMISSION_INVOICES_DELETE,
+            self::PERMISSION_PAYMENTS_VIEW_ANY,
+            self::PERMISSION_PAYMENTS_CREATE,
+            self::PERMISSION_PAYMENTS_RECONCILE,
+            self::PERMISSION_PAYMENTS_DELETE,
+            self::PERMISSION_JOURNAL_VIEW_ANY,
+            self::PERMISSION_JOURNAL_POST,
+            self::PERMISSION_JOURNAL_REVERSE,
+        ];
+
         return [
-            self::ROLE_ADMIN => [
-                self::PERMISSION_ITEMS_VIEW_ANY,
-                self::PERMISSION_ITEMS_VIEW,
-                self::PERMISSION_ITEMS_CREATE,
-                self::PERMISSION_ITEMS_UPDATE_OWN,
-                self::PERMISSION_ITEMS_UPDATE_ANY,
-                self::PERMISSION_ITEMS_DELETE_ANY,
-                self::PERMISSION_USERS_VIEW_ANY,
-                self::PERMISSION_USERS_MANAGE_ROLES,
-                self::PERMISSION_SYSTEM_TELEMETRY,
-                self::PERMISSION_SYSTEM_BROADCAST,
-            ],
+            self::ROLE_ADMIN => $domainPermissions,
             self::ROLE_MANAGER => [
                 self::PERMISSION_ITEMS_VIEW_ANY,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
                 self::PERMISSION_ITEMS_UPDATE_ANY,
-                // Note: Managers CANNOT delete items (strict policy)
                 self::PERMISSION_USERS_VIEW_ANY,
                 self::PERMISSION_SYSTEM_BROADCAST,
+                // Manager business operations
+                self::PERMISSION_ACCOUNTS_VIEW_ANY,
+                self::PERMISSION_ACCOUNTS_CREATE,
+                self::PERMISSION_ACCOUNTS_UPDATE,
+                self::PERMISSION_REPORTS_VIEW_FINANCIAL,
+                self::PERMISSION_CUSTOMERS_VIEW_ANY,
+                self::PERMISSION_CUSTOMERS_CREATE,
+                self::PERMISSION_CUSTOMERS_UPDATE,
+                self::PERMISSION_VENDORS_VIEW_ANY,
+                self::PERMISSION_VENDORS_CREATE,
+                self::PERMISSION_VENDORS_UPDATE,
+                self::PERMISSION_PRODUCTS_VIEW_ANY,
+                self::PERMISSION_PRODUCTS_CREATE,
+                self::PERMISSION_PRODUCTS_UPDATE,
+                self::PERMISSION_INVENTORY_ADJUST,
+                self::PERMISSION_PURCHASE_ORDERS_VIEW_ANY,
+                self::PERMISSION_PURCHASE_ORDERS_CREATE,
+                self::PERMISSION_PURCHASE_ORDERS_APPROVE,
+                self::PERMISSION_PURCHASE_ORDERS_REJECT,
+                self::PERMISSION_PURCHASE_ORDERS_RECEIVE,
+                self::PERMISSION_SALES_ORDERS_VIEW_ANY,
+                self::PERMISSION_SALES_ORDERS_CREATE,
+                self::PERMISSION_SALES_ORDERS_APPROVE,
+                self::PERMISSION_SALES_ORDERS_INVOICE,
+                self::PERMISSION_SALES_ORDERS_DELIVER,
+                self::PERMISSION_INVOICES_VIEW_ANY,
+                self::PERMISSION_INVOICES_CREATE,
+                self::PERMISSION_INVOICES_APPROVE,
+                self::PERMISSION_INVOICES_VOID,
+                self::PERMISSION_PAYMENTS_VIEW_ANY,
+                self::PERMISSION_PAYMENTS_CREATE,
+                self::PERMISSION_PAYMENTS_RECONCILE,
+                self::PERMISSION_JOURNAL_VIEW_ANY,
+                self::PERMISSION_JOURNAL_POST,
+                self::PERMISSION_JOURNAL_REVERSE,
             ],
             self::ROLE_USER => [
                 self::PERMISSION_ITEMS_VIEW_ANY,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
-                // Note: Standard users CANNOT update other users' items and CANNOT delete
+                // Standard user operations
+                self::PERMISSION_PRODUCTS_VIEW_ANY,
+                self::PERMISSION_CUSTOMERS_VIEW_ANY,
+                self::PERMISSION_VENDORS_VIEW_ANY,
+                self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
+                self::PERMISSION_PURCHASE_ORDERS_CREATE,
+                self::PERMISSION_SALES_ORDERS_VIEW_OWN,
+                self::PERMISSION_SALES_ORDERS_CREATE,
+                self::PERMISSION_INVOICES_VIEW_OWN,
+                self::PERMISSION_INVOICES_CREATE,
+                self::PERMISSION_PAYMENTS_VIEW_ANY,
+                self::PERMISSION_PAYMENTS_CREATE,
             ],
         ];
     }
@@ -183,6 +345,10 @@ class Rbac
     {
         if (! $role) {
             return false;
+        }
+
+        if ($role === self::ROLE_ADMIN) {
+            return true;
         }
 
         $permissions = self::getPermissionsForRole($role);
