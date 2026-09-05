@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, MapPin, Building, Image as ImageIcon, Check, ArrowLeft, Plus } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { contactsApi } from '../lib/api';
+import { ContactType } from '../types';
 
 interface Contact {
   id: number;
-  contact_type: 'customer' | 'vendor' | 'both';
+  contact_type: ContactType;
   name: string;
   email: string;
   phone?: string;
@@ -25,7 +26,7 @@ export const ContactsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<'all' | 'customer' | 'vendor'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | ContactType>('all');
 
   // Form state
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
@@ -33,7 +34,7 @@ export const ContactsPage: React.FC = () => {
     name: '',
     email: '',
     phone: '',
-    contact_type: 'customer' as 'customer' | 'vendor' | 'both',
+    contact_type: ContactType.CUSTOMER,
     street: '',
     city: '',
     state: 'Maharashtra',
@@ -88,7 +89,7 @@ export const ContactsPage: React.FC = () => {
         name: '',
         email: '',
         phone: '',
-        contact_type: 'customer',
+        contact_type: ContactType.CUSTOMER,
         street: '',
         city: '',
         state: 'Maharashtra',
@@ -146,7 +147,7 @@ export const ContactsPage: React.FC = () => {
       extraHeaderActions={
         viewMode !== 'form' ? (
           <div className="flex items-center gap-1.5 bg-[#121216] border border-white/[0.08] p-1 rounded-xl text-xs">
-            {(['all', 'customer', 'vendor'] as const).map((t) => (
+            {(['all', ContactType.CUSTOMER, ContactType.VENDOR] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setSelectedType(t)}
@@ -226,9 +227,9 @@ export const ContactsPage: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, contact_type: e.target.value as any })}
                     className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4]"
                   >
-                    <option value="customer">Customer (Sales)</option>
-                    <option value="vendor">Vendor (Purchases)</option>
-                    <option value="both">Both (Customer & Vendor)</option>
+                    <option value={ContactType.CUSTOMER}>Customer (Sales)</option>
+                    <option value={ContactType.VENDOR}>Vendor (Purchases)</option>
+                    <option value={ContactType.BOTH}>Both (Customer & Vendor)</option>
                   </select>
                 </div>
               </div>
@@ -455,7 +456,7 @@ export const ContactsPage: React.FC = () => {
                     <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                        c.contact_type === 'customer'
+                        c.contact_type === ContactType.CUSTOMER
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                           : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                       }`}>

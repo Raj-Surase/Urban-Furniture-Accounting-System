@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, AlertCircle, ExternalLink, X, ShieldAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { BudgetLineType } from '../../types';
 
 export interface BudgetExceededItem {
   accountName: string;
@@ -10,7 +11,7 @@ export interface BudgetExceededItem {
   committed: number;
   achieved: number;
   exceededBy?: number;
-  type?: 'income' | 'expense';
+  type?: BudgetLineType;
   lineIndex?: number;
   message?: string;
 }

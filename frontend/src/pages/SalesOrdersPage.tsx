@@ -28,6 +28,7 @@ import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
+import { SalesOrderStatus } from '../types';
 
 export const SalesOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -314,11 +315,11 @@ export const SalesOrdersPage: React.FC = () => {
               className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
             >
               <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="approved">Approved</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value={SalesOrderStatus.DRAFT}>Draft</option>
+              <option value={SalesOrderStatus.CONFIRMED}>Confirmed</option>
+              <option value={SalesOrderStatus.APPROVED}>Approved</option>
+              <option value={SalesOrderStatus.DELIVERED}>Delivered</option>
+              <option value={SalesOrderStatus.CANCELLED}>Cancelled</option>
             </select>
           </div>
         </div>
@@ -330,22 +331,22 @@ export const SalesOrdersPage: React.FC = () => {
                 <th className="py-3 px-4">SO Number</th>
                 <th className="py-3 px-4">Customer</th>
                 <th className="py-3 px-4">Dates</th>
-                <th className="py-3 px-4 text-right">Subtotal</th>
-                <th className="py-3 px-4 text-right">GST</th>
-                <th className="py-3 px-4 text-right">Total</th>
+                <th className="py-3 px-4 text-right">Taxable</th>
+                <th className="py-3 px-4 text-right">GST (₹)</th>
+                <th className="py-3 px-4 text-right">Total Amount</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <TableSkeleton rows={5} cols={8} />
+                <TableSkeleton rows={6} cols={8} />
               ) : filteredOrders.length === 0 ? (
                 <EmptyState
                   icon={Truck}
                   colSpan={8}
-                  title="No sales orders found"
-                  description="Create a sales order to initiate order fulfillment and GST invoicing."
+                  title="No matching sales orders found"
+                  description="Try adjusting your filters or search query, or create a new quotation/sales order."
                   actionLabel="New Sales Order"
                   onAction={() => setIsCreateOpen(true)}
                   secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
@@ -355,80 +356,81 @@ export const SalesOrdersPage: React.FC = () => {
                   }}
                 />
               ) : (
-                filteredOrders.map((so) => {
-                  return (
-                    <tr
-                      key={so.id}
-                      onClick={() => handleOpenDetail(so)}
-                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">
-                        {so.so_number}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-neutral-200">{so.customer?.name}</div>
-                        <div className="text-[10px] text-neutral-500 font-mono">{so.customer?.gstin || 'Unregistered'}</div>
-                      </td>
-                      <td className="py-3 px-4 text-neutral-400">
-                        <div>Date: {so.order_date ? so.order_date.split('T')[0] : 'N/A'}</div>
-                        <div className="text-[10px] text-neutral-500">Delivery: {so.delivery_date ? so.delivery_date.split('T')[0] : (so.expected_delivery_date ? so.expected_delivery_date.split('T')[0] : 'N/A')}</div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
-                        ₹{Number(so.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-400">
-                        ₹{Number(so.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                        ₹{Number(so.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            so.status === 'delivered'
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : so.status === 'approved'
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              : so.status === 'confirmed'
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          }`}
-                        >
-                          {so.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          {so.status === 'draft' && (
-                            <button
-                              onClick={() => handleConfirm(so.id)}
-                              className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
-                            >
-                              Confirm
-                            </button>
-                          )}
+                filteredOrders.map((so) => (
+                  <tr
+                    key={so.id}
+                    onClick={() => handleOpenDetail(so)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3 px-4 font-mono font-bold text-white flex items-center gap-2">
+                      <span>{so.so_number || so.order_number}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-neutral-200">{so.customer?.name}</div>
+                      <div className="text-[10.5px] text-neutral-500 font-mono">
+                        {so.customer?.gstin || 'Unregistered'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-neutral-400">
+                      <div>Order: {so.order_date ? so.order_date.split('T')[0] : 'N/A'}</div>
+                      <div className="text-[10.5px] text-neutral-500">Exp: {so.expected_delivery_date ? so.expected_delivery_date.split('T')[0] : 'N/A'}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                      ₹{Number(so.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                      ₹{Number(so.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                      ₹{Number(so.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span
+                        className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          so.status === SalesOrderStatus.DELIVERED
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : so.status === SalesOrderStatus.APPROVED
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            : so.status === SalesOrderStatus.CONFIRMED
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}
+                      >
+                        {so.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {so.status === SalesOrderStatus.DRAFT && (
+                          <button
+                            onClick={() => handleConfirm(so.id)}
+                            className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
+                          >
+                            Confirm
+                          </button>
+                        )}
 
-                          {so.status === 'confirmed' && (isAdmin || isManager) && (
-                            <button
-                              onClick={() => handleApprove(so.id)}
-                              className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
-                            >
-                              Approve
-                            </button>
-                          )}
+                        {so.status === SalesOrderStatus.CONFIRMED && (isAdmin || isManager) && (
+                          <button
+                            onClick={() => handleApprove(so.id)}
+                            className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                          >
+                            Approve
+                          </button>
+                        )}
 
-                          {(so.status === 'confirmed' || so.status === 'approved' || so.status === 'partially_delivered' || so.status === 'delivered') && (isAdmin || isManager) && (
-                            <button
-                              onClick={() => navigate(`/invoices?from_so=${so.id}`)}
-                              className="px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                              title="Create Customer Invoice"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              Create Invoice
-                            </button>
-                          )}
+                        {(so.status === SalesOrderStatus.CONFIRMED || so.status === SalesOrderStatus.APPROVED || so.status === SalesOrderStatus.PARTIALLY_DELIVERED || so.status === SalesOrderStatus.DELIVERED) && (isAdmin || isManager) && (
+                          <button
+                            onClick={() => navigate(`/invoices?from_so=${so.id}`)}
+                            className="px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                            title="Create Customer Invoice"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Create Invoice
+                          </button>
+                        )}
 
-                          {(so.status === 'approved' || so.status === 'partially_delivered') && (isAdmin || isManager) && (
+                        {(so.status === SalesOrderStatus.APPROVED || so.status === SalesOrderStatus.PARTIALLY_DELIVERED) && (isAdmin || isManager) && (
                             <button
                               onClick={() => {
                                 setSelectedOrder(so);
@@ -448,8 +450,7 @@ export const SalesOrdersPage: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  );
-                })
+                  ))
               )}
             </tbody>
           </table>
@@ -875,11 +876,11 @@ export const SalesOrdersPage: React.FC = () => {
                   <span className="font-mono text-sm font-bold text-white">{detailOrder.so_number}</span>
                   <span
                     className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      detailOrder.status === 'delivered'
+                      detailOrder.status === SalesOrderStatus.DELIVERED
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : detailOrder.status === 'approved'
+                        : detailOrder.status === SalesOrderStatus.APPROVED
                         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                        : detailOrder.status === 'confirmed'
+                        : detailOrder.status === SalesOrderStatus.CONFIRMED
                         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
@@ -1005,7 +1006,7 @@ export const SalesOrdersPage: React.FC = () => {
                 Order ID #{detailOrder.id}
               </div>
               <div className="flex items-center gap-2">
-                {detailOrder.status === 'draft' && (
+                {detailOrder.status === SalesOrderStatus.DRAFT && (
                   <Button
                     size="sm"
                     onClick={async () => {
@@ -1018,7 +1019,7 @@ export const SalesOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {detailOrder.status === 'confirmed' && (isAdmin || isManager) && (
+                {detailOrder.status === SalesOrderStatus.CONFIRMED && (isAdmin || isManager) && (
                   <Button
                     size="sm"
                     onClick={async () => {
@@ -1031,7 +1032,7 @@ export const SalesOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {(detailOrder.status === 'confirmed' || detailOrder.status === 'approved' || detailOrder.status === 'partially_delivered' || detailOrder.status === 'delivered') && (isAdmin || isManager) && (
+                {(detailOrder.status === SalesOrderStatus.CONFIRMED || detailOrder.status === SalesOrderStatus.APPROVED || detailOrder.status === SalesOrderStatus.PARTIALLY_DELIVERED || detailOrder.status === SalesOrderStatus.DELIVERED) && (isAdmin || isManager) && (
                   <Button
                     size="sm"
                     onClick={() => {
@@ -1044,7 +1045,7 @@ export const SalesOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {(detailOrder.status === 'approved' || detailOrder.status === 'partially_delivered') && (isAdmin || isManager) && (
+                {(detailOrder.status === SalesOrderStatus.APPROVED || detailOrder.status === SalesOrderStatus.PARTIALLY_DELIVERED) && (isAdmin || isManager) && (
                   <Button
                     size="sm"
                     onClick={() => {

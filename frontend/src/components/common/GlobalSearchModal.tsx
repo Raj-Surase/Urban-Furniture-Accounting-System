@@ -48,6 +48,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
+import { UserRole } from '../../types';
 
 export interface SearchItem {
   id: string;
@@ -424,7 +425,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
     return allItems.filter((item) => {
       // Role check: Hide admin items from non-admin users
-      if (item.adminOnly && !isAdmin && user?.role !== 'manager') {
+      if (item.adminOnly && !isAdmin && user?.role !== UserRole.MANAGER) {
         return false;
       }
 

@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { RoleRoute } from './components/auth/RoleRoute';
 import { GuestRoute } from './components/auth/GuestRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { UserRole } from './types';
 
 /**
  * Page imports — all lazy-loadable candidates if bundle size grows.
@@ -151,7 +152,7 @@ export const App: React.FC = () => {
                         path="journals"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <JournalsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -162,7 +163,7 @@ export const App: React.FC = () => {
                         path="analyticals"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <AnalyticAccountsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -173,7 +174,7 @@ export const App: React.FC = () => {
                         path="budgets"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <BudgetsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -183,7 +184,7 @@ export const App: React.FC = () => {
                         path="accounts"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <AccountsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -193,7 +194,7 @@ export const App: React.FC = () => {
                         path="journal"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <JournalPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -235,7 +236,7 @@ export const App: React.FC = () => {
                         path="reports"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <ReportsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -246,7 +247,7 @@ export const App: React.FC = () => {
                         path="reports/profit-loss"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <ProfitAndLossReportPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -256,7 +257,7 @@ export const App: React.FC = () => {
                         path="reports/balance-sheet"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <BalanceSheetReportPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -266,7 +267,7 @@ export const App: React.FC = () => {
                         path="reports/budget"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
                               <BudgetReportPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -293,7 +294,7 @@ export const App: React.FC = () => {
                         path="admin"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute requiredRole="admin">
+                            <RoleRoute requiredRole={UserRole.ADMIN}>
                               <AdminPage />
                             </RoleRoute>
                           </ProtectedRoute>

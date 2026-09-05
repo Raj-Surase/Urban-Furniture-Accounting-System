@@ -4,6 +4,7 @@ import { FileText, CreditCard, CheckCircle2, Clock, DollarSign, ExternalLink } f
 import { useAuth } from '../context/AuthContext';
 import { invoicesApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
+import { InvoiceStatus, InvoiceType } from '../types';
 
 export const CustomerPortalPage: React.FC = () => {
   const { user } = useAuth();
@@ -105,7 +106,7 @@ export const CustomerPortalPage: React.FC = () => {
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      inv.status === 'paid'
+                      inv.status === InvoiceStatus.PAID
                         ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                         : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                     }`}>
@@ -150,7 +151,7 @@ export const CustomerPortalPage: React.FC = () => {
           invoiceId={selectedInvoice.id}
           partnerName={selectedInvoice.customer?.name || user?.name || 'Customer'}
           amountDue={Number(selectedInvoice.balance_due)}
-          mode="invoice"
+          mode={InvoiceType.INVOICE}
         />
       )}
     </div>

@@ -33,6 +33,14 @@ import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
+import {
+  InvoiceStatus,
+  InvoiceType,
+  ContactType,
+  PaymentStatus,
+  PaymentType,
+  PaymentMethod,
+} from '../types';
 
 export const InvoicesPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
@@ -58,7 +66,7 @@ export const InvoicesPage: React.FC = () => {
 
   // Create Invoice Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createType, setCreateType] = useState<'customer' | 'vendor'>('customer');
+  const [createType, setCreateType] = useState<ContactType>(ContactType.CUSTOMER);
   const [selectedPartyId, setSelectedPartyId] = useState<number | ''>('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentTermsDays, setPaymentTermsDays] = useState<number>(30);
@@ -86,7 +94,7 @@ export const InvoicesPage: React.FC = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<any>(null);
   const [payAmount, setPayAmount] = useState<string>('');
-  const [payMethod, setPayMethod] = useState('bank_transfer');
+  const [payMethod, setPayMethod] = useState<string>(PaymentMethod.BANK_TRANSFER);
   const [payReference, setPayReference] = useState('');
   const [payFieldErrors, setPayFieldErrors] = useState<Record<string, string>>({});
   const [payFormError, setPayFormError] = useState<string | null>(null);
@@ -150,7 +158,7 @@ export const InvoicesPage: React.FC = () => {
   useEffect(() => {
     const soIdParam = searchParams.get('from_so');
     if (soIdParam) {
-      setCreateType('customer');
+      setCreateType(ContactType.CUSTOMER);
       setIsCreateModalOpen(true);
       salesOrdersApi
         .get(parseInt(soIdParam, 10))
@@ -183,7 +191,7 @@ export const InvoicesPage: React.FC = () => {
 
   // Determine place of supply and interstate
   const selectedParty =
-    createType === 'customer'
+    createType === ContactType.CUSTOMER
       ? customers.find((c) => c.id === Number(selectedPartyId))
       : vendors.find((v) => v.id === Number(selectedPartyId));
 
@@ -229,7 +237,7 @@ export const InvoicesPage: React.FC = () => {
       product_id: prod.id,
       description: prod.name,
       hsn_code: prod.hsn_code || '9403',
-      unit_price: createType === 'customer' ? Number(prod.price) : Number(prod.cost_price || prod.price * 0.7),
+      unit_price: createType === ContactType.CUSTOMER ? Number(prod.price) : Number(prod.cost_price || prod.price * 0.7),
       gst_rate: Number(prod.gst_rate || 18),
     };
     setLineItems(updated);
@@ -253,7 +261,7 @@ export const InvoicesPage: React.FC = () => {
     const errors: Record<string, string> = {};
 
     if (!selectedPartyId) {
-      errors.party_id = `Please select a ${createType === 'customer' ? 'customer' : 'vendor'}.`;
+      errors.party_id = `Please select a ${createType === ContactType.CUSTOMER ? 'customer' : 'vendor'}.`;
     }
 
     const validItems = lineItems.filter((item) => item.product_id && item.quantity > 0);
@@ -270,7 +278,7 @@ export const InvoicesPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const payload = {
-        type: createType === 'customer' ? 'receivable' : 'payable',
+        type: createType === ContactType.CUSTOMER ? InvoiceType.RECEIVABLE : InvoiceType.PAYABLE,
         party_type: createType,
         party_id: Number(selectedPartyId),
         invoice_date: invoiceDate,
@@ -375,21 +383,21 @@ export const InvoicesPage: React.FC = () => {
 
     try {
       setIsPaying(true);
-      const isCust = payInvoice.type === 'receivable' || payInvoice.party_type === 'customer' || payInvoice.type === 'customer';
+      const isCust = payInvoice.type === InvoiceType.RECEIVABLE || payInvoice.party_type === ContactType.CUSTOMER || payInvoice.type === ContactType.CUSTOMER;
       const resolvedPartyId = payInvoice.party_id || (isCust ? payInvoice.customer_id : payInvoice.vendor_id);
       await paymentsApi.create({
         type: isCust ? 'received' : 'made',
-        party_type: isCust ? 'customer' : 'vendor',
+        party_type: isCust ? ContactType.CUSTOMER : ContactType.VENDOR,
         party_id: resolvedPartyId ? Number(resolvedPartyId) : undefined,
         invoice_id: payInvoice.id,
-        payment_type: isCust ? 'customer_receipt' : 'vendor_payment',
+        payment_type: isCust ? PaymentType.CUSTOMER_RECEIPT : PaymentType.VENDOR_PAYMENT,
         customer_id: isCust ? Number(resolvedPartyId) : null,
         vendor_id: !isCust ? Number(resolvedPartyId) : null,
         amount: numAmount,
         payment_date: new Date().toISOString().split('T')[0],
         payment_method: payMethod,
         reference_number: payReference.trim() || `TXN-${Date.now()}`,
-        status: 'reconciled', // Reconcile to trigger auto journal posting
+        status: PaymentStatus.RECONCILED, // Reconcile to trigger auto journal posting
       });
 
       addToast({
@@ -420,7 +428,7 @@ export const InvoicesPage: React.FC = () => {
   };
 
   const filteredInvoices = invoices.filter((inv) => {
-    const isCust = inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer';
+    const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
     const matchesTab =
       activeTab === 'all' ||
       (activeTab === 'customer' && isCust) ||
@@ -439,18 +447,18 @@ export const InvoicesPage: React.FC = () => {
 
   // Calculate high level metrics
   const totalReceivables = invoices
-    .filter((inv) => (inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer') && (inv.status === 'approved' || inv.status === 'draft'))
+    .filter((inv) => (inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
   const totalPayables = invoices
-    .filter((inv) => (inv.type === 'payable' || inv.party_type === 'vendor' || inv.type === 'vendor') && (inv.status === 'approved' || inv.status === 'draft'))
+    .filter((inv) => (inv.type === InvoiceType.PAYABLE || inv.party_type === ContactType.VENDOR || inv.type === ContactType.VENDOR) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
   const totalGst = invoices
-    .filter((inv) => inv.status === 'approved' || inv.status === 'paid')
+    .filter((inv) => inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.PAID)
     .reduce((sum, inv) => sum + Number(inv.tax_amount || 0), 0);
 
-  const pendingApprovals = invoices.filter((inv) => inv.status === 'draft').length;
+  const pendingApprovals = invoices.filter((inv) => inv.status === InvoiceStatus.DRAFT).length;
 
   const currentTotals = calculateTotals();
 
@@ -471,7 +479,7 @@ export const InvoicesPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Button
             onClick={() => {
-              setCreateType('customer');
+              setCreateType(ContactType.CUSTOMER);
               setSelectedPartyId('');
               setCreateFieldErrors({});
               setCreateFormError(null);
@@ -486,7 +494,7 @@ export const InvoicesPage: React.FC = () => {
           <Button
             variant="outline"
             onClick={() => {
-              setCreateType('vendor');
+              setCreateType(ContactType.VENDOR);
               setSelectedPartyId('');
               setCreateFieldErrors({});
               setCreateFormError(null);
@@ -608,10 +616,10 @@ export const InvoicesPage: React.FC = () => {
               className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none focus:border-purple-500"
             >
               <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="approved">Approved</option>
-              <option value="paid">Paid</option>
-              <option value="void">Void</option>
+              <option value={InvoiceStatus.DRAFT}>Draft</option>
+              <option value={InvoiceStatus.APPROVED}>Approved</option>
+              <option value={InvoiceStatus.PAID}>Paid</option>
+              <option value={InvoiceStatus.VOID}>Void</option>
             </select>
           </div>
         </div>
@@ -652,7 +660,7 @@ export const InvoicesPage: React.FC = () => {
                 />
               ) : (
                 filteredInvoices.map((inv) => {
-                  const isCust = inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer';
+                  const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
                   const party = isCust ? inv.customer : inv.vendor;
                   const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
 
@@ -713,11 +721,11 @@ export const InvoicesPage: React.FC = () => {
                       <td className="py-3 px-4 text-center">
                         <span
                           className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            inv.status === 'paid'
+                            inv.status === InvoiceStatus.PAID
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : inv.status === 'approved'
+                              : inv.status === InvoiceStatus.APPROVED
                               ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              : inv.status === 'void'
+                              : inv.status === InvoiceStatus.VOID
                               ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                               : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                           }`}
@@ -742,7 +750,7 @@ export const InvoicesPage: React.FC = () => {
                           </button>
 
                           {/* Approve & Auto-Post Button */}
-                          {inv.status === 'draft' && (isAdmin || isManager) && (
+                          {inv.status === InvoiceStatus.DRAFT && (isAdmin || isManager) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -756,7 +764,7 @@ export const InvoicesPage: React.FC = () => {
                           )}
 
                           {/* Record Payment / Receipt Button */}
-                          {inv.status === 'approved' && (inv.balance_due === undefined || inv.balance_due > 0) && (
+                          {inv.status === InvoiceStatus.APPROVED && (inv.balance_due === undefined || inv.balance_due > 0) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -767,14 +775,14 @@ export const InvoicesPage: React.FC = () => {
                                 setIsPayModalOpen(true);
                               }}
                               className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
-                              title={inv.invoice_type === 'vendor' ? 'Record Vendor Payment' : 'Register Customer Receipt & Reconcile'}
+                              title={inv.invoice_type === ContactType.VENDOR ? 'Record Vendor Payment' : 'Register Customer Receipt & Reconcile'}
                             >
-                              {inv.invoice_type === 'vendor' ? 'Pay Bill' : 'Receipt'}
+                              {inv.invoice_type === ContactType.VENDOR ? 'Pay Bill' : 'Receipt'}
                             </button>
                           )}
 
                           {/* Void Button */}
-                          {inv.status === 'approved' && (isAdmin || isManager) && (
+                          {inv.status === InvoiceStatus.APPROVED && (isAdmin || isManager) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -819,7 +827,7 @@ export const InvoicesPage: React.FC = () => {
               <div className="flex items-center gap-2.5">
                 <FileText className="w-5 h-5 text-purple-400" />
                 <h3 className="text-base font-bold">
-                  Create {createType === 'customer' ? 'Customer Tax Invoice (AR)' : 'Vendor Bill (AP)'}
+                  Create {createType === ContactType.CUSTOMER ? 'Customer Tax Invoice (AR)' : 'Vendor Bill (AP)'}
                 </h3>
               </div>
               <button
@@ -842,7 +850,7 @@ export const InvoicesPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    {createType === 'customer' ? 'Customer (Buyer)' : 'Vendor (Supplier)'} <span className="text-rose-400">*</span>
+                    {createType === ContactType.CUSTOMER ? 'Customer (Buyer)' : 'Vendor (Supplier)'} <span className="text-rose-400">*</span>
                   </label>
                   <select
                     value={selectedPartyId}
@@ -857,7 +865,7 @@ export const InvoicesPage: React.FC = () => {
                         });
                       }
                       // Auto-apply customer/vendor payment terms if set
-                      const p = (createType === 'customer' ? customers : vendors).find((x) => x.id === pId);
+                      const p = (createType === ContactType.CUSTOMER ? customers : vendors).find((x) => x.id === pId);
                       if (p?.payment_terms_days !== undefined) {
                         const days = Number(p.payment_terms_days);
                         setPaymentTermsDays(days);
@@ -872,7 +880,7 @@ export const InvoicesPage: React.FC = () => {
                     }`}
                   >
                     <option value="">Select party...</option>
-                    {(createType === 'customer' ? customers : vendors).map((p) => (
+                    {(createType === ContactType.CUSTOMER ? customers : vendors).map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} {p.gstin ? `(${p.gstin})` : ''} - {p.state || 'MH'}
                       </option>
@@ -1290,10 +1298,10 @@ export const InvoicesPage: React.FC = () => {
                   onChange={(e) => setPayMethod(e.target.value)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 >
-                  <option value="bank_transfer">Bank Transfer (NEFT/RTGS)</option>
-                  <option value="upi">UPI / Instant QR</option>
-                  <option value="cash">Cash in Hand</option>
-                  <option value="cheque">Cheque</option>
+                  <option value={PaymentMethod.BANK_TRANSFER}>Bank Transfer (NEFT/RTGS)</option>
+                  <option value={PaymentMethod.UPI}>UPI / Instant QR</option>
+                  <option value={PaymentMethod.CASH}>Cash in Hand</option>
+                  <option value={PaymentMethod.CHEQUE}>Cheque</option>
                 </select>
               </div>
 
@@ -1347,11 +1355,11 @@ export const InvoicesPage: React.FC = () => {
                   <h3 className="text-lg font-bold text-white font-mono">{detailInvoice.invoice_number}</h3>
                   <span
                     className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                      detailInvoice.status === 'paid'
+                      detailInvoice.status === InvoiceStatus.PAID
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                        : detailInvoice.status === 'approved'
+                        : detailInvoice.status === InvoiceStatus.APPROVED
                         ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                        : detailInvoice.status === 'void'
+                        : detailInvoice.status === InvoiceStatus.VOID
                         ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
                         : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                     }`}
@@ -1360,12 +1368,12 @@ export const InvoicesPage: React.FC = () => {
                   </span>
                   <span
                     className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      detailInvoice.type === 'receivable' || detailInvoice.party_type === 'customer'
+                      detailInvoice.type === InvoiceType.RECEIVABLE || detailInvoice.party_type === ContactType.CUSTOMER
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                     }`}
                   >
-                    {detailInvoice.type === 'receivable' || detailInvoice.party_type === 'customer' ? 'Tax Invoice (AR)' : 'Vendor Bill (AP)'}
+                    {detailInvoice.type === InvoiceType.RECEIVABLE || detailInvoice.party_type === ContactType.CUSTOMER ? 'Tax Invoice (AR)' : 'Vendor Bill (AP)'}
                   </span>
                 </div>
                 <p className="text-xs text-neutral-400 mt-1">
@@ -1489,7 +1497,7 @@ export const InvoicesPage: React.FC = () => {
                   View & Print PDF (pdfcn)
                 </button>
 
-                {detailInvoice.status === 'draft' && (isAdmin || isManager) && (
+                {detailInvoice.status === InvoiceStatus.DRAFT && (isAdmin || isManager) && (
                   <button
                     onClick={async () => {
                       await handleApprove(detailInvoice.id);
@@ -1502,7 +1510,7 @@ export const InvoicesPage: React.FC = () => {
                   </button>
                 )}
 
-                {detailInvoice.status === 'approved' && (detailInvoice.balance_due === undefined || detailInvoice.balance_due > 0) && (
+                {detailInvoice.status === InvoiceStatus.APPROVED && (detailInvoice.balance_due === undefined || detailInvoice.balance_due > 0) && (
                   <button
                     onClick={() => {
                       setPayInvoice(detailInvoice);
@@ -1514,11 +1522,11 @@ export const InvoicesPage: React.FC = () => {
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <CreditCard className="w-3.5 h-3.5" />
-                    {detailInvoice.invoice_type === 'vendor' ? 'Record Payment' : 'Register Receipt'}
+                    {detailInvoice.invoice_type === ContactType.VENDOR ? 'Record Payment' : 'Register Receipt'}
                   </button>
                 )}
 
-                {detailInvoice.status === 'approved' && (isAdmin || isManager) && (
+                {detailInvoice.status === InvoiceStatus.APPROVED && (isAdmin || isManager) && (
                   <button
                     onClick={async () => {
                       await handleVoid(detailInvoice.id);

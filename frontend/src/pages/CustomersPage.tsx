@@ -29,6 +29,7 @@ import {
   extractPanFromGstin,
   getStateFromGstin,
 } from '../constants/formOptions';
+import { AccountClassification } from '../types';
 
 export const CustomersPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -548,7 +549,7 @@ export const CustomersPage: React.FC = () => {
                   >
                     <option value="">Default (1120 Accounts Receivable)</option>
                     {accounts
-                      .filter((a) => a.type === 'asset')
+                      .filter((a) => a.type === AccountClassification.ASSET)
                       .map((acc) => (
                         <option key={acc.id} value={acc.id}>
                           {acc.code} - {acc.name}

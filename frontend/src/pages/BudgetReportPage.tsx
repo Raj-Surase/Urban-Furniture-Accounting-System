@@ -14,6 +14,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { budgetsApi } from '../lib/api';
+import { BudgetLineType } from '../types';
 
 // ── SVG Donut Chart (no external dep) ──────────────────────────────────────────
 interface DonutProps {
@@ -559,7 +560,7 @@ export const BudgetReportPage: React.FC = () => {
                                           </span>
                                           <span
                                             className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold uppercase ${
-                                              line.type === 'income'
+                                              line.type === BudgetLineType.INCOME
                                                 ? 'bg-emerald-500/10 text-emerald-400'
                                                 : 'bg-rose-500/10 text-rose-400'
                                             }`}

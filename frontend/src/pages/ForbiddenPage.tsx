@@ -5,11 +5,12 @@ import { ShieldAlert, Home, UserCheck, KeyRound } from 'lucide-react';
 import { Button, Card, CardBody } from '@heroui/react';
 import { useAuth } from '../context/AuthContext';
 import { PageTransition } from '../components/layout/PageTransition';
+import { UserRole } from '../types';
 
 export const ForbiddenPage: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const requiredRole = (location.state as any)?.requiredRole || (location.state as any)?.requiredPermission ? null : 'admin';
+  const requiredRole = (location.state as any)?.requiredRole || (location.state as any)?.requiredPermission ? null : UserRole.ADMIN;
   const requiredPermission = (location.state as any)?.requiredPermission;
 
   return (

@@ -20,6 +20,7 @@ import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi, budgetsApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
+import { InvoiceStatus, InvoiceType, ContactType, BudgetStatus, BudgetLineType, AccountClassification } from '../types';
 
 export const VendorBillsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,7 +42,9 @@ export const VendorBillsPage: React.FC = () => {
   const [billDate, setBillDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [originatingPoId, setOriginatingPoId] = useState<number | null>(null);
-  const [lines, setLines] = useState<any[]>([]);
+  const [lines, setLines] = useState<any[]>([
+    { product_id: '', quantity: 1, unit_price: 0, tax_rate: 18, account_id: '', analytic_account_id: '' }
+  ]);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +59,7 @@ export const VendorBillsPage: React.FC = () => {
     setLoading(true);
     try {
       const [bRes, vRes, pRes, aRes, anRes, bgRes] = await Promise.all([
-        invoicesApi.list({ type: 'payable', search: search || undefined }),
+        invoicesApi.list({ type: InvoiceType.PAYABLE, search: search || undefined }),
         vendorsApi.list(),
         productsApi.list(),
         accountsApi.list(),
@@ -78,35 +81,35 @@ export const VendorBillsPage: React.FC = () => {
 
   // Dynamically calculate budget limit exceedances for current bill lines
   const exceededBillBudgets = React.useMemo(() => {
-    if (!budgets || budgets.length === 0 || !lines || lines.length === 0) return [];
+    if (!budgets.length || !lines.length) return [];
 
-    // Sum proposed line totals per analytic account in this bill
+    // Sum proposed line costs by analytic_account_id
     const proposedPerAnalytic: Record<number, number> = {};
     lines.forEach((l) => {
+      if (!l.analytic_account_id) return;
       const anId = Number(l.analytic_account_id);
-      if (anId) {
-        const lineTotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
-        proposedPerAnalytic[anId] = (proposedPerAnalytic[anId] || 0) + lineTotal;
-      }
+      const subtotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+      proposedPerAnalytic[anId] = (proposedPerAnalytic[anId] || 0) + subtotal;
     });
 
     const exceeded: Array<{
-      budgetId: number;
-      budgetName: string;
       analyticId: number;
       analyticName: string;
+      budgetName: string;
+      budgetId: number;
       committed: number;
       currentAchieved: number;
+      proposed: number;
       projected: number;
       exceededBy: number;
       percentage: number;
     }> = [];
 
     budgets.forEach((b: any) => {
-      if (b.status === 'cancelled') return;
+      if (b.status === BudgetStatus.CANCELLED) return;
       const bLines = b.lines || [];
       bLines.forEach((bl: any) => {
-        if (bl.type !== 'expense') return;
+        if (bl.type !== BudgetLineType.EXPENSE) return;
         const anId = Number(bl.analytic_account_id);
         if (proposedPerAnalytic[anId] !== undefined) {
           const committed = Number(bl.committed_amount) || 0;
@@ -123,6 +126,7 @@ export const VendorBillsPage: React.FC = () => {
               analyticName: analyticObj?.name || bl.analytic_account?.name || `Analytic #${anId}`,
               committed,
               currentAchieved,
+              proposed,
               projected,
               exceededBy: Math.round(projected - committed),
               percentage: Math.round((projected / committed) * 100),
@@ -266,8 +270,8 @@ export const VendorBillsPage: React.FC = () => {
 
     try {
       const payload = {
-        type: 'payable',
-        party_type: 'vendor',
+        type: InvoiceType.PAYABLE,
+        party_type: ContactType.VENDOR,
         party_id: parseInt(vendorId, 10),
         reference_type: originatingPoId ? 'purchase_order' : null,
         reference_id: originatingPoId,
@@ -340,7 +344,7 @@ export const VendorBillsPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
             <div className="flex flex-wrap items-center gap-2">
               {/* If Draft, show Confirm */}
-              {(!activeBill || activeBill.status === 'draft') && (
+              {(!activeBill || activeBill.status === InvoiceStatus.DRAFT) && (
                 <>
                   <button
                     type="submit"
@@ -363,7 +367,7 @@ export const VendorBillsPage: React.FC = () => {
               )}
 
               {/* If Confirmed/Approved, show Pay button */}
-              {activeBill && activeBill.status !== 'draft' && amountDue > 0 && (
+              {activeBill && activeBill.status !== InvoiceStatus.DRAFT && amountDue > 0 && (
                 <button
                   type="button"
                   onClick={() => setPayModalOpen(true)}
@@ -437,7 +441,7 @@ export const VendorBillsPage: React.FC = () => {
               </label>
               <select
                 required
-                disabled={activeBill && activeBill.status !== 'draft'}
+                disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
                 value={vendorId}
                 onChange={(e) => setVendorId(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
@@ -460,7 +464,7 @@ export const VendorBillsPage: React.FC = () => {
               </label>
               <input
                 type="text"
-                disabled={activeBill && activeBill.status !== 'draft'}
+                disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
                 value={billReference}
                 onChange={(e) => setBillReference(e.target.value)}
                 placeholder="e.g. ABC-26-001"
@@ -479,7 +483,7 @@ export const VendorBillsPage: React.FC = () => {
                 <input
                   type="date"
                   required
-                  disabled={activeBill && activeBill.status !== 'draft'}
+                  disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
                   value={billDate}
                   onChange={(e) => setBillDate(e.target.value)}
                   className="px-2.5 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white disabled:opacity-60"
@@ -487,7 +491,7 @@ export const VendorBillsPage: React.FC = () => {
                 <input
                   type="date"
                   required
-                  disabled={activeBill && activeBill.status !== 'draft'}
+                  disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                   className="px-2.5 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white disabled:opacity-60"
@@ -509,7 +513,7 @@ export const VendorBillsPage: React.FC = () => {
                   committed: b.committed,
                   achieved: b.projected,
                   exceededBy: b.exceededBy,
-                  type: 'expense',
+                  type: BudgetLineType.EXPENSE,
                   message: `Projected: ₹${b.projected.toLocaleString('en-IN')} vs Committed: ₹${b.committed.toLocaleString('en-IN')} (${b.percentage}%)`,
                 }))}
                 onReviseBudget={(bId) => navigate(bId ? `/accounting/budgets?id=${bId}` : '/accounting/budgets')}
@@ -524,7 +528,7 @@ export const VendorBillsPage: React.FC = () => {
                 <FileText className="w-4 h-4 text-[#7042f4]" />
                 <span>Line Items</span>
               </h3>
-              {(!activeBill || activeBill.status === 'draft') && (
+              {(!activeBill || activeBill.status === InvoiceStatus.DRAFT) && (
                 <button
                   type="button"
                   onClick={handleAddLine}
@@ -547,7 +551,7 @@ export const VendorBillsPage: React.FC = () => {
                       <th className="py-3 px-3 text-right w-20">Qty</th>
                       <th className="py-3 px-3 text-right w-28">Unit Price</th>
                       <th className="py-3 px-4 text-right w-32">Total</th>
-                      {(!activeBill || activeBill.status === 'draft') && (
+                      {(!activeBill || activeBill.status === InvoiceStatus.DRAFT) && (
                         <th className="py-3 px-2 w-10 text-center"></th>
                       )}
                     </tr>
@@ -569,7 +573,7 @@ export const VendorBillsPage: React.FC = () => {
                         >
                           <td className="py-3 px-3 text-center text-[#707080] font-mono">{idx + 1}</td>
                           <td className="py-3 px-4">
-                            {activeBill && activeBill.status !== 'draft' ? (
+                            {activeBill && activeBill.status !== InvoiceStatus.DRAFT ? (
                               <span className="text-white font-semibold">{l.description}</span>
                             ) : (
                               <select
@@ -584,7 +588,7 @@ export const VendorBillsPage: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            {activeBill && activeBill.status !== 'draft' ? (
+                            {activeBill && activeBill.status !== InvoiceStatus.DRAFT ? (
                               <span className="text-[#a0a0b0]">Purchase Expense A/c</span>
                             ) : (
                               <select
@@ -592,14 +596,14 @@ export const VendorBillsPage: React.FC = () => {
                                 onChange={(e) => handleLineChange(idx, 'account_id', parseInt(e.target.value, 10))}
                                 className="w-full px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white"
                               >
-                                {accounts.filter((a) => a.type === 'expense' || a.code === '5001' || a.code === '5100').map((a) => (
+                                {accounts.filter((a) => a.type === AccountClassification.EXPENSE || a.code === '5001' || a.code === '5100').map((a) => (
                                   <option key={a.id} value={a.id}>{a.name}</option>
                                 ))}
                               </select>
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            {activeBill && activeBill.status !== 'draft' ? (
+                            {activeBill && activeBill.status !== InvoiceStatus.DRAFT ? (
                               <div>
                                 <span className="text-[#c084fc] font-semibold">
                                   {analytics.find((an) => an.id === l.analytic_account_id)?.name || 'Project 1'}
@@ -637,7 +641,7 @@ export const VendorBillsPage: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-3 text-right">
-                            {activeBill && activeBill.status !== 'draft' ? (
+                            {activeBill && activeBill.status !== InvoiceStatus.DRAFT ? (
                               <span className="font-mono text-white">{l.quantity}</span>
                             ) : (
                               <input
@@ -652,7 +656,7 @@ export const VendorBillsPage: React.FC = () => {
                             )}
                           </td>
                           <td className="py-3 px-3 text-right">
-                            {activeBill && activeBill.status !== 'draft' ? (
+                            {activeBill && activeBill.status !== InvoiceStatus.DRAFT ? (
                               <span className="font-mono text-white">₹{Number(l.unit_price).toLocaleString()}</span>
                             ) : (
                               <input
@@ -669,7 +673,7 @@ export const VendorBillsPage: React.FC = () => {
                           <td className={`py-3 px-4 text-right font-mono font-bold ${isLineOverBudget ? 'text-rose-400' : 'text-white'}`}>
                             ₹{lineTotal.toLocaleString()}
                           </td>
-                          {(!activeBill || activeBill.status === 'draft') && (
+                          {(!activeBill || activeBill.status === InvoiceStatus.DRAFT) && (
                             <td className="py-3 px-2 text-center">
                               <button
                                 type="button"
@@ -758,9 +762,9 @@ export const VendorBillsPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === 'paid'
+                        b.status === InvoiceStatus.PAID
                           ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : b.status === 'approved'
+                          : b.status === InvoiceStatus.APPROVED
                           ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
                           : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
                       }`}>
@@ -795,7 +799,7 @@ export const VendorBillsPage: React.FC = () => {
           invoiceId={activeBill.id}
           partnerName={vendorName}
           amountDue={amountDue}
-          mode="bill"
+          mode={InvoiceType.BILL}
         />
       )}
     </MasterViewLayout>

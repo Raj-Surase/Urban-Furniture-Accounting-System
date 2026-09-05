@@ -34,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { Logo } from '../common/Logo';
 import { cn } from '../../lib/utils';
+import { UserRole } from '../../types';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navRef = useRef<HTMLElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const isAccountantOrAdmin = isAdmin || user?.role === 'manager';
+  const isAccountantOrAdmin = isAdmin || user?.role === UserRole.MANAGER;
 
   const menuGroups: MenuGroup[] = [
     {
@@ -309,9 +310,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <div className="flex items-center gap-1.5 mt-1">
                 <span
                   className={`inline-block text-[9.5px] font-bold uppercase tracking-wider leading-none px-1.5 py-0.5 rounded border ${
-                    user?.role === 'admin'
+                    user?.role === UserRole.ADMIN
                       ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                      : user?.role === 'manager'
+                      : user?.role === UserRole.MANAGER
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                       : 'bg-white/[0.06] text-[#808090] border-white/10'
                   }`}

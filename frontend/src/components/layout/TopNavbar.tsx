@@ -35,6 +35,7 @@ import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Logo } from '../common/Logo';
 import { CreateUserModal } from '../admin/CreateUserModal';
+import { UserRole } from '../../types';
 
 interface TopNavbarProps {
   onSearchClick?: () => void;
@@ -297,7 +298,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
             </Dropdown>
 
             {/* Portal link for customer users */}
-            {user?.role === 'user' && (
+            {user?.role === UserRole.USER && (
               <Link
                 to="/portal"
                 className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
@@ -311,7 +312,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
             )}
 
             {/* Admin control room */}
-            {user?.role === 'admin' && (
+            {user?.role === UserRole.ADMIN && (
               <Link
                 to="/admin"
                 className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
@@ -329,7 +330,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
         {/* Right: Circular Action Buttons & Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Admin "Create User" Wireframe Button */}
-          {user?.role === 'admin' && (
+          {user?.role === UserRole.ADMIN && (
             <button
               onClick={() => setCreateUserModalOpen(true)}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#7042f4]/15 hover:bg-[#7042f4]/25 text-[#c084fc] hover:text-white border border-[#7042f4]/40 text-xs font-semibold transition-all cursor-pointer"
@@ -412,7 +413,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               >
                 Profile & Clearance
               </DropdownItem>
-              {user?.role === 'admin' ? (
+              {user?.role === UserRole.ADMIN ? (
                 <DropdownItem
                   key="admin"
                   startContent={<Shield className="w-4 h-4 text-[#7042f4]" />}

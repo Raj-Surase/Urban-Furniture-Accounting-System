@@ -1,10 +1,11 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../types';
 
 interface RoleRouteProps {
-  requiredRole?: 'admin' | 'manager' | 'accountant' | 'user';
-  allowedRoles?: Array<'admin' | 'manager' | 'accountant' | 'user'>;
+  requiredRole?: UserRole | string;
+  allowedRoles?: Array<UserRole | string>;
   requiredPermission?: string;
   children: React.ReactNode;
 }
@@ -23,7 +24,7 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({
   }
 
   // Admin superuser always bypasses checks unless specifically constrained
-  if (user.role === 'admin') {
+  if (user.role === UserRole.ADMIN) {
     return <>{children}</>;
   }
 

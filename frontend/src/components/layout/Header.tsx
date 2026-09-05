@@ -11,6 +11,7 @@ import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { ThemeToggle } from '../ui/ThemeToggle';
+import { UserRole } from '../../types';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -30,10 +31,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
       toast.success(`Active session switched to ${roleName}!`);
       window.dispatchEvent(new CustomEvent('auth:role-updated'));
 
-      const targetRole = targetEmail.includes('admin') ? 'admin' : targetEmail.includes('manager') ? 'manager' : 'user';
-      if (targetRole === 'user' && ['/admin', '/accounts', '/journal', '/reports'].includes(location.pathname)) {
+      const targetRole = targetEmail.includes(UserRole.ADMIN) ? UserRole.ADMIN : targetEmail.includes(UserRole.MANAGER) ? UserRole.MANAGER : UserRole.USER;
+      if (targetRole === UserRole.USER && ['/admin', '/accounts', '/journal', '/reports'].includes(location.pathname)) {
         navigate('/invoices');
-      } else if (targetRole === 'manager' && location.pathname === '/admin') {
+      } else if (targetRole === UserRole.MANAGER && location.pathname === '/admin') {
         navigate('/');
       }
     } catch {
@@ -146,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             type="button"
             onClick={() => handleQuickSwitchRole('admin@example.com', 'Admin (Business Owner)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
-              user?.role === 'admin'
+              user?.role === UserRole.ADMIN
                 ? 'bg-[#7042f4] text-white shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
@@ -158,7 +159,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             type="button"
             onClick={() => handleQuickSwitchRole('manager@example.com', 'Invoicing User (Accountant)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
-              user?.role === 'manager'
+              user?.role === UserRole.MANAGER
                 ? 'bg-amber-500 text-black shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
@@ -170,7 +171,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             type="button"
             onClick={() => handleQuickSwitchRole('user@example.com', 'Contact User (Customer/Vendor)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
-              user?.role === 'user'
+              user?.role === UserRole.USER
                 ? 'bg-emerald-500 text-black shadow-xs'
                 : 'text-[#808090] hover:text-white'
             }`}
@@ -221,9 +222,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
                 <div className="mt-1">
                   <span
                     className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                      user?.role === 'admin'
+                      user?.role === UserRole.ADMIN
                         ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                        : user?.role === 'manager'
+                        : user?.role === UserRole.MANAGER
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                         : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                     }`}
@@ -241,7 +242,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             >
               Profile & Clearance
             </DropdownItem>
-            {user?.role === 'admin' ? (
+            {user?.role === UserRole.ADMIN ? (
               <DropdownItem
                 key="admin"
                 startContent={<Shield className="w-4 h-4 text-[#7042f4]" />}

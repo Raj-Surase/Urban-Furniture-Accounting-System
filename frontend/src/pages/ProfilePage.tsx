@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
+import { UserRole } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/layout/PageHeader';
 import { PageTransition } from '../components/layout/PageTransition';
@@ -110,24 +111,24 @@ export const ProfilePage: React.FC = () => {
                     </span>
                     <span
                       className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                        user?.role === 'admin'
+                        user?.role === UserRole.ADMIN
                           ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                          : user?.role === 'manager'
+                          : user?.role === UserRole.MANAGER
                           ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                           : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                       }`}
                     >
-                      {user?.role === 'admin'
+                      {user?.role === UserRole.ADMIN
                         ? 'ADMINISTRATOR (TIER 3)'
-                        : user?.role === 'manager'
+                        : user?.role === UserRole.MANAGER
                         ? 'MANAGER (TIER 2)'
                         : 'STANDARD USER (TIER 1)'}
                     </span>
                   </div>
                   <p className="text-[#8e8e9f] leading-relaxed text-xs">
-                    {user?.role === 'admin'
+                    {user?.role === UserRole.ADMIN
                       ? 'Full superuser clearance across all items, user role governance, telemetry diagnostics, and system broadcast overrides.'
-                      : user?.role === 'manager'
+                      : user?.role === UserRole.MANAGER
                       ? 'Operational management clearance. Can create, view, and edit any item across departments, and inspect user directories.'
                       : 'Standard authenticated access. Can create and edit personal items, view catalog, and receive realtime socket events.'}
                   </p>
@@ -144,32 +145,32 @@ export const ProfilePage: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-white/[0.04]">
                     <span className="text-[#8e8e9f] font-medium">Edit Team Items:</span>
-                    <span className={`font-bold ${user?.role === 'admin' || user?.role === 'manager' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {user?.role === 'admin' || user?.role === 'manager' ? 'Authorized' : 'Restricted (403)'}
+                    <span className={`font-bold ${user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER ? 'Authorized' : 'Restricted (403)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-white/[0.04]">
                     <span className="text-[#8e8e9f] font-medium">Delete Items:</span>
-                    <span className={`font-bold ${user?.role === 'admin' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {user?.role === 'admin' ? 'Authorized' : 'Restricted (Admin Only)'}
+                    <span className={`font-bold ${user?.role === UserRole.ADMIN ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {user?.role === UserRole.ADMIN ? 'Authorized' : 'Restricted (Admin Only)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-white/[0.04]">
                     <span className="text-[#8e8e9f] font-medium">User Directory:</span>
-                    <span className={`font-bold ${user?.role === 'admin' || user?.role === 'manager' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {user?.role === 'admin' || user?.role === 'manager' ? 'Authorized' : 'Restricted'}
+                    <span className={`font-bold ${user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER ? 'Authorized' : 'Restricted'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 border-b border-white/[0.04]">
                     <span className="text-[#8e8e9f] font-medium">Role Governance:</span>
-                    <span className={`font-bold ${user?.role === 'admin' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {user?.role === 'admin' ? 'Authorized' : 'Restricted'}
+                    <span className={`font-bold ${user?.role === UserRole.ADMIN ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {user?.role === UserRole.ADMIN ? 'Authorized' : 'Restricted'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5">
                     <span className="text-[#8e8e9f] font-medium">Admin Telemetry:</span>
-                    <span className={`font-bold ${user?.role === 'admin' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {user?.role === 'admin' ? 'Authorized' : 'Restricted (403)'}
+                    <span className={`font-bold ${user?.role === UserRole.ADMIN ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {user?.role === UserRole.ADMIN ? 'Authorized' : 'Restricted (403)'}
                     </span>
                   </div>
                 </div>

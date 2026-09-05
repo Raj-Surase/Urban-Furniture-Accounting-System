@@ -15,6 +15,7 @@ import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
 import { PageTransition } from '../components/layout/PageTransition';
 import { Logo } from '../components/common/Logo';
+import { UserRole } from '../types';
 import {
   ArrowRight,
   User,
@@ -45,7 +46,7 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await register({ name, email, password, role: 'user' });
+      await register({ name, email, password, role: UserRole.USER });
       toast.success('Account created successfully!');
       navigate('/');
     } catch (err: unknown) {

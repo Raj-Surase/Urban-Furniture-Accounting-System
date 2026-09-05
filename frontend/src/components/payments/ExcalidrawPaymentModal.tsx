@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText } from 'lucide-react';
 import { paymentsApi } from '../../lib/api';
+import { ContactType, PaymentType, PaymentMethod, InvoiceType } from '../../types';
 
 export interface ExcalidrawPaymentModalProps {
   isOpen: boolean;
@@ -10,9 +11,9 @@ export interface ExcalidrawPaymentModalProps {
   invoiceId?: number;
   partnerName: string;
   partnerId?: number;
-  partnerType?: 'customer' | 'vendor';
+  partnerType?: ContactType;
   amountDue: number;
-  mode: 'bill' | 'invoice'; // 'bill' = Send, 'invoice' = Receive
+  mode: InvoiceType; // InvoiceType.BILL = Send, InvoiceType.INVOICE = Receive
 }
 
 export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
@@ -24,10 +25,10 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
   amountDue,
   mode,
 }) => {
-  const [paymentType, setPaymentType] = useState<'send' | 'receive'>(mode === 'bill' ? 'send' : 'receive');
+  const [paymentType, setPaymentType] = useState<PaymentType.SEND | PaymentType.RECEIVE>(mode === InvoiceType.BILL ? PaymentType.SEND : PaymentType.RECEIVE);
   const [amount, setAmount] = useState<string>(amountDue > 0 ? amountDue.toString() : '0');
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [paymentVia, setPaymentVia] = useState<'bank' | 'cash'>('bank');
+  const [paymentVia, setPaymentVia] = useState<PaymentMethod.BANK | PaymentMethod.CASH>(PaymentMethod.BANK);
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
         payment_date: paymentDate,
         payment_method: paymentVia,
         payment_method_type: paymentVia,
-        notes: note || `${mode === 'bill' ? 'Vendor Bill Payment' : 'Customer Invoice Receipt'} for ${partnerName}`,
+        notes: note || `${mode === InvoiceType.BILL ? 'Vendor Bill Payment' : 'Customer Invoice Receipt'} for ${partnerName}`,
       };
 
       const res = await paymentsApi.create(payload);
@@ -81,23 +82,24 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418]">
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">
-                {mode === 'bill' ? 'Bill Payment' : 'Invoice Payment'}
+                {mode === InvoiceType.BILL ? 'Bill Payment' : 'Invoice Payment'}
               </h2>
               <p className="text-xs text-[#8a8a9a]">
-                {mode === 'bill' ? 'Send funds to vendor' : 'Receive settlement from customer'}
+                {mode === InvoiceType.BILL ? 'Send funds to vendor' : 'Receive settlement from customer'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-[#707080] hover:text-white hover:bg-white/[0.05] transition-all"
+              className="p-1 rounded-lg text-[#8a8a9a] hover:text-white hover:bg-white/[0.06] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
                 {error}
               </div>
             )}
@@ -110,9 +112,9 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setPaymentType('send')}
+                  onClick={() => setPaymentType(PaymentType.SEND)}
                   className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                    paymentType === 'send'
+                    paymentType === PaymentType.SEND
                       ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 shadow-sm'
                       : 'bg-[#121216] border-white/[0.06] text-[#707080] hover:text-white'
                   }`}
@@ -121,9 +123,9 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPaymentType('receive')}
+                  onClick={() => setPaymentType(PaymentType.RECEIVE)}
                   className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all ${
-                    paymentType === 'receive'
+                    paymentType === PaymentType.RECEIVE
                       ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-sm'
                       : 'bg-[#121216] border-white/[0.06] text-[#707080] hover:text-white'
                   }`}
@@ -201,16 +203,16 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
-                  paymentVia === 'bank'
+                  paymentVia === PaymentMethod.BANK
                     ? 'bg-[#7042f4]/15 border-[#7042f4]/50 text-white'
                     : 'bg-[#121216] border-white/[0.06] text-[#808090]'
                 }`}>
                   <input
                     type="radio"
                     name="paymentVia"
-                    value="bank"
-                    checked={paymentVia === 'bank'}
-                    onChange={() => setPaymentVia('bank')}
+                    value={PaymentMethod.BANK}
+                    checked={paymentVia === PaymentMethod.BANK}
+                    onChange={() => setPaymentVia(PaymentMethod.BANK)}
                     className="hidden"
                   />
                   <CreditCard className="w-4 h-4 text-[#7042f4]" />
@@ -218,16 +220,16 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
                 </label>
 
                 <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
-                  paymentVia === 'cash'
+                  paymentVia === PaymentMethod.CASH
                     ? 'bg-[#7042f4]/15 border-[#7042f4]/50 text-white'
                     : 'bg-[#121216] border-white/[0.06] text-[#808090]'
                 }`}>
                   <input
                     type="radio"
                     name="paymentVia"
-                    value="cash"
-                    checked={paymentVia === 'cash'}
-                    onChange={() => setPaymentVia('cash')}
+                    value={PaymentMethod.CASH}
+                    checked={paymentVia === PaymentMethod.CASH}
+                    onChange={() => setPaymentVia(PaymentMethod.CASH)}
                     className="hidden"
                   />
                   <Building2 className="w-4 h-4 text-emerald-400" />

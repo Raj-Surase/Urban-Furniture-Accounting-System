@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Mail, Key, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
 import { usersApi } from '../../lib/api';
+import { UserRole } from '../../types';
 
 export interface CreateUserModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   const [name, setName] = useState('');
   const [loginId, setLoginId] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'user' | 'accountant' | 'admin'>('user');
+  const [role, setRole] = useState<UserRole>(UserRole.USER);
   const [password, setPassword] = useState('');
   const [reEnterPassword, setReEnterPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -158,7 +159,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                 Role *
               </label>
               <div className="grid grid-cols-3 gap-2">
-                {(['user', 'accountant', 'admin'] as const).map((r) => (
+                {([UserRole.USER, UserRole.ACCOUNTANT, UserRole.ADMIN] as const).map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -169,14 +170,14 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
                         : 'bg-[#121216] border-white/[0.08] text-[#8a8a9a] hover:text-white'
                     }`}
                   >
-                    {r === 'admin' ? 'Administrator' : r === 'accountant' ? 'Accountant' : 'User'}
+                    {r === UserRole.ADMIN ? 'Administrator' : r === UserRole.ACCOUNTANT ? 'Accountant' : 'User'}
                   </button>
                 ))}
               </div>
               <div className="mt-2 p-2.5 rounded-xl bg-[#121216] border border-white/[0.04] text-[11px] text-[#8a8a9a]">
-                {role === 'admin' && 'Admin: Full access rights across all modules.'}
-                {role === 'accountant' && 'Accountant: Master data, record transactions, journals, and reports.'}
-                {role === 'user' && 'User (Portal): Restricted view to view paid/unpaid dues and pay directly.'}
+                {role === UserRole.ADMIN && 'Admin: Full access rights across all modules.'}
+                {role === UserRole.ACCOUNTANT && 'Accountant: Master data, record transactions, journals, and reports.'}
+                {role === UserRole.USER && 'User (Portal): Restricted view to view paid/unpaid dues and pay directly.'}
               </div>
             </div>
 

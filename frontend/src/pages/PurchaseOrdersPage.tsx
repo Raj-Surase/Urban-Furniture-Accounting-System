@@ -29,6 +29,7 @@ import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
+import { PurchaseOrderStatus } from '../types';
 
 export const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -309,16 +310,16 @@ export const PurchaseOrdersPage: React.FC = () => {
             </div>
 
             <select
-              value={statusFilter}
+      value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
             >
               <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
-              <option value="approved">Approved</option>
-              <option value="received">Received</option>
-              <option value="cancelled">Cancelled</option>
+              <option value={PurchaseOrderStatus.DRAFT}>Draft</option>
+              <option value={PurchaseOrderStatus.SUBMITTED}>Submitted</option>
+              <option value={PurchaseOrderStatus.APPROVED}>Approved</option>
+              <option value={PurchaseOrderStatus.RECEIVED}>Received</option>
+              <option value={PurchaseOrderStatus.CANCELLED}>Cancelled</option>
             </select>
           </div>
         </div>
@@ -330,22 +331,22 @@ export const PurchaseOrdersPage: React.FC = () => {
                 <th className="py-3 px-4">PO Number</th>
                 <th className="py-3 px-4">Vendor</th>
                 <th className="py-3 px-4">Dates</th>
-                <th className="py-3 px-4 text-right">Subtotal</th>
-                <th className="py-3 px-4 text-right">GST</th>
-                <th className="py-3 px-4 text-right">Total</th>
+                <th className="py-3 px-4 text-right">Taxable</th>
+                <th className="py-3 px-4 text-right">GST (₹)</th>
+                <th className="py-3 px-4 text-right">Total Amount</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <TableSkeleton rows={5} cols={8} />
+                <TableSkeleton rows={6} cols={8} />
               ) : filteredOrders.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBag}
                   colSpan={8}
-                  title="No purchase orders found"
-                  description="Create a purchase order to initiate procurement with vendors."
+                  title="No matching purchase orders"
+                  description="Try adjusting your filters or search query, or create a new purchase order."
                   actionLabel="New Purchase Order"
                   onAction={() => setIsCreateOpen(true)}
                   secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
@@ -355,85 +356,86 @@ export const PurchaseOrdersPage: React.FC = () => {
                   }}
                 />
               ) : (
-                filteredOrders.map((po) => {
-                  return (
-                    <tr
-                      key={po.id}
-                      onClick={() => handleOpenDetail(po)}
-                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-indigo-400 group-hover:underline">
-                        {po.po_number}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-neutral-200">{po.vendor?.name}</div>
-                        <div className="text-[10px] text-neutral-500 font-mono">{po.vendor?.gstin || 'Unregistered'}</div>
-                      </td>
-                      <td className="py-3 px-4 text-neutral-400">
-                        <div>Date: {po.order_date ? po.order_date.split('T')[0] : 'N/A'}</div>
-                        <div className="text-[10px] text-neutral-500">Exp: {po.expected_delivery_date ? po.expected_delivery_date.split('T')[0] : 'N/A'}</div>
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
-                        ₹{Number(po.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-400">
-                        ₹{Number(po.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                        ₹{Number(po.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            po.status === 'received'
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : po.status === 'approved'
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              : po.status === 'submitted'
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          }`}
-                        >
-                          {po.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
-                          {po.status === 'draft' && (
-                            <button
-                              onClick={() => handleSubmit(po.id)}
-                              className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
-                            >
-                              Submit
-                            </button>
-                          )}
+                filteredOrders.map((po) => (
+                  <tr
+                    key={po.id}
+                    onClick={() => handleOpenDetail(po)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3 px-4 font-mono font-bold text-white flex items-center gap-2">
+                      <span>{po.po_number || po.order_number}</span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-neutral-200">{po.vendor?.name}</div>
+                      <div className="text-[10.5px] text-neutral-500 font-mono">
+                        {po.vendor?.gstin || 'Unregistered'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-neutral-400">
+                      <div>Order: {po.order_date ? po.order_date.split('T')[0] : 'N/A'}</div>
+                      <div className="text-[10.5px] text-neutral-500">Exp: {po.expected_delivery_date ? po.expected_delivery_date.split('T')[0] : 'N/A'}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                      ₹{Number(po.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                      ₹{Number(po.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                      ₹{Number(po.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span
+                        className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          po.status === PurchaseOrderStatus.RECEIVED
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            : po.status === PurchaseOrderStatus.APPROVED
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            : po.status === PurchaseOrderStatus.SUBMITTED
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        }`}
+                      >
+                        {po.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {po.status === PurchaseOrderStatus.DRAFT && (
+                          <button
+                            onClick={() => handleSubmit(po.id)}
+                            className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
+                          >
+                            Submit
+                          </button>
+                        )}
 
-                          {po.status === 'submitted' && (isAdmin || isManager) && (
-                            <button
-                              onClick={() => handleApprove(po.id)}
-                              className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
-                            >
-                              Approve
-                            </button>
-                          )}
+                        {po.status === PurchaseOrderStatus.SUBMITTED && (isAdmin || isManager) && (
+                          <button
+                            onClick={() => handleApprove(po.id)}
+                            className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                          >
+                            Approve
+                          </button>
+                        )}
 
-                          {(po.status === 'approved' || po.status === 'partially_received' || po.status === 'received') && (isAdmin || isManager) && (
-                            <>
-                              <button
-                                onClick={() =>
-                                  navigate(
-                                    `/bills?from_po=${po.id}&vendor_id=${po.vendor_id}&po_number=${encodeURIComponent(
-                                      po.order_number
-                                    )}`
-                                  )
-                                }
-                                className="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                                title="Create Vendor Bill"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                Create Bill
-                              </button>
-                              {po.status !== 'received' && (
+                        {(po.status === PurchaseOrderStatus.APPROVED || po.status === PurchaseOrderStatus.PARTIALLY_RECEIVED || po.status === PurchaseOrderStatus.RECEIVED) && (isAdmin || isManager) && (
+                          <>
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/bills?from_po=${po.id}&vendor_id=${po.vendor_id}&po_number=${encodeURIComponent(
+                                    po.order_number
+                                  )}`
+                                )
+                              }
+                              className="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                              title="Create Vendor Bill"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              Create Bill
+                            </button>
+                            {po.status !== PurchaseOrderStatus.RECEIVED && (
                                 <button
                                   onClick={() => {
                                     setSelectedOrder(po);
@@ -455,8 +457,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  );
-                })
+                  ))
               )}
             </tbody>
           </table>
@@ -872,11 +873,11 @@ export const PurchaseOrdersPage: React.FC = () => {
                   <span className="font-mono text-sm font-bold text-white">{detailOrder.po_number}</span>
                   <span
                     className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      detailOrder.status === 'received'
+                      detailOrder.status === PurchaseOrderStatus.RECEIVED
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : detailOrder.status === 'approved'
+                        : detailOrder.status === PurchaseOrderStatus.APPROVED
                         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                        : detailOrder.status === 'submitted'
+                        : detailOrder.status === PurchaseOrderStatus.SUBMITTED
                         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
@@ -1002,7 +1003,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                 Order ID #{detailOrder.id}
               </div>
               <div className="flex items-center gap-2">
-                {detailOrder.status === 'draft' && (
+                {detailOrder.status === PurchaseOrderStatus.DRAFT && (
                   <Button
                     size="sm"
                     onClick={async () => {
@@ -1015,7 +1016,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {detailOrder.status === 'submitted' && (isAdmin || isManager) && (
+                {detailOrder.status === PurchaseOrderStatus.SUBMITTED && (isAdmin || isManager) && (
                   <Button
                     size="sm"
                     onClick={async () => {
@@ -1028,7 +1029,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                   </Button>
                 )}
 
-                {(detailOrder.status === 'approved' || detailOrder.status === 'partially_received' || detailOrder.status === 'received') && (isAdmin || isManager) && (
+                {(detailOrder.status === PurchaseOrderStatus.APPROVED || detailOrder.status === PurchaseOrderStatus.PARTIALLY_RECEIVED || detailOrder.status === PurchaseOrderStatus.RECEIVED) && (isAdmin || isManager) && (
                   <>
                     <Button
                       size="sm"
@@ -1044,7 +1045,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                       <FileText className="w-3.5 h-3.5" />
                       Create Bill
                     </Button>
-                    {detailOrder.status !== 'received' && (
+                    {detailOrder.status !== PurchaseOrderStatus.RECEIVED && (
                       <Button
                         size="sm"
                         onClick={() => {

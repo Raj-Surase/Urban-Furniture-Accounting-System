@@ -1,11 +1,12 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { UserRole } from '../../types';
 
 interface CanProps {
   /**
-   * One or more roles required to render children (e.g. 'admin' or ['admin', 'manager'])
+   * One or more roles required to render children (e.g. UserRole.ADMIN or [UserRole.ADMIN, UserRole.MANAGER])
    */
-  role?: string | string[];
+  role?: UserRole | string | (UserRole | string)[];
 
   /**
    * One or more permissions required to render children (e.g. 'items:delete_any')
@@ -35,7 +36,7 @@ interface CanProps {
  *
  * Example:
  * ```tsx
- * <Can role="admin" fallback={<Button isDisabled>Delete (Admin Only)</Button>}>
+ * <Can role={UserRole.ADMIN} fallback={<Button isDisabled>Delete (Admin Only)</Button>}>
  *   <Button color="danger" onPress={handleDelete}>Delete Item</Button>
  * </Can>
  * ```
@@ -54,7 +55,7 @@ export const Can: React.FC<CanProps> = ({
   }
 
   // Admin superuser always has clearance unless explicitly restricted
-  if (user.role === 'admin') {
+  if (user.role === UserRole.ADMIN) {
     return <>{children}</>;
   }
 

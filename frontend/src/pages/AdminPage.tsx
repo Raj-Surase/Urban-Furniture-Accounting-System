@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types';
 
 export const AdminPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -134,7 +135,7 @@ export const AdminPage: React.FC = () => {
   const rolesMatrix = [
     {
       role: 'Admin (Business Owner)',
-      key: 'admin',
+      key: UserRole.ADMIN,
       badge: 'Level 3 Clearance',
       color: 'primary',
       description: 'Full business owner access across financial master data, transaction approvals, tax governance, and user role clearance.',
@@ -147,7 +148,7 @@ export const AdminPage: React.FC = () => {
     },
     {
       role: 'Invoicing User (Accountant)',
-      key: 'manager',
+      key: UserRole.MANAGER,
       badge: 'Level 2 Clearance',
       color: 'warning',
       description: 'Accountant access for recording orders, creating invoices & bills, posting ledger adjustments, and generating financial reports.',
@@ -160,7 +161,7 @@ export const AdminPage: React.FC = () => {
     },
     {
       role: 'Contact (Customer / Vendor)',
-      key: 'user',
+      key: UserRole.USER,
       badge: 'Level 1 Clearance',
       color: 'default',
       description: 'Portal access for buyers and vendors to view their own tax invoices/bills and record payments.',
@@ -193,7 +194,7 @@ export const AdminPage: React.FC = () => {
     );
   }
 
-  const adminUsersCount = users.filter((u) => u.role === 'admin').length;
+  const adminUsersCount = users.filter((u) => u.role === UserRole.ADMIN).length;
 
   return (
     <PageTransition>
@@ -333,7 +334,7 @@ export const AdminPage: React.FC = () => {
                           ) : (
                             users.map((u) => {
                               const isSelf = currentUser?.id === u.id;
-                              const isSoleAdmin = u.role === 'admin' && adminUsersCount <= 1;
+                              const isSoleAdmin = u.role === UserRole.ADMIN && adminUsersCount <= 1;
                               const isUpdating = updatingUserId === u.id;
 
                             return (
@@ -365,9 +366,9 @@ export const AdminPage: React.FC = () => {
                                 <td className="py-3.5 px-4">
                                   <span
                                     className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wide border ${
-                                      u.role === 'admin'
+                                      u.role === UserRole.ADMIN
                                         ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                                        : u.role === 'manager'
+                                        : u.role === UserRole.MANAGER
                                         ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
                                         : 'bg-white/[0.06] text-[#a0a0b0] border-white/10'
                                     }`}
@@ -386,7 +387,7 @@ export const AdminPage: React.FC = () => {
                                     </span>
                                   ) : (
                                     <div className="inline-flex items-center gap-1 bg-[#1c1c24] p-1 rounded-xl border border-white/[0.08]">
-                                      {(['admin', 'manager', 'user'] as const).map((r) => {
+                                      {([UserRole.ADMIN, UserRole.MANAGER, UserRole.USER] as const).map((r) => {
                                         const isActive = u.role === r;
                                         return (
                                           <button
@@ -398,9 +399,9 @@ export const AdminPage: React.FC = () => {
                                             }}
                                             className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
                                               isActive
-                                                ? r === 'admin'
+                                                ? r === UserRole.ADMIN
                                                   ? 'bg-[#7042f4] text-white shadow-xs'
-                                                  : r === 'manager'
+                                                  : r === UserRole.MANAGER
                                                   ? 'bg-amber-500 text-black shadow-xs'
                                                   : 'bg-white/20 text-white shadow-xs'
                                                 : 'text-[#8e8e9f] hover:text-white hover:bg-white/[0.05] disabled:opacity-40'
@@ -819,9 +820,9 @@ export const AdminPage: React.FC = () => {
                   Clearance Level Details
                 </span>
                 <p className="text-xs text-neutral-300 leading-relaxed bg-[#18181f] p-3 rounded-xl border border-white/[0.04]">
-                  {selectedUserDetail.role === 'admin'
+                  {selectedUserDetail.role === UserRole.ADMIN
                     ? 'Tier 3 Superuser clearance. Complete authority across General Ledger, transaction voiding, role assignments, and server telemetry.'
-                    : selectedUserDetail.role === 'manager'
+                    : selectedUserDetail.role === UserRole.MANAGER
                     ? 'Tier 2 Management clearance. Operational authority to post invoices, issue orders, adjust inventory, and review financial statements.'
                     : 'Tier 1 Standard clearance. Standard contact access to view personal invoices/bills and settle outstanding dues.'}
                 </p>
@@ -830,9 +831,9 @@ export const AdminPage: React.FC = () => {
               <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs text-neutral-400">Clearance:</span>
-                  {(['admin', 'manager', 'user'] as const).map((r) => {
+                  {([UserRole.ADMIN, UserRole.MANAGER, UserRole.USER] as const).map((r) => {
                     const isActive = selectedUserDetail.role === r;
-                    const isSoleAdmin = selectedUserDetail.role === 'admin' && adminUsersCount <= 1;
+                    const isSoleAdmin = selectedUserDetail.role === UserRole.ADMIN && adminUsersCount <= 1;
                     return (
                       <button
                         key={r}

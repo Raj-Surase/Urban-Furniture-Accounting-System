@@ -4,11 +4,12 @@ import { motion } from 'framer-motion';
 import { BookOpen, Plus, Check, ArrowLeft, Building2 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { journalsApi, accountsApi } from '../lib/api';
+import { JournalType } from '../types';
 
 interface Journal {
   id: number;
   name: string;
-  type: 'sales' | 'purchase' | 'bank' | 'cash';
+  type: JournalType;
   default_account_id?: number;
   default_account?: {
     id: number;
@@ -29,7 +30,7 @@ export const JournalsPage: React.FC = () => {
   // Form State
   const [activeJournal, setActiveJournal] = useState<Journal | null>(null);
   const [name, setName] = useState<string>('');
-  const [type, setType] = useState<'sales' | 'purchase' | 'bank' | 'cash'>('sales');
+  const [type, setType] = useState<JournalType>(JournalType.SALES);
   const [defaultAccountId, setDefaultAccountId] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
@@ -65,7 +66,7 @@ export const JournalsPage: React.FC = () => {
     } else {
       setActiveJournal(null);
       setName('');
-      setType('sales');
+      setType(JournalType.SALES);
       setDefaultAccountId('');
       setDescription('');
     }
@@ -185,10 +186,11 @@ export const JournalsPage: React.FC = () => {
                 onChange={(e) => setType(e.target.value as any)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4]"
               >
-                <option value="sales">Sales</option>
-                <option value="purchase">Purchase</option>
-                <option value="bank">Bank</option>
-                <option value="cash">Cash</option>
+                <option value={JournalType.SALES}>Sales</option>
+                <option value={JournalType.PURCHASE}>Purchase</option>
+                <option value={JournalType.BANK}>Bank</option>
+                <option value={JournalType.CASH}>Cash</option>
+                <option value={JournalType.GENERAL}>General</option>
               </select>
               <span className="text-[10px] text-[#606070] mt-1 block">
                 Select from Sales, Purchase, Bank, Cash

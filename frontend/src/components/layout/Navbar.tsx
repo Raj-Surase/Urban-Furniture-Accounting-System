@@ -18,6 +18,7 @@ import {
 } from '@heroui/react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { UserRole } from '../../types';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import {
   Layers,
@@ -171,7 +172,7 @@ export const Navbar: React.FC = () => {
                 >
                   <Avatar
                     size="sm"
-                    color={user.role === 'admin' ? 'secondary' : 'primary'}
+                    color={user.role === UserRole.ADMIN ? 'secondary' : 'primary'}
                     name={user.name.substring(0, 1).toUpperCase()}
                     isBordered
                     className="cursor-pointer text-xs font-bold"

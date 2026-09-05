@@ -54,21 +54,22 @@ import {
   Shield,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { UserRole, ItemStatus, ItemPriority } from '../types';
 
 export interface Item {
   id: number;
   user_id?: number;
   title: string;
   description: string | null;
-  status: 'pending' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  status: ItemStatus;
+  priority: ItemPriority;
   can_edit?: boolean;
   can_delete?: boolean;
   user?: {
     id: number;
     name: string;
     email: string;
-    role?: string;
+    role?: UserRole | string;
   };
   created_at?: string;
   updated_at?: string;
@@ -103,8 +104,8 @@ export const ItemsPage: React.FC = () => {
   // Form State
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
-  const [formStatus, setFormStatus] = useState<string>('pending');
-  const [formPriority, setFormPriority] = useState<string>('medium');
+  const [formStatus, setFormStatus] = useState<ItemStatus>(ItemStatus.PENDING);
+  const [formPriority, setFormPriority] = useState<ItemPriority>(ItemPriority.MEDIUM);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formLoading, setFormLoading] = useState(false);
   const [activeItem, setActiveItem] = useState<Item | null>(null);
@@ -218,16 +219,16 @@ export const ItemsPage: React.FC = () => {
   }, [items, sortBy]);
 
   // Calculated Stats
-  const completedCount = useMemo(() => items.filter((i) => i.status === 'completed').length, [items]);
-  const inProgressCount = useMemo(() => items.filter((i) => i.status === 'in_progress').length, [items]);
-  const pendingCount = useMemo(() => items.filter((i) => i.status === 'pending').length, [items]);
+  const completedCount = useMemo(() => items.filter((i) => i.status === ItemStatus.COMPLETED).length, [items]);
+  const inProgressCount = useMemo(() => items.filter((i) => i.status === ItemStatus.IN_PROGRESS).length, [items]);
+  const pendingCount = useMemo(() => items.filter((i) => i.status === ItemStatus.PENDING).length, [items]);
 
   // Form Handlers
   const resetForm = () => {
     setFormTitle('');
     setFormDescription('');
-    setFormStatus('pending');
-    setFormPriority('medium');
+    setFormStatus(ItemStatus.PENDING);
+    setFormPriority(ItemPriority.MEDIUM);
     setFieldErrors({});
     setActiveItem(null);
   };
@@ -554,9 +555,9 @@ export const ItemsPage: React.FC = () => {
               <span className="font-semibold text-white/80">Current Clearance:</span>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${
-                  user?.role === 'admin'
+                  user?.role === UserRole.ADMIN
                     ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                    : user?.role === 'manager'
+                    : user?.role === UserRole.MANAGER
                     ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                     : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                 }`}
@@ -564,9 +565,9 @@ export const ItemsPage: React.FC = () => {
                 {user?.role || 'Guest'}
               </span>
               <span className="text-[11px] text-[#8e8e9f] hidden md:inline">
-                {user?.role === 'admin'
+                {user?.role === UserRole.ADMIN
                   ? '• Superuser: Full CRUD & Deletion rights'
-                  : user?.role === 'manager'
+                  : user?.role === UserRole.MANAGER
                   ? '• Manager: Can Edit Any Item (Deletion Restricted)'
                   : '• Standard: Can Edit Own Items Only (Deletion Restricted)'}
               </span>
@@ -771,9 +772,9 @@ export const ItemsPage: React.FC = () => {
                           {item.user?.role && (
                             <span
                               className={`text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border w-fit ${
-                                item.user.role === 'admin'
+                                item.user.role === UserRole.ADMIN
                                   ? 'bg-[#7042f4]/15 text-[#c084fc] border-[#7042f4]/25'
-                                  : item.user.role === 'manager'
+                                  : item.user.role === UserRole.MANAGER
                                   ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
                                   : 'bg-white/[0.06] text-[#8e8e9f] border-white/10'
                               }`}
@@ -914,9 +915,9 @@ export const ItemsPage: React.FC = () => {
                             </span>
                             {item.user?.role && (
                               <span className={`text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded border ${
-                                item.user.role === 'admin'
+                                item.user.role === UserRole.ADMIN
                                   ? 'bg-[#7042f4]/15 text-[#c084fc] border-[#7042f4]/25'
-                                  : item.user.role === 'manager'
+                                  : item.user.role === UserRole.MANAGER
                                   ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
                                   : 'bg-white/[0.06] text-[#8e8e9f] border-white/10'
                               }`}>
@@ -1095,25 +1096,25 @@ export const ItemsPage: React.FC = () => {
                     <Select
                       label="Status"
                       selectedKeys={[formStatus]}
-                      onChange={(e) => setFormStatus(e.target.value)}
+                      onChange={(e) => setFormStatus(e.target.value as ItemStatus)}
                       variant="bordered"
                       size="sm"
                     >
-                      <SelectItem key="pending">Pending</SelectItem>
-                      <SelectItem key="in_progress">In Progress</SelectItem>
-                      <SelectItem key="completed">Completed</SelectItem>
+                      <SelectItem key={ItemStatus.PENDING}>Pending</SelectItem>
+                      <SelectItem key={ItemStatus.IN_PROGRESS}>In Progress</SelectItem>
+                      <SelectItem key={ItemStatus.COMPLETED}>Completed</SelectItem>
                     </Select>
 
                     <Select
                       label="Priority"
                       selectedKeys={[formPriority]}
-                      onChange={(e) => setFormPriority(e.target.value)}
+                      onChange={(e) => setFormPriority(e.target.value as ItemPriority)}
                       variant="bordered"
                       size="sm"
                     >
-                      <SelectItem key="low">Low</SelectItem>
-                      <SelectItem key="medium">Medium</SelectItem>
-                      <SelectItem key="high">High</SelectItem>
+                      <SelectItem key={ItemPriority.LOW}>Low</SelectItem>
+                      <SelectItem key={ItemPriority.MEDIUM}>Medium</SelectItem>
+                      <SelectItem key={ItemPriority.HIGH}>High</SelectItem>
                     </Select>
                   </div>
                 </ModalBody>
@@ -1186,25 +1187,25 @@ export const ItemsPage: React.FC = () => {
                     <Select
                       label="Status"
                       selectedKeys={[formStatus]}
-                      onChange={(e) => setFormStatus(e.target.value)}
+                      onChange={(e) => setFormStatus(e.target.value as ItemStatus)}
                       variant="bordered"
                       size="sm"
                     >
-                      <SelectItem key="pending">Pending</SelectItem>
-                      <SelectItem key="in_progress">In Progress</SelectItem>
-                      <SelectItem key="completed">Completed</SelectItem>
+                      <SelectItem key={ItemStatus.PENDING}>Pending</SelectItem>
+                      <SelectItem key={ItemStatus.IN_PROGRESS}>In Progress</SelectItem>
+                      <SelectItem key={ItemStatus.COMPLETED}>Completed</SelectItem>
                     </Select>
 
                     <Select
                       label="Priority"
                       selectedKeys={[formPriority]}
-                      onChange={(e) => setFormPriority(e.target.value)}
+                      onChange={(e) => setFormPriority(e.target.value as ItemPriority)}
                       variant="bordered"
                       size="sm"
                     >
-                      <SelectItem key="low">Low</SelectItem>
-                      <SelectItem key="medium">Medium</SelectItem>
-                      <SelectItem key="high">High</SelectItem>
+                      <SelectItem key={ItemPriority.LOW}>Low</SelectItem>
+                      <SelectItem key={ItemPriority.MEDIUM}>Medium</SelectItem>
+                      <SelectItem key={ItemPriority.HIGH}>High</SelectItem>
                     </Select>
                   </div>
                 </ModalBody>

@@ -26,6 +26,15 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import {
+  PaymentStatus,
+  PaymentType,
+  PaymentMethod,
+  InvoiceStatus,
+  InvoiceType,
+  ContactType,
+  AccountClassification,
+} from '../types';
 
 export interface PaymentsPageProps {
   openNew?: boolean;
@@ -43,15 +52,18 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
+  // Detail Modal
+  const [detailPayment, setDetailPayment] = useState<any>(null);
+
   // New Payment Modal
   const [isNewOpen, setIsNewOpen] = useState(false);
-  const [paymentType, setPaymentType] = useState<'customer_receipt' | 'vendor_payment'>('customer_receipt');
+  const [paymentType, setPaymentType] = useState<PaymentType>(PaymentType.CUSTOMER_RECEIPT);
   const [partyId, setPartyId] = useState<number | ''>('');
   const [bankAccountId, setBankAccountId] = useState<number | ''>('');
   const [invoiceId, setInvoiceId] = useState<number | ''>('');
   const [amount, setAmount] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
-  const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
+  const [paymentMethod, setPaymentMethod] = useState<string>(PaymentMethod.BANK_TRANSFER);
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -77,7 +89,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       setInvoices(Array.isArray(invList) ? invList : []);
 
       const defaultBank = (Array.isArray(accList) ? accList : []).find(
-        (a: any) => a.code === '1110' || (a.type === 'asset' && a.name.toLowerCase().includes('bank'))
+        (a: any) => a.code === '1110' || (a.type === AccountClassification.ASSET && a.name.toLowerCase().includes('bank'))
       );
       if (defaultBank && !bankAccountId) {
         setBankAccountId(defaultBank.id);
@@ -89,9 +101,6 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       setLoading(false);
     }
   };
-
-  // Detail Payment Modal State
-  const [detailPayment, setDetailPayment] = useState<any>(null);
 
   const [searchParams] = useSearchParams();
 
@@ -108,12 +117,12 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   // Deep linking and navigation support (Record Payment from Dashboard / Transactions / Invoices)
   useEffect(() => {
     const typeParam = searchParams.get('type');
-    if (typeParam === 'receive' || typeParam === 'customer_receipt') {
-      setPaymentType('customer_receipt');
-      setTypeFilter('customer_receipt');
-    } else if (typeParam === 'send' || typeParam === 'vendor_payment') {
-      setPaymentType('vendor_payment');
-      setTypeFilter('vendor_payment');
+    if (typeParam === 'receive' || typeParam === PaymentType.CUSTOMER_RECEIPT) {
+      setPaymentType(PaymentType.CUSTOMER_RECEIPT);
+      setTypeFilter(PaymentType.CUSTOMER_RECEIPT);
+    } else if (typeParam === 'send' || typeParam === PaymentType.VENDOR_PAYMENT) {
+      setPaymentType(PaymentType.VENDOR_PAYMENT);
+      setTypeFilter(PaymentType.VENDOR_PAYMENT);
     }
 
     const invIdParam = searchParams.get('invoice_id');
@@ -159,7 +168,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     const errors: Record<string, string> = {};
 
     if (!partyId) {
-      errors.party_id = `Please select a ${paymentType === 'customer_receipt' ? 'customer' : 'vendor'}.`;
+      errors.party_id = `Please select a ${paymentType === PaymentType.CUSTOMER_RECEIPT ? 'customer' : 'vendor'}.`;
     }
 
     const trimmedAmount = amount.trim();
@@ -184,10 +193,10 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
 
     try {
       setIsSubmitting(true);
-      const isCust = paymentType === 'customer_receipt';
+      const isCust = paymentType === PaymentType.CUSTOMER_RECEIPT;
       await paymentsApi.create({
         type: isCust ? 'received' : 'made',
-        party_type: isCust ? 'customer' : 'vendor',
+        party_type: isCust ? ContactType.CUSTOMER : ContactType.VENDOR,
         party_id: Number(partyId),
         payment_type: paymentType,
         customer_id: isCust ? Number(partyId) : null,
@@ -199,7 +208,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         bank_account_id: bankAccountId ? Number(bankAccountId) : undefined,
         invoice_id: invoiceId ? Number(invoiceId) : undefined,
         notes: notes.trim() || null,
-        status: 'reconciled',
+        status: PaymentStatus.RECONCILED,
       });
 
       addToast({
@@ -246,7 +255,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   };
 
   const filteredPayments = payments.filter((p) => {
-    const isCustomerPayment = p.payment_type === 'customer_receipt' || p.type === 'received';
+    const isCustomerPayment = p.payment_type === PaymentType.CUSTOMER_RECEIPT || p.type === 'received';
     const partyName = p.customer?.name || p.vendor?.name || p.party?.name || '';
     const matchesSearch =
       p.payment_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -254,8 +263,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       partyName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType =
       typeFilter === 'all' ||
-      (typeFilter === 'customer_receipt' && isCustomerPayment) ||
-      (typeFilter === 'vendor_payment' && !isCustomerPayment) ||
+      (typeFilter === PaymentType.CUSTOMER_RECEIPT && isCustomerPayment) ||
+      (typeFilter === PaymentType.VENDOR_PAYMENT && !isCustomerPayment) ||
       p.payment_type === typeFilter ||
       p.type === typeFilter;
     return matchesSearch && matchesType;
@@ -305,8 +314,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
             >
               <option value="all">All Transactions</option>
-              <option value="customer_receipt">Customer Receipts (Inflow)</option>
-              <option value="vendor_payment">Vendor Payments (Outflow)</option>
+              <option value={PaymentType.CUSTOMER_RECEIPT}>Customer Receipts (Inflow)</option>
+              <option value={PaymentType.VENDOR_PAYMENT}>Vendor Payments (Outflow)</option>
             </select>
           </div>
         </div>
@@ -344,9 +353,9 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                 />
               ) : (
                 filteredPayments.map((p) => {
-                  const isInflow = p.payment_type === 'customer_receipt' || p.type === 'received';
+                  const isInflow = p.payment_type === PaymentType.CUSTOMER_RECEIPT || p.type === 'received';
                   const partyName = isInflow ? (p.customer?.name || p.party?.name) : (p.vendor?.name || p.party?.name);
-                  const isCleared = p.status === 'reconciled' || p.status === 'cleared';
+                  const isCleared = p.status === PaymentStatus.RECONCILED || p.status === PaymentStatus.CLEARED;
 
                   return (
                     <tr
@@ -402,7 +411,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        {p.status === 'draft' && (isAdmin || isManager) && (
+                        {p.status === PaymentStatus.DRAFT && (isAdmin || isManager) && (
                           <button
                             onClick={() => handleReconcile(p.id)}
                             className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors"
@@ -433,7 +442,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                  paymentType === 'customer_receipt'
+                  paymentType === PaymentType.CUSTOMER_RECEIPT
                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                     : 'bg-indigo-500/10 border-indigo-500/20 text-indigo-400'
                 }`}
@@ -469,13 +478,13 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               <button
                 type="button"
                 onClick={() => {
-                  setPaymentType('customer_receipt');
+                  setPaymentType(PaymentType.CUSTOMER_RECEIPT);
                   setPartyId('');
                   setInvoiceId('');
                   if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
                 }}
                 className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                  paymentType === 'customer_receipt'
+                  paymentType === PaymentType.CUSTOMER_RECEIPT
                     ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-sm shadow-emerald-500/10'
                     : 'bg-[#1a1a22] border-neutral-800 text-neutral-400 hover:text-neutral-200'
                 }`}
@@ -487,13 +496,13 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               <button
                 type="button"
                 onClick={() => {
-                  setPaymentType('vendor_payment');
+                  setPaymentType(PaymentType.VENDOR_PAYMENT);
                   setPartyId('');
                   setInvoiceId('');
                   if (fieldErrors.party_id) setFieldErrors((prev) => ({ ...prev, party_id: '' }));
                 }}
                 className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all ${
-                  paymentType === 'vendor_payment'
+                  paymentType === PaymentType.VENDOR_PAYMENT
                     ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-300 shadow-sm shadow-indigo-500/10'
                     : 'bg-[#1a1a22] border-neutral-800 text-neutral-400 hover:text-neutral-200'
                 }`}
@@ -506,7 +515,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
             {/* Party Selector */}
             <div>
               <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                {paymentType === 'customer_receipt' ? 'Customer Account' : 'Supplier / Vendor Account'} <span className="text-rose-400">*</span>
+                {paymentType === PaymentType.CUSTOMER_RECEIPT ? 'Customer Account' : 'Supplier / Vendor Account'} <span className="text-rose-400">*</span>
               </label>
               <select
                 value={partyId}
@@ -520,8 +529,8 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                   fieldErrors.party_id ? 'border-rose-500 ring-1 ring-rose-500/20' : 'border-neutral-700 focus:border-emerald-500'
                 } rounded-lg text-xs text-white focus:outline-none`}
               >
-                <option value="">Select {paymentType === 'customer_receipt' ? 'customer' : 'supplier'}...</option>
-                {(paymentType === 'customer_receipt' ? customers : vendors).map((p) => (
+                <option value="">Select {paymentType === PaymentType.CUSTOMER_RECEIPT ? 'customer' : 'supplier'}...</option>
+                {(paymentType === PaymentType.CUSTOMER_RECEIPT ? customers : vendors).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} {p.gstin ? `(${p.gstin})` : ''} {p.state ? `— ${p.state}` : ''}
                   </option>
@@ -535,7 +544,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
             {/* Selected Party Balance Strip */}
             {(() => {
               if (!partyId) return null;
-              const selectedParty = (paymentType === 'customer_receipt' ? customers : vendors).find(
+              const selectedParty = (paymentType === PaymentType.CUSTOMER_RECEIPT ? customers : vendors).find(
                 (p) => Number(p.id) === Number(partyId)
               );
               if (!selectedParty) return null;
@@ -549,7 +558,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                     <span
                       className={`font-mono font-bold ${
                         bal > 0
-                          ? paymentType === 'customer_receipt'
+                          ? paymentType === PaymentType.CUSTOMER_RECEIPT
                             ? 'text-emerald-400'
                             : 'text-amber-400'
                           : 'text-neutral-300'
@@ -577,11 +586,11 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               const partyInvoices = invoices.filter(
                 (inv) =>
                   Number(inv.party_id) === Number(partyId) &&
-                  (paymentType === 'customer_receipt'
-                    ? inv.type === 'receivable' || inv.party_type === 'customer'
-                    : inv.type === 'payable' || inv.party_type === 'vendor') &&
-                  inv.status !== 'paid' &&
-                  inv.status !== 'void'
+                  (paymentType === PaymentType.CUSTOMER_RECEIPT
+                    ? inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER
+                    : inv.type === InvoiceType.PAYABLE || inv.party_type === ContactType.VENDOR) &&
+                  inv.status !== InvoiceStatus.PAID &&
+                  inv.status !== InvoiceStatus.VOID
               );
 
               if (partyInvoices.length === 0) return null;
@@ -684,7 +693,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
               >
                 <option value="">Default (1110 Cash & Bank)</option>
                 {accounts
-                  .filter((a) => a.type === 'asset')
+                  .filter((a) => a.type === AccountClassification.ASSET)
                   .map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.code} - {acc.name}
@@ -704,20 +713,20 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 >
-                  <option value="bank_transfer">Bank Transfer (NEFT / RTGS / IMPS)</option>
-                  <option value="upi">UPI / Instant QR Payment</option>
-                  <option value="cash">Cash Counter Voucher</option>
-                  <option value="cheque">Bank Cheque</option>
+                  <option value={PaymentMethod.BANK_TRANSFER}>Bank Transfer (NEFT / RTGS / IMPS)</option>
+                  <option value={PaymentMethod.UPI}>UPI / Instant QR Payment</option>
+                  <option value={PaymentMethod.CASH}>Cash Counter Voucher</option>
+                  <option value={PaymentMethod.CHEQUE}>Bank Cheque</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                  {paymentMethod === 'bank_transfer'
+                  {paymentMethod === PaymentMethod.BANK_TRANSFER
                     ? 'Bank UTR / Transaction Ref #'
-                    : paymentMethod === 'upi'
+                    : paymentMethod === PaymentMethod.UPI
                     ? 'UPI Reference ID'
-                    : paymentMethod === 'cheque'
+                    : paymentMethod === PaymentMethod.CHEQUE
                     ? 'Cheque # & Issuing Bank'
                     : 'Cash Voucher #'}
                 </label>
@@ -794,9 +803,9 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         containerClassName="max-w-lg"
       >
         {detailPayment && (() => {
-          const isDetailInflow = detailPayment.payment_type === 'customer_receipt' || detailPayment.type === 'received';
+          const isDetailInflow = detailPayment.payment_type === PaymentType.CUSTOMER_RECEIPT || detailPayment.type === 'received';
           const detailPartyName = detailPayment.customer?.name || detailPayment.vendor?.name || detailPayment.party?.name || 'General / Direct';
-          const isDetailCleared = detailPayment.status === 'reconciled' || detailPayment.status === 'cleared';
+          const isDetailCleared = detailPayment.status === PaymentStatus.RECONCILED || detailPayment.status === PaymentStatus.CLEARED;
 
           return (
           <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
@@ -889,7 +898,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                 Voucher #{detailPayment.id}
               </div>
               <div className="flex items-center gap-2">
-                {detailPayment.status === 'draft' && (isAdmin || isManager) && (
+                {detailPayment.status === PaymentStatus.DRAFT && (isAdmin || isManager) && (
                   <Button
                     size="sm"
                     onClick={async () => {

@@ -20,12 +20,13 @@ import {
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
+import { BudgetStatus, BudgetLineType, ContactType } from '../types';
 
 interface BudgetLineItem {
   id?: number;
   analytic_account_id: number;
   analytic_account_name?: string;
-  type: 'income' | 'expense';
+  type: BudgetLineType;
   committed_amount: number;
   achieved_amount?: number;
   achieved_percent?: number;
@@ -39,9 +40,9 @@ interface BudgetRecord {
   name: string;
   start_date: string;
   end_date: string;
-  status: 'draft' | 'confirm' | 'revised' | 'cancelled';
+  status: BudgetStatus;
   responsible_id?: number;
-  responsible_type?: 'customer' | 'vendor' | 'user';
+  responsible_type?: ContactType | 'user';
   responsible?: { id: number; name: string; contact_type?: string; email?: string };
   original_budget_id?: number;
   original_budget?: { id: number; name: string; status?: string };
@@ -124,7 +125,7 @@ export const BudgetsPage: React.FC = () => {
         setStartDate(b.start_date);
         setEndDate(b.end_date);
         if (b.responsible_id) {
-          const rType = b.responsible_type || b.responsible?.contact_type || 'customer';
+          const rType = b.responsible_type || b.responsible?.contact_type || ContactType.CUSTOMER;
           setResponsibleValue(`${rType}:${b.responsible_id}`);
         } else {
           setResponsibleValue('');
@@ -139,7 +140,7 @@ export const BudgetsPage: React.FC = () => {
       setStartDate('2026-01-01');
       setEndDate('2026-01-31');
       if (contacts && contacts.length > 0) {
-        setResponsibleValue(`${contacts[0].contact_type || 'customer'}:${contacts[0].id}`);
+        setResponsibleValue(`${contacts[0].contact_type || ContactType.CUSTOMER}:${contacts[0].id}`);
       } else {
         setResponsibleValue('');
       }
@@ -148,7 +149,7 @@ export const BudgetsPage: React.FC = () => {
         setLines([
           {
             analytic_account_id: first.id,
-            type: first.type === 'income' ? 'income' : 'expense',
+            type: first.type === BudgetLineType.INCOME ? BudgetLineType.INCOME : BudgetLineType.EXPENSE,
             committed_amount: 100000,
           },
         ]);
@@ -173,7 +174,7 @@ export const BudgetsPage: React.FC = () => {
       setLines([
         {
           analytic_account_id: first.id,
-          type: first.type === 'income' ? 'income' : 'expense',
+          type: first.type === BudgetLineType.INCOME ? BudgetLineType.INCOME : BudgetLineType.EXPENSE,
           committed_amount: 100000,
         },
       ]);
@@ -187,7 +188,7 @@ export const BudgetsPage: React.FC = () => {
       ...lines,
       {
         analytic_account_id: defaultAcc.id,
-        type: defaultAcc.type === 'income' ? 'income' : 'expense',
+        type: defaultAcc.type === BudgetLineType.INCOME ? BudgetLineType.INCOME : BudgetLineType.EXPENSE,
         committed_amount: 50000,
       },
     ]);
@@ -203,7 +204,7 @@ export const BudgetsPage: React.FC = () => {
     updated[idx] = {
       ...updated[idx],
       analytic_account_id: accountId,
-      type: matched?.type === 'income' ? 'income' : 'expense',
+      type: matched?.type === BudgetLineType.INCOME ? BudgetLineType.INCOME : BudgetLineType.EXPENSE,
     };
     setLines(updated);
   };
@@ -448,7 +449,7 @@ export const BudgetsPage: React.FC = () => {
               title="Budget Exceeded Limit Alert"
               subtitle={`Committed budget limit is less than actual expenditures for ${exceededLines.length} analytic account line(s)! Adjust limits or revise budget.`}
               items={exceededLines}
-              showReviseButton={activeBudget?.status === 'confirm'}
+              showReviseButton={activeBudget?.status === BudgetStatus.CONFIRM}
               onReviseBudget={() => {
                 if (activeBudget) handleRevise();
               }}
@@ -515,7 +516,7 @@ export const BudgetsPage: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/[0.08]">
             <div className="flex flex-wrap items-center gap-2">
               {/* Draft actions */}
-              {(!activeBudget || activeBudget.status === 'draft') && (
+              {(!activeBudget || activeBudget.status === BudgetStatus.DRAFT) && (
                 <>
                   <button
                     type="submit"
@@ -548,7 +549,7 @@ export const BudgetsPage: React.FC = () => {
               )}
 
               {/* Confirmed Stage actions */}
-              {activeBudget?.status === 'confirm' && (
+              {activeBudget?.status === BudgetStatus.CONFIRM && (
                 <>
                   <button
                     type="button"
@@ -570,7 +571,7 @@ export const BudgetsPage: React.FC = () => {
               )}
 
               {/* Delete button for draft and cancelled budgets */}
-              {activeBudget && (activeBudget.status === 'draft' || activeBudget.status === 'cancelled') && (
+              {activeBudget && (activeBudget.status === BudgetStatus.DRAFT || activeBudget.status === BudgetStatus.CANCELLED) && (
                 <button
                   type="button"
                   onClick={handleDelete}
@@ -594,11 +595,11 @@ export const BudgetsPage: React.FC = () => {
             <div className="flex items-center gap-3">
               {activeBudget && (
                 <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  activeBudget.status === 'confirm'
+                  activeBudget.status === BudgetStatus.CONFIRM
                     ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : activeBudget.status === 'revised'
+                    : activeBudget.status === BudgetStatus.REVISED
                     ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                    : activeBudget.status === 'cancelled'
+                    : activeBudget.status === BudgetStatus.CANCELLED
                     ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
                     : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
                 }`}>
@@ -657,7 +658,7 @@ export const BudgetsPage: React.FC = () => {
               <input
                 type="text"
                 required
-                disabled={activeBudget?.status === 'confirm' || activeBudget?.status === 'revised'}
+                disabled={activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. January 2026 / Project A"
@@ -675,7 +676,7 @@ export const BudgetsPage: React.FC = () => {
               <input
                 type="date"
                 required
-                disabled={activeBudget?.status === 'confirm' || activeBudget?.status === 'revised'}
+                disabled={activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED}
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
@@ -689,7 +690,7 @@ export const BudgetsPage: React.FC = () => {
               <input
                 type="date"
                 required
-                disabled={activeBudget?.status === 'confirm' || activeBudget?.status === 'revised'}
+                disabled={activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
@@ -702,14 +703,14 @@ export const BudgetsPage: React.FC = () => {
               </label>
               <select
                 value={responsibleValue}
-                disabled={activeBudget?.status === 'confirm' || activeBudget?.status === 'revised'}
+                disabled={activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED}
                 onChange={(e) => setResponsibleValue(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
               >
                 <option value="">-- Select Contact / Responsible --</option>
                 {contacts.map((c) => (
                   <option key={`${c.contact_type}-${c.id}`} value={`${c.contact_type}:${c.id}`}>
-                    [{c.contact_type === 'vendor' ? 'Vendor' : 'Customer'}] {c.name} {c.email ? `(${c.email})` : ''}
+                    [{c.contact_type === ContactType.VENDOR ? 'Vendor' : 'Customer'}] {c.name} {c.email ? `(${c.email})` : ''}
                   </option>
                 ))}
               </select>
@@ -726,7 +727,7 @@ export const BudgetsPage: React.FC = () => {
                 <Layers className="w-4 h-4 text-[#7042f4]" />
                 <span>Analytic Budget Matrix</span>
               </h3>
-              {(!activeBudget || activeBudget.status === 'draft') && (
+              {(!activeBudget || activeBudget.status === BudgetStatus.DRAFT) && (
                 <button
                   type="button"
                   onClick={handleAddLine}
@@ -749,7 +750,7 @@ export const BudgetsPage: React.FC = () => {
                       <th className="py-3 px-4 text-right">Achieved Amount</th>
                       <th className="py-3 px-4 text-right">Achieved %</th>
                       <th className="py-3 px-4 text-right">Amount To Achieve</th>
-                      {(!activeBudget || activeBudget.status === 'draft') && (
+                      {(!activeBudget || activeBudget.status === BudgetStatus.DRAFT) && (
                         <th className="py-3 px-4 text-center w-12">Action</th>
                       )}
                     </tr>
@@ -768,7 +769,7 @@ export const BudgetsPage: React.FC = () => {
                         <tr key={idx} className={isLineExceeded ? 'bg-rose-500/[0.08] hover:bg-rose-500/[0.14] border-l-2 border-rose-500 transition-colors' : 'hover:bg-white/[0.02]'}>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
+                              {activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED ? (
                                 <span className="font-semibold text-white">{anName}</span>
                               ) : (
                                 <select
@@ -792,9 +793,9 @@ export const BudgetsPage: React.FC = () => {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
+                            {activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED ? (
                               <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                                line.type === 'income'
+                                line.type === BudgetLineType.INCOME
                                   ? 'bg-emerald-500/15 text-emerald-300'
                                   : 'bg-rose-500/15 text-rose-300'
                               }`}>
@@ -806,13 +807,13 @@ export const BudgetsPage: React.FC = () => {
                                 onChange={(e) => handleLineFieldChange(idx, 'type', e.target.value)}
                                 className="px-2.5 py-1.5 bg-[#18181f] border border-white/[0.08] rounded-lg text-xs text-white capitalize focus:outline-none focus:border-[#7042f4]"
                               >
-                                <option value="expense">Expense</option>
-                                <option value="income">Income</option>
+                                <option value={BudgetLineType.EXPENSE}>Expense</option>
+                                <option value={BudgetLineType.INCOME}>Income</option>
                               </select>
                             )}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            {activeBudget?.status === 'confirm' || activeBudget?.status === 'revised' ? (
+                            {activeBudget?.status === BudgetStatus.CONFIRM || activeBudget?.status === BudgetStatus.REVISED ? (
                               <span className={`font-mono font-semibold ${isLineExceeded ? 'text-rose-400' : 'text-white'}`}>₹{comm.toLocaleString()}</span>
                             ) : (
                               <div className="inline-flex flex-col items-end">
@@ -869,7 +870,7 @@ export const BudgetsPage: React.FC = () => {
                               <span className="font-mono text-amber-300 font-semibold">₹{rem.toLocaleString()}</span>
                             )}
                           </td>
-                          {(!activeBudget || activeBudget.status === 'draft') && (
+                          {(!activeBudget || activeBudget.status === BudgetStatus.DRAFT) && (
                             <td className="py-3 px-4 text-center">
                               <button
                                 type="button"
@@ -906,9 +907,9 @@ export const BudgetsPage: React.FC = () => {
                 <h3 className="text-base font-bold text-white tracking-tight">{b.name}</h3>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    b.status === 'confirm'
+                    b.status === BudgetStatus.CONFIRM
                       ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                      : b.status === 'revised'
+                      : b.status === BudgetStatus.REVISED
                       ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                       : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
                   }`}>
@@ -988,9 +989,9 @@ export const BudgetsPage: React.FC = () => {
                     <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
                     <td className="py-3.5 px-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === 'confirm'
+                        b.status === BudgetStatus.CONFIRM
                           ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : b.status === 'revised'
+                          : b.status === BudgetStatus.REVISED
                           ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                           : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
                       }`}>

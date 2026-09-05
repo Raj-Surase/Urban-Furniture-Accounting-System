@@ -33,6 +33,7 @@ import {
   suggestNextAccountCode,
   PresetAccountTemplate,
 } from '../constants/formOptions';
+import { AccountClassification, NormalBalance, AccountSubType, BudgetLineType } from '../types';
 
 export const AccountsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -92,10 +93,10 @@ export const AccountsPage: React.FC = () => {
   const [selectedPresetCode, setSelectedPresetCode] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [type, setType] = useState<string>('asset');
-  const [subType, setSubType] = useState<string>('cash_bank');
+  const [type, setType] = useState<AccountClassification>(AccountClassification.ASSET);
+  const [subType, setSubType] = useState<AccountSubType>(AccountSubType.CASH_BANK);
   const [parentId, setParentId] = useState<number | ''>('');
-  const [normalBalance, setNormalBalance] = useState<'debit' | 'credit'>('debit');
+  const [normalBalance, setNormalBalance] = useState<NormalBalance>(NormalBalance.DEBIT);
   const [openingBalance, setOpeningBalance] = useState<string>('0');
   const [description, setDescription] = useState('');
   const [isCodeManuallyEdited, setIsCodeManuallyEdited] = useState(false);
@@ -185,8 +186,8 @@ export const AccountsPage: React.FC = () => {
     setCreationMode('custom');
     setSelectedPresetCode('');
     setIsCodeManuallyEdited(false);
-    setType('asset');
-    setSubType('cash_bank');
+    setType(AccountClassification.ASSET);
+    setSubType(AccountSubType.CASH_BANK);
     setName('');
     setDescription('');
     setOpeningBalance('0');
@@ -196,7 +197,7 @@ export const AccountsPage: React.FC = () => {
     const existingCodes = accounts.map((a) => String(a.code));
     const suggested = suggestNextAccountCode(existingCodes, '111', '1111');
     setCode(suggested);
-    setNormalBalance('debit');
+    setNormalBalance(NormalBalance.DEBIT);
 
     setIsNewOpen(true);
   };
@@ -342,11 +343,11 @@ export const AccountsPage: React.FC = () => {
               className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
             >
               <option value="all">All Account Types</option>
-              <option value="asset">Assets (1xxx)</option>
-              <option value="liability">Liabilities & GST (2xxx)</option>
-              <option value="equity">Equity (3xxx)</option>
-              <option value="revenue">Revenue (4xxx)</option>
-              <option value="expense">Expenses & COGS (5xxx)</option>
+              <option value={AccountClassification.ASSET}>Assets (1xxx)</option>
+              <option value={AccountClassification.LIABILITY}>Liabilities & GST (2xxx)</option>
+              <option value={AccountClassification.EQUITY}>Equity (3xxx)</option>
+              <option value={AccountClassification.REVENUE}>Revenue (4xxx)</option>
+              <option value={AccountClassification.EXPENSE}>Expenses & COGS (5xxx)</option>
             </select>
           </div>
         </div>
@@ -435,13 +436,13 @@ export const AccountsPage: React.FC = () => {
                         <td className="py-3 px-4">
                           <span
                             className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                              acc.type === 'asset'
+                              acc.type === AccountClassification.ASSET
                                 ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                : acc.type === 'liability'
+                                : acc.type === AccountClassification.LIABILITY
                                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                : acc.type === 'equity'
+                                : acc.type === AccountClassification.EQUITY
                                 ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                                : acc.type === 'revenue'
+                                : acc.type === AccountClassification.REVENUE
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                 : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                             }`}
@@ -450,7 +451,7 @@ export const AccountsPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center font-mono text-neutral-400 uppercase text-[10px]">
-                          {acc.type === 'asset' || acc.type === 'expense' ? 'Debit' : 'Credit'}
+                          {acc.type === AccountClassification.ASSET || acc.type === AccountClassification.EXPENSE ? 'Debit' : 'Credit'}
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-white">
                           ₹{Number(acc.current_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -486,7 +487,7 @@ export const AccountsPage: React.FC = () => {
                                     Ledger: {acc.code} — {acc.name}
                                   </span>
                                   <span className="text-[10px] text-neutral-400">
-                                    Normal Balance: {acc.type === 'asset' || acc.type === 'expense' ? 'Debit' : 'Credit'}
+                                    Normal Balance: {acc.type === AccountClassification.ASSET || acc.type === AccountClassification.EXPENSE ? 'Debit' : 'Credit'}
                                   </span>
                                 </div>
                                 <div className="text-xs font-mono font-bold text-white">
@@ -606,7 +607,7 @@ export const AccountsPage: React.FC = () => {
                       committed: b.committed_amount,
                       achieved: b.achieved_amount,
                       exceededBy: b.exceeded_amount,
-                      type: 'expense',
+                      type: BudgetLineType.EXPENSE,
                       message: `Actual: ₹${Number(b.achieved_amount).toLocaleString('en-IN')} vs Committed: ₹${Number(b.committed_amount).toLocaleString('en-IN')} (${b.percentage}%)`,
                     }))}
                     onReviseBudget={(bId) => {
@@ -790,8 +791,8 @@ export const AccountsPage: React.FC = () => {
                           key={key}
                           type="button"
                           onClick={() => {
-                            setType(key);
-                            setSubType(config.subTypes[0]?.key || '');
+                            setType(key as AccountClassification);
+                            setSubType((config.subTypes[0]?.key || AccountSubType.CASH_BANK) as AccountSubType);
                             setIsCodeManuallyEdited(false);
                           }}
                           className={`p-2.5 rounded-xl border text-left transition-all ${
@@ -816,7 +817,7 @@ export const AccountsPage: React.FC = () => {
                   <select
                     value={subType}
                     onChange={(e) => {
-                      setSubType(e.target.value);
+                      setSubType(e.target.value as AccountSubType);
                       setIsCodeManuallyEdited(false);
                     }}
                     className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500"
@@ -918,7 +919,7 @@ export const AccountsPage: React.FC = () => {
                     <div className="flex items-center gap-2 h-9">
                       <span
                         className={`text-xs font-mono font-bold uppercase px-3 py-1.5 rounded-lg border flex-1 text-center ${
-                          normalBalance === 'debit'
+                          normalBalance === NormalBalance.DEBIT
                             ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
                             : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                         }`}
@@ -926,7 +927,7 @@ export const AccountsPage: React.FC = () => {
                         {normalBalance} Normal
                       </span>
                       <span className="text-[11px] text-neutral-400 leading-tight">
-                        {normalBalance === 'debit' ? 'Increased by Debits' : 'Increased by Credits'}
+                        {normalBalance === NormalBalance.DEBIT ? 'Increased by Debits' : 'Increased by Credits'}
                       </span>
                     </div>
                   </div>

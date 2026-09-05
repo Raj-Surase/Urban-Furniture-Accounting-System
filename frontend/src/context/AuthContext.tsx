@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../lib/api';
+import { UserRole } from '../types';
 
 export interface User {
   id: number;
   name: string;
   email: string;
   login_id?: string;
-  role: 'admin' | 'manager' | 'accountant' | 'user';
+  role: UserRole;
   permissions?: string[];
   is_admin?: boolean;
   created_at?: string;
@@ -21,10 +22,10 @@ interface AuthContextType {
   isAccountant: boolean;
   isStandardUser: boolean;
   isLoading: boolean;
-  hasRole: (roles: string | string[]) => boolean;
+  hasRole: (roles: UserRole | string | (UserRole | string)[]) => boolean;
   hasPermission: (permission: string) => boolean;
   login: (credentials: { email: string; password: string }) => Promise<void>;
-  register: (data: { name: string; email: string; password: string; role?: string }) => Promise<void>;
+  register: (data: { name: string; email: string; password: string; role?: UserRole | string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -99,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (data: { name: string; email: string; password: string; role?: string }) => {
+  const register = async (data: { name: string; email: string; password: string; role?: UserRole | string }) => {
     setIsLoading(true);
     try {
       const response = await api.post('/register', data);
@@ -130,12 +131,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const isAdmin = user?.role === 'admin' || !!user?.is_admin;
-  const isManager = user?.role === 'manager';
-  const isAccountant = user?.role === 'accountant' || user?.role === 'manager' || user?.role === 'admin';
-  const isStandardUser = user?.role === 'user';
+  const isAdmin = user?.role === UserRole.ADMIN || !!user?.is_admin;
+  const isManager = user?.role === UserRole.MANAGER;
+  const isAccountant = user?.role === UserRole.ACCOUNTANT || user?.role === UserRole.MANAGER || user?.role === UserRole.ADMIN;
+  const isStandardUser = user?.role === UserRole.USER;
 
-  const hasRole = useCallback((roles: string | string[]) => {
+  const hasRole = useCallback((roles: UserRole | string | (UserRole | string)[]) => {
     if (!user) return false;
     if (Array.isArray(roles)) {
       return roles.includes(user.role);
@@ -145,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = useCallback((permission: string) => {
     if (!user) return false;
-    if (user.role === 'admin') return true; // Superuser clearance
+    if (user.role === UserRole.ADMIN) return true; // Superuser clearance
     return Array.isArray(user.permissions) && user.permissions.includes(permission);
   }, [user]);
 

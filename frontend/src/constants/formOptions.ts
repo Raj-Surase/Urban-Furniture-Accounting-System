@@ -91,6 +91,8 @@ export const PAYMENT_TERMS_OPTIONS = [
   { days: 90, label: 'Net 90 (90 Days)' },
 ];
 
+import { AccountClassification, NormalBalance, AccountSubType } from '../types';
+
 export interface AccountSubTypeOption {
   key: string;
   name: string;
@@ -100,77 +102,77 @@ export interface AccountSubTypeOption {
 
 export interface AccountClassificationConfig {
   name: string;
-  normalBalance: 'debit' | 'credit';
+  normalBalance: NormalBalance;
   codeRange: string;
   prefix: string;
   subTypes: AccountSubTypeOption[];
 }
 
-export const ACCOUNT_CLASSIFICATIONS: Record<string, AccountClassificationConfig> = {
-  asset: {
+export const ACCOUNT_CLASSIFICATIONS: Record<AccountClassification, AccountClassificationConfig> = {
+  [AccountClassification.ASSET]: {
     name: 'Asset (1xxx)',
-    normalBalance: 'debit',
+    normalBalance: NormalBalance.DEBIT,
     codeRange: '1000 - 1999',
     prefix: '1',
     subTypes: [
-      { key: 'cash_bank', name: 'Cash, Petty Cash & Bank Accounts', suggestedPrefix: '111', description: 'Checking accounts, treasury, liquid cash' },
-      { key: 'receivables', name: 'Accounts Receivable (Debtors)', suggestedPrefix: '112', description: 'Customer receivables, trade dues' },
-      { key: 'inventory', name: 'Inventory & Stock Valuation', suggestedPrefix: '113', description: 'Raw materials, WIP, finished street furniture' },
-      { key: 'clearing', name: 'GRNI & Clearing Accounts', suggestedPrefix: '114', description: 'Goods received clearing, transit' },
-      { key: 'prepaid', name: 'Prepaid Expenses & Security Deposits', suggestedPrefix: '115', description: 'Advance payments, rental deposits' },
-      { key: 'fixed_asset', name: 'Fixed Assets & Fabrication Plant', suggestedPrefix: '121', description: 'Machinery, tooling molds, showroom equipment' },
-      { key: 'depreciation', name: 'Accumulated Depreciation', suggestedPrefix: '122', description: 'Contra-asset reserve for wear and tear' },
-      { key: 'gst_input', name: 'GST Input Tax Credits', suggestedPrefix: '213', description: 'Statutory input credits (CGST, SGST, IGST)' },
+      { key: AccountSubType.CASH_BANK, name: 'Cash, Petty Cash & Bank Accounts', suggestedPrefix: '111', description: 'Checking accounts, treasury, liquid cash' },
+      { key: AccountSubType.RECEIVABLES, name: 'Accounts Receivable (Debtors)', suggestedPrefix: '112', description: 'Customer receivables, trade dues' },
+      { key: AccountSubType.INVENTORY, name: 'Inventory & Stock Valuation', suggestedPrefix: '113', description: 'Raw materials, WIP, finished street furniture' },
+      { key: AccountSubType.CLEARING, name: 'GRNI & Clearing Accounts', suggestedPrefix: '114', description: 'Goods received clearing, transit' },
+      { key: AccountSubType.PREPAID, name: 'Prepaid Expenses & Security Deposits', suggestedPrefix: '115', description: 'Advance payments, rental deposits' },
+      { key: AccountSubType.FIXED_ASSET, name: 'Fixed Assets & Fabrication Plant', suggestedPrefix: '121', description: 'Machinery, tooling molds, showroom equipment' },
+      { key: AccountSubType.DEPRECIATION, name: 'Accumulated Depreciation', suggestedPrefix: '122', description: 'Contra-asset reserve for wear and tear' },
+      { key: AccountSubType.GST_INPUT, name: 'GST Input Tax Credits', suggestedPrefix: '213', description: 'Statutory input credits (CGST, SGST, IGST)' },
     ],
   },
-  liability: {
+  [AccountClassification.LIABILITY]: {
     name: 'Liability (2xxx)',
-    normalBalance: 'credit',
+    normalBalance: NormalBalance.CREDIT,
     codeRange: '2000 - 2999',
     prefix: '2',
     subTypes: [
-      { key: 'payables', name: 'Accounts Payable (Creditors)', suggestedPrefix: '211', description: 'Vendor payables, timber suppliers' },
-      { key: 'gst_output', name: 'GST Output Tax Payables', suggestedPrefix: '212', description: 'CGST, SGST, IGST collected from customers' },
-      { key: 'accrued', name: 'Accrued Operational Liabilities', suggestedPrefix: '214', description: 'Outstanding contractor dues, electricity accruals' },
-      { key: 'advances', name: 'Customer Advances & Retainers', suggestedPrefix: '215', description: 'Unearned revenue, client project advance payments' },
-      { key: 'loans', name: 'Commercial Borrowings & Debt', suggestedPrefix: '221', description: 'Bank term loans, credit lines' },
+      { key: AccountSubType.PAYABLES, name: 'Accounts Payable (Creditors)', suggestedPrefix: '211', description: 'Vendor payables, timber suppliers' },
+      { key: AccountSubType.GST_OUTPUT, name: 'GST Output Tax Payables', suggestedPrefix: '212', description: 'CGST, SGST, IGST collected from customers' },
+      { key: AccountSubType.ACCRUED, name: 'Accrued Operational Liabilities', suggestedPrefix: '214', description: 'Outstanding contractor dues, electricity accruals' },
+      { key: AccountSubType.ADVANCES, name: 'Customer Advances & Retainers', suggestedPrefix: '215', description: 'Unearned revenue, client project advance payments' },
+      { key: AccountSubType.LOANS, name: 'Commercial Borrowings & Debt', suggestedPrefix: '221', description: 'Bank term loans, credit lines' },
     ],
   },
-  equity: {
+  [AccountClassification.EQUITY]: {
     name: 'Equity & Capital (3xxx)',
-    normalBalance: 'credit',
+    normalBalance: NormalBalance.CREDIT,
     codeRange: '3000 - 3999',
     prefix: '3',
     subTypes: [
-      { key: 'capital', name: "Owner's / Paid-in Capital", suggestedPrefix: '310', description: 'Partner/founder investment into the enterprise' },
-      { key: 'retained', name: 'Retained Earnings', suggestedPrefix: '320', description: 'Cumulative operational profit retained in business' },
-      { key: 'drawings', name: 'Owner Drawings & Distributions', suggestedPrefix: '330', description: 'Contra-equity partner distributions' },
+      { key: AccountSubType.CAPITAL, name: "Owner's / Paid-in Capital", suggestedPrefix: '310', description: 'Partner/founder investment into the enterprise' },
+      { key: AccountSubType.RETAINED, name: 'Retained Earnings', suggestedPrefix: '320', description: 'Cumulative operational profit retained in business' },
+      { key: AccountSubType.DRAWINGS, name: 'Owner Drawings & Distributions', suggestedPrefix: '330', description: 'Contra-equity partner distributions' },
     ],
   },
-  revenue: {
+  [AccountClassification.REVENUE]: {
     name: 'Revenue & Income (4xxx)',
-    normalBalance: 'credit',
+    normalBalance: NormalBalance.CREDIT,
     codeRange: '4000 - 4999',
     prefix: '4',
     subTypes: [
-      { key: 'operating_revenue', name: 'Sales Revenue - Products', suggestedPrefix: '410', description: 'Benches, chairs, tables, planters sales' },
-      { key: 'services_revenue', name: 'Installation & Turnkey Services', suggestedPrefix: '420', description: 'Site setup, fabrication, design consulting' },
-      { key: 'discounts', name: 'Discounts Allowed', suggestedPrefix: '430', description: 'Contra-revenue volume rebates given to clients' },
-      { key: 'other_income', name: 'Scrap & Other Income', suggestedPrefix: '440', description: 'Timber scrap sales, interest income' },
+      { key: AccountSubType.OPERATING_REVENUE, name: 'Sales Revenue - Products', suggestedPrefix: '410', description: 'Benches, chairs, tables, planters sales' },
+      { key: AccountSubType.SERVICES_REVENUE, name: 'Installation & Turnkey Services', suggestedPrefix: '420', description: 'Site setup, fabrication, design consulting' },
+      { key: AccountSubType.DISCOUNTS, name: 'Discounts Allowed', suggestedPrefix: '430', description: 'Contra-revenue volume rebates given to clients' },
+      { key: AccountSubType.OTHER_INCOME, name: 'Scrap & Other Income', suggestedPrefix: '440', description: 'Timber scrap sales, interest income' },
     ],
   },
-  expense: {
+  [AccountClassification.EXPENSE]: {
     name: 'Expense & COGS (5xxx)',
-    normalBalance: 'debit',
+    normalBalance: NormalBalance.DEBIT,
     codeRange: '5000 - 5999',
     prefix: '5',
     subTypes: [
-      { key: 'cogs', name: 'Cost of Goods Sold (COGS)', suggestedPrefix: '510', description: 'Direct timber, steel, upholstery manufacturing cost' },
-      { key: 'logistics', name: 'Freight & Logistics Inward/Outward', suggestedPrefix: '520', description: 'Heavy transport, crane loading, transit fees' },
-      { key: 'shrinkage', name: 'Inventory Shrinkage & Scrap Loss', suggestedPrefix: '530', description: 'Damaged materials write-off, count variances' },
-      { key: 'operating_expense', name: 'Facility, Rent & Workshop Utilities', suggestedPrefix: '540', description: 'Factory rent, showroom power, maintenance' },
-      { key: 'depreciation_exp', name: 'Depreciation Expense', suggestedPrefix: '550', description: 'Amortization of fabrication equipment' },
-      { key: 'sales_marketing', name: 'Marketing, Commissions & Promotion', suggestedPrefix: '560', description: 'Exhibition booths, sales agent commissions' },
+      { key: AccountSubType.COGS, name: 'Cost of Goods Sold (COGS)', suggestedPrefix: '510', description: 'Direct timber, steel, upholstery manufacturing cost' },
+      { key: AccountSubType.LOGISTICS, name: 'Freight & Logistics Inward/Outward', suggestedPrefix: '520', description: 'Heavy transport, crane loading, transit fees' },
+      { key: AccountSubType.SHRINKAGE, name: 'Inventory Shrinkage & Scrap Loss', suggestedPrefix: '530', description: 'Damaged materials write-off, count variances' },
+      { key: AccountSubType.OPERATING_EXPENSE, name: 'Facility, Rent & Workshop Utilities', suggestedPrefix: '540', description: 'Factory rent, showroom power, maintenance' },
+      { key: AccountSubType.DEPRECIATION_EXP, name: 'Depreciation Expense', suggestedPrefix: '550', description: 'Amortization of fabrication equipment' },
+      { key: AccountSubType.SALES_MARKETING, name: 'Marketing, Commissions & Promotion', suggestedPrefix: '560', description: 'Exhibition booths, sales agent commissions' },
     ],
   },
 };
@@ -178,23 +180,23 @@ export const ACCOUNT_CLASSIFICATIONS: Record<string, AccountClassificationConfig
 export interface PresetAccountTemplate {
   code: string;
   name: string;
-  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
-  subType: string;
-  normalBalance: 'debit' | 'credit';
+  type: AccountClassification;
+  subType: AccountSubType;
+  normalBalance: NormalBalance;
   description: string;
 }
 
 export const PRESET_ACCOUNT_TEMPLATES: PresetAccountTemplate[] = [
-  { code: '1111', name: 'HDFC Bank - Current Operations Account', type: 'asset', subType: 'cash_bank', normalBalance: 'debit', description: 'Primary commercial checking account for electronic transfers' },
-  { code: '1115', name: 'Petty Cash - Factory & Showroom', type: 'asset', subType: 'cash_bank', normalBalance: 'debit', description: 'Immediate cash register on-site for day-to-day purchases' },
-  { code: '1125', name: 'Unbilled Receivables (Work in Progress)', type: 'asset', subType: 'receivables', normalBalance: 'debit', description: 'Milestone work completed awaiting tax invoice issuance' },
-  { code: '1150', name: 'Prepaid Factory Rent & Security Deposits', type: 'asset', subType: 'prepaid', normalBalance: 'debit', description: 'Commercial premises lease security deposits' },
-  { code: '2145', name: 'Electricity & Municipal Utilities Accrued', type: 'liability', subType: 'accrued', normalBalance: 'credit', description: 'Monthly estimated power and water dues' },
-  { code: '2150', name: 'Customer Advances & Turnkey Project Deposits', type: 'liability', subType: 'advances', normalBalance: 'credit', description: 'Upfront payments received prior to invoice issuance' },
-  { code: '4410', name: 'Timber Offcuts & Sawdust Scrap Income', type: 'revenue', subType: 'other_income', normalBalance: 'credit', description: 'Sale of carpentry residue and metal shavings' },
-  { code: '5210', name: 'Inbound Raw Material Freight', type: 'expense', subType: 'logistics', normalBalance: 'debit', description: 'Haulage charges for timber logs and hardware delivery' },
-  { code: '5420', name: 'Showroom Interior Maintenance & Cleaning', type: 'expense', subType: 'operating_expense', normalBalance: 'debit', description: 'Routine cleaning, sanitation, and display repairs' },
-  { code: '5610', name: 'Design Catalog & Digital Marketing', type: 'expense', subType: 'sales_marketing', normalBalance: 'debit', description: 'Social media, architectural brochures, and trade ads' },
+  { code: '1111', name: 'HDFC Bank - Current Operations Account', type: AccountClassification.ASSET, subType: AccountSubType.CASH_BANK, normalBalance: NormalBalance.DEBIT, description: 'Primary commercial checking account for electronic transfers' },
+  { code: '1115', name: 'Petty Cash - Factory & Showroom', type: AccountClassification.ASSET, subType: AccountSubType.CASH_BANK, normalBalance: NormalBalance.DEBIT, description: 'Immediate cash register on-site for day-to-day purchases' },
+  { code: '1125', name: 'Unbilled Receivables (Work in Progress)', type: AccountClassification.ASSET, subType: AccountSubType.RECEIVABLES, normalBalance: NormalBalance.DEBIT, description: 'Milestone work completed awaiting tax invoice issuance' },
+  { code: '1150', name: 'Prepaid Factory Rent & Security Deposits', type: AccountClassification.ASSET, subType: AccountSubType.PREPAID, normalBalance: NormalBalance.DEBIT, description: 'Commercial premises lease security deposits' },
+  { code: '2145', name: 'Electricity & Municipal Utilities Accrued', type: AccountClassification.LIABILITY, subType: AccountSubType.ACCRUED, normalBalance: NormalBalance.CREDIT, description: 'Monthly estimated power and water dues' },
+  { code: '2150', name: 'Customer Advances & Turnkey Project Deposits', type: AccountClassification.LIABILITY, subType: AccountSubType.ADVANCES, normalBalance: NormalBalance.CREDIT, description: 'Upfront payments received prior to invoice issuance' },
+  { code: '4410', name: 'Timber Offcuts & Sawdust Scrap Income', type: AccountClassification.REVENUE, subType: AccountSubType.OTHER_INCOME, normalBalance: NormalBalance.CREDIT, description: 'Sale of carpentry residue and metal shavings' },
+  { code: '5210', name: 'Inbound Raw Material Freight', type: AccountClassification.EXPENSE, subType: AccountSubType.LOGISTICS, normalBalance: NormalBalance.DEBIT, description: 'Haulage charges for timber logs and hardware delivery' },
+  { code: '5420', name: 'Showroom Interior Maintenance & Cleaning', type: AccountClassification.EXPENSE, subType: AccountSubType.OPERATING_EXPENSE, normalBalance: NormalBalance.DEBIT, description: 'Routine cleaning, sanitation, and display repairs' },
+  { code: '5610', name: 'Design Catalog & Digital Marketing', type: AccountClassification.EXPENSE, subType: AccountSubType.SALES_MARKETING, normalBalance: NormalBalance.DEBIT, description: 'Social media, architectural brochures, and trade ads' },
 ];
 
 /**

@@ -22,46 +22,47 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { AccountClassification } from '../types';
 
 // Standard corporate journal entry templates
 const JOURNAL_PRESETS = [
   {
     name: 'Depreciation Expense',
     description: 'Monthly plant, machinery & showroom fixtures depreciation',
-    debitType: 'expense',
-    creditType: 'asset',
+    debitType: AccountClassification.EXPENSE,
+    creditType: AccountClassification.ASSET,
     debitCodeHint: '5200',
     creditCodeHint: '1220',
   },
   {
     name: 'Salaries & Wages',
     description: 'Accrual of monthly carpenter wages & corporate salaries',
-    debitType: 'expense',
-    creditType: 'liability',
+    debitType: AccountClassification.EXPENSE,
+    creditType: AccountClassification.LIABILITY,
     debitCodeHint: '5300',
     creditCodeHint: '2130',
   },
   {
     name: 'Workshop Rent',
     description: 'Monthly furniture manufacturing facility rental',
-    debitType: 'expense',
-    creditType: 'liability',
+    debitType: AccountClassification.EXPENSE,
+    creditType: AccountClassification.LIABILITY,
     debitCodeHint: '5210',
     creditCodeHint: '2110',
   },
   {
     name: 'Factory Utilities',
     description: 'Electricity & utility bills accrual',
-    debitType: 'expense',
-    creditType: 'liability',
+    debitType: AccountClassification.EXPENSE,
+    creditType: AccountClassification.LIABILITY,
     debitCodeHint: '5220',
     creditCodeHint: '2110',
   },
   {
     name: 'Bank Charges',
     description: 'Bank processing fees and financial transaction charges',
-    debitType: 'expense',
-    creditType: 'asset',
+    debitType: AccountClassification.EXPENSE,
+    creditType: AccountClassification.ASSET,
     debitCodeHint: '5240',
     creditCodeHint: '1110',
   },
@@ -154,11 +155,11 @@ export const JournalPage: React.FC = () => {
 
   // Group accounts by classification for semantic dropdown optgroups
   const groupedAccounts = {
-    asset: accounts.filter((a) => a.type === 'asset'),
-    liability: accounts.filter((a) => a.type === 'liability'),
-    equity: accounts.filter((a) => a.type === 'equity'),
-    revenue: accounts.filter((a) => a.type === 'revenue'),
-    expense: accounts.filter((a) => a.type === 'expense'),
+    [AccountClassification.ASSET]: accounts.filter((a) => a.type === AccountClassification.ASSET),
+    [AccountClassification.LIABILITY]: accounts.filter((a) => a.type === AccountClassification.LIABILITY),
+    [AccountClassification.EQUITY]: accounts.filter((a) => a.type === AccountClassification.EQUITY),
+    [AccountClassification.REVENUE]: accounts.filter((a) => a.type === AccountClassification.REVENUE),
+    [AccountClassification.EXPENSE]: accounts.filter((a) => a.type === AccountClassification.EXPENSE),
   };
 
   const applyPreset = (preset: typeof JOURNAL_PRESETS[0]) => {
@@ -634,45 +635,45 @@ export const JournalPage: React.FC = () => {
                             className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
                           >
                             <option value="">Select GL Account...</option>
-                            {groupedAccounts.asset.length > 0 && (
+                            {groupedAccounts[AccountClassification.ASSET].length > 0 && (
                               <optgroup label="Assets (1000s) — Dr">
-                                {groupedAccounts.asset.map((acc) => (
+                                {groupedAccounts[AccountClassification.ASSET].map((acc) => (
                                   <option key={acc.id} value={acc.id}>
                                     {acc.code} - {acc.name}
                                   </option>
                                 ))}
                               </optgroup>
                             )}
-                            {groupedAccounts.liability.length > 0 && (
+                            {groupedAccounts[AccountClassification.LIABILITY].length > 0 && (
                               <optgroup label="Liabilities (2000s) — Cr">
-                                {groupedAccounts.liability.map((acc) => (
+                                {groupedAccounts[AccountClassification.LIABILITY].map((acc) => (
                                   <option key={acc.id} value={acc.id}>
                                     {acc.code} - {acc.name}
                                   </option>
                                 ))}
                               </optgroup>
                             )}
-                            {groupedAccounts.equity.length > 0 && (
+                            {groupedAccounts[AccountClassification.EQUITY].length > 0 && (
                               <optgroup label="Equity (3000s) — Cr">
-                                {groupedAccounts.equity.map((acc) => (
+                                {groupedAccounts[AccountClassification.EQUITY].map((acc) => (
                                   <option key={acc.id} value={acc.id}>
                                     {acc.code} - {acc.name}
                                   </option>
                                 ))}
                               </optgroup>
                             )}
-                            {groupedAccounts.revenue.length > 0 && (
+                            {groupedAccounts[AccountClassification.REVENUE].length > 0 && (
                               <optgroup label="Revenue (4000s) — Cr">
-                                {groupedAccounts.revenue.map((acc) => (
+                                {groupedAccounts[AccountClassification.REVENUE].map((acc) => (
                                   <option key={acc.id} value={acc.id}>
                                     {acc.code} - {acc.name}
                                   </option>
                                 ))}
                               </optgroup>
                             )}
-                            {groupedAccounts.expense.length > 0 && (
+                            {groupedAccounts[AccountClassification.EXPENSE].length > 0 && (
                               <optgroup label="Expenses (5000s) — Dr">
-                                {groupedAccounts.expense.map((acc) => (
+                                {groupedAccounts[AccountClassification.EXPENSE].map((acc) => (
                                   <option key={acc.id} value={acc.id}>
                                     {acc.code} - {acc.name}
                                   </option>
