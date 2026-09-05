@@ -71,29 +71,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       category: 'Overview & Ops',
       items: [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Customer Portal', path: '/portal', icon: Globe, badge: 'Portal', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { name: 'Customer Portal', path: '/portal', icon: Globe },
         { name: 'Workshop Items', path: '/items', icon: Package },
       ],
     },
     {
       id: 'sales',
       category: 'Sales Module',
-      badge: 'Revenue',
       items: [
-        { name: 'Sales Orders', path: '/sales-orders', icon: Truck, badge: 'SO' },
+        { name: 'Sales Orders', path: '/sales-orders', icon: Truck },
         { name: 'Customer Invoices', path: '/invoices', icon: FileText },
-        { name: 'Customer Receipts', path: '/payments?type=receive', icon: ArrowDownLeft, badge: 'Inflow', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        { name: 'Customer Receipts', path: '/payments?type=receive', icon: ArrowDownLeft },
         { name: 'Customer Directory', path: '/customers', icon: Users },
       ],
     },
     {
       id: 'purchase',
       category: 'Purchase Module',
-      badge: 'Procure',
       items: [
-        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag, badge: 'PO' },
-        { name: 'Vendor Bills', path: '/bills', icon: Receipt, badge: 'Bill' },
-        { name: 'Vendor Payments', path: '/payments?type=send', icon: ArrowUpRight, badge: 'Outflow', badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+        { name: 'Vendor Bills', path: '/bills', icon: Receipt },
+        { name: 'Vendor Payments', path: '/payments?type=send', icon: ArrowUpRight },
         { name: 'Vendor Directory', path: '/vendors', icon: Truck },
       ],
     },
@@ -102,26 +100,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {
             id: 'master',
             category: 'Master Data',
-            badge: 'Core',
             items: [
-              { name: 'Contacts Master', path: '/contacts', icon: Contact, badge: 'Master', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+              { name: 'Contacts Master', path: '/contacts', icon: Contact },
               { name: 'Products & Services', path: '/products', icon: Store },
               { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
               { name: 'Journals', path: '/journals', icon: ScrollText },
               { name: 'Journal Entries', path: '/journal', icon: Layers },
-              { name: 'Analytic Accounts', path: '/analyticals', icon: FolderTree, badge: 'Cost' },
+              { name: 'Analytic Accounts', path: '/analyticals', icon: FolderTree },
               { name: 'Analytical Budgets', path: '/budgets', icon: Calculator },
             ],
           },
           {
             id: 'reports',
             category: 'Financial Reports',
-            badge: 'Reports',
             items: [
               { name: 'Reports Hub', path: '/reports', icon: FileSpreadsheet },
               { name: 'Profit & Loss', path: '/reports/profit-loss', icon: TrendingUp },
               { name: 'Balance Sheet', path: '/reports/balance-sheet', icon: BarChart3 },
-              { name: 'Budget Performance', path: '/reports/budget', icon: PieChart, badge: 'Live', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+              { name: 'Budget Performance', path: '/reports/budget', icon: PieChart },
             ],
           },
         ]
@@ -136,8 +132,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 name: 'Admin Console',
                 path: '/admin',
                 icon: Shield,
-                badge: 'Admin',
-                badgeColor: 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30',
               },
             ]
           : []),
@@ -255,23 +249,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                           <span className="tracking-tight truncate">{item.name}</span>
                         </div>
 
-                        <div className="flex items-center space-x-1.5 shrink-0 ml-2">
-                          {item.badge && (
-                            <span
-                              className={cn(
-                                'text-[9px] font-bold px-1.5 py-0.5 rounded border',
-                                active
-                                  ? 'bg-black/10 text-black border-black/20'
-                                  : item.badgeColor || 'bg-white/[0.06] text-[#808090] border-white/10'
-                              )}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
-                          {active && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />
-                          )}
-                        </div>
+                        {(item.badge || active) && (
+                          <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                            {item.badge && (
+                              <span
+                                className={cn(
+                                  'text-[9px] font-bold px-1.5 py-0.5 rounded border',
+                                  active
+                                    ? 'bg-black/10 text-black border-black/20'
+                                    : item.badgeColor || 'bg-white/[0.06] text-[#808090] border-white/10'
+                                )}
+                              >
+                                {item.badge}
+                              </span>
+                            )}
+                            {active && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />
+                            )}
+                          </div>
+                        )}
                       </Link>
                     );
                   })}
