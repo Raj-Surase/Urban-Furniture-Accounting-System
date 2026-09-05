@@ -602,7 +602,7 @@ export const VendorBillsPage: React.FC = () => {
                   type: BudgetLineType.EXPENSE,
                   message: `Projected: ₹${b.projected.toLocaleString('en-IN')} vs Committed: ₹${b.committed.toLocaleString('en-IN')} (${b.percentage}%)`,
                 }))}
-                onReviseBudget={(bId) => navigate(bId ? `/accounting/budgets?id=${bId}` : '/accounting/budgets')}
+                onReviseBudget={(bId) => navigate(bId ? `/budgets?id=${bId}` : '/budgets')}
               />
             </div>
           )}

@@ -178,6 +178,8 @@ class UserController extends Controller
      */
     public function createUser(Request $request): JsonResponse
     {
+        Gate::authorize('create', User::class);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'login_id' => ['required', 'string', 'min:6', 'max:12', 'unique:users,login_id'],

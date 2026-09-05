@@ -62,6 +62,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
     return paths.some((p) => location.pathname === p || (p !== '/' && location.pathname.startsWith(p)));
   };
 
+  const isAccountantOrAdmin =
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.MANAGER ||
+    user?.role === UserRole.ACCOUNTANT;
+
   return (
     <>
       <header className="sticky top-0 w-full py-3.5 px-4 sm:px-6 md:px-8 lg:px-10 flex items-center justify-between border-b border-white/[0.06] z-40 bg-[#121216]/90 backdrop-blur-xl">
@@ -85,217 +90,265 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
               Dashboard
             </Link>
 
-            {/* 2. Sales Dropdown */}
-            <Dropdown placement="bottom-start">
-              <DropdownTrigger>
-                <button
-                  className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/sales-orders', '/invoices']) || (location.pathname === '/payments' && location.search.includes('receive'))
-                      ? 'bg-white text-black font-semibold shadow-sm'
-                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <span>Sales</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </button>
-              </DropdownTrigger>
-              <DropdownMenu
-                aria-label="Sales Navigation"
-                className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
-              >
-                <DropdownItem
-                  key="so"
-                  startContent={<ShoppingCart className="w-4 h-4 text-[#7042f4]" />}
-                  onPress={() => navigate('/sales-orders')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Sales order
-                </DropdownItem>
-                <DropdownItem
-                  key="invoice"
-                  startContent={<FileText className="w-4 h-4 text-emerald-400" />}
-                  onPress={() => navigate('/invoices')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Sale Invoice
-                </DropdownItem>
-                <DropdownItem
-                  key="receipt"
-                  startContent={<CreditCard className="w-4 h-4 text-indigo-400" />}
-                  onPress={() => navigate('/payments?type=receive')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Receipt (Customer Dues)
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+            {isAccountantOrAdmin ? (
+              <>
+                {/* 2. Sales Dropdown */}
+                <Dropdown placement="bottom-start">
+                  <DropdownTrigger>
+                    <button
+                      className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        isModuleActive(['/sales-orders', '/invoices']) || (location.pathname === '/payments' && location.search.includes('receive'))
+                          ? 'bg-white text-black font-semibold shadow-sm'
+                          : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span>Sales</span>
+                      <ChevronDown className="w-3 h-3 opacity-70" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Sales Navigation"
+                    className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
+                  >
+                    <DropdownItem
+                      key="so"
+                      startContent={<ShoppingCart className="w-4 h-4 text-[#7042f4]" />}
+                      onPress={() => navigate('/sales-orders')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Sales order
+                    </DropdownItem>
+                    <DropdownItem
+                      key="invoice"
+                      startContent={<FileText className="w-4 h-4 text-emerald-400" />}
+                      onPress={() => navigate('/invoices')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Sale Invoice
+                    </DropdownItem>
+                    <DropdownItem
+                      key="receipt"
+                      startContent={<CreditCard className="w-4 h-4 text-indigo-400" />}
+                      onPress={() => navigate('/payments?type=receive')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Receipt (Customer Dues)
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
 
-            {/* 3. Purchase Dropdown */}
-            <Dropdown placement="bottom-start">
-              <DropdownTrigger>
-                <button
-                  className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/purchase-orders', '/bills']) || (location.pathname === '/payments' && !location.search.includes('receive'))
-                      ? 'bg-white text-black font-semibold shadow-sm'
-                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <span>Purchase</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </button>
-              </DropdownTrigger>
-              <DropdownMenu
-                aria-label="Purchase Navigation"
-                className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
-              >
-                <DropdownItem
-                  key="po"
-                  startContent={<ShoppingBag className="w-4 h-4 text-amber-400" />}
-                  onPress={() => navigate('/purchase-orders')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Purchase Order
-                </DropdownItem>
-                <DropdownItem
-                  key="bill"
-                  startContent={<FileText className="w-4 h-4 text-rose-400" />}
-                  onPress={() => navigate('/bills')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Purchase Bill (Vendor Bill)
-                </DropdownItem>
-                <DropdownItem
-                  key="pay"
-                  startContent={<CreditCard className="w-4 h-4 text-purple-400" />}
-                  onPress={() => navigate('/payments?type=send')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Payment (Vendor Payments)
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+                {/* 3. Purchase Dropdown */}
+                <Dropdown placement="bottom-start">
+                  <DropdownTrigger>
+                    <button
+                      className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        isModuleActive(['/purchase-orders', '/bills']) || (location.pathname === '/payments' && !location.search.includes('receive'))
+                          ? 'bg-white text-black font-semibold shadow-sm'
+                          : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span>Purchase</span>
+                      <ChevronDown className="w-3 h-3 opacity-70" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Purchase Navigation"
+                    className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
+                  >
+                    <DropdownItem
+                      key="po"
+                      startContent={<ShoppingBag className="w-4 h-4 text-amber-400" />}
+                      onPress={() => navigate('/purchase-orders')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Purchase Order
+                    </DropdownItem>
+                    <DropdownItem
+                      key="bill"
+                      startContent={<FileText className="w-4 h-4 text-rose-400" />}
+                      onPress={() => navigate('/bills')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Purchase Bill (Vendor Bill)
+                    </DropdownItem>
+                    <DropdownItem
+                      key="pay"
+                      startContent={<CreditCard className="w-4 h-4 text-purple-400" />}
+                      onPress={() => navigate('/payments?type=send')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Payment (Vendor Payments)
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
 
-            {/* 4. Account Dropdown */}
-            <Dropdown placement="bottom-start">
-              <DropdownTrigger>
-                <button
-                  className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/contacts', '/products', '/accounts', '/journals', '/journal', '/analyticals', '/budgets'])
-                      ? 'bg-white text-black font-semibold shadow-sm'
-                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
-                  }`}
-                >
-                  <span>Account</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </button>
-              </DropdownTrigger>
-              <DropdownMenu
-                aria-label="Account Navigation"
-                className="w-60 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
-              >
-                <DropdownItem
-                  key="contacts"
-                  startContent={<Users className="w-4 h-4 text-sky-400" />}
-                  onPress={() => navigate('/contacts')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Contact (Partner Master)
-                </DropdownItem>
-                <DropdownItem
-                  key="products"
-                  startContent={<BookOpen className="w-4 h-4 text-indigo-400" />}
-                  onPress={() => navigate('/products')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Product (Products & Services)
-                </DropdownItem>
-                <DropdownItem
-                  key="coa"
-                  startContent={<Scale className="w-4 h-4 text-emerald-400" />}
-                  onPress={() => navigate('/accounts')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Chart of Account
-                </DropdownItem>
-                <DropdownItem
-                  key="journals"
-                  startContent={<BookOpen className="w-4 h-4 text-amber-400" />}
-                  onPress={() => navigate('/journals')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Journals
-                </DropdownItem>
-                <DropdownItem
-                  key="je"
-                  startContent={<FileText className="w-4 h-4 text-rose-400" />}
-                  onPress={() => navigate('/journal')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Journal Entries
-                </DropdownItem>
-                <DropdownItem
-                  key="analyticals"
-                  startContent={<Layers className="w-4 h-4 text-teal-400" />}
-                  onPress={() => navigate('/analyticals')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Analyticals (Cost Centers)
-                </DropdownItem>
-                <DropdownItem
-                  key="budgets"
-                  startContent={<PieChart className="w-4 h-4 text-purple-400" />}
-                  onPress={() => navigate('/budgets')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Analytical Budget
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+                {/* 4. Account Dropdown */}
+                <Dropdown placement="bottom-start">
+                  <DropdownTrigger>
+                    <button
+                      className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        isModuleActive(['/contacts', '/products', '/accounts', '/journals', '/journal', '/analyticals', '/budgets'])
+                          ? 'bg-white text-black font-semibold shadow-sm'
+                          : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span>Account</span>
+                      <ChevronDown className="w-3 h-3 opacity-70" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Account Navigation"
+                    className="w-60 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
+                  >
+                    <DropdownItem
+                      key="contacts"
+                      startContent={<Users className="w-4 h-4 text-sky-400" />}
+                      onPress={() => navigate('/contacts')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Contact (Partner Master)
+                    </DropdownItem>
+                    <DropdownItem
+                      key="products"
+                      startContent={<BookOpen className="w-4 h-4 text-indigo-400" />}
+                      onPress={() => navigate('/products')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Product (Products & Services)
+                    </DropdownItem>
+                    <DropdownItem
+                      key="coa"
+                      startContent={<Scale className="w-4 h-4 text-emerald-400" />}
+                      onPress={() => navigate('/accounts')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Chart of Account
+                    </DropdownItem>
+                    <DropdownItem
+                      key="journals"
+                      startContent={<BookOpen className="w-4 h-4 text-amber-400" />}
+                      onPress={() => navigate('/journals')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Journals
+                    </DropdownItem>
+                    <DropdownItem
+                      key="je"
+                      startContent={<FileText className="w-4 h-4 text-rose-400" />}
+                      onPress={() => navigate('/journal')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Journal Entries
+                    </DropdownItem>
+                    <DropdownItem
+                      key="analyticals"
+                      startContent={<Layers className="w-4 h-4 text-teal-400" />}
+                      onPress={() => navigate('/analyticals')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Analyticals (Cost Centers)
+                    </DropdownItem>
+                    <DropdownItem
+                      key="budgets"
+                      startContent={<PieChart className="w-4 h-4 text-purple-400" />}
+                      onPress={() => navigate('/budgets')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Analytical Budget
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
 
-            {/* 5. Report Dropdown */}
-            <Dropdown placement="bottom-start">
-              <DropdownTrigger>
-                <button
-                  className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
-                    isModuleActive(['/reports'])
+                {/* 5. Report Dropdown */}
+                <Dropdown placement="bottom-start">
+                  <DropdownTrigger>
+                    <button
+                      className={`flex items-center gap-1 px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer ${
+                        isModuleActive(['/reports'])
+                          ? 'bg-white text-black font-semibold shadow-sm'
+                          : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                      }`}
+                    >
+                      <span>Report</span>
+                      <ChevronDown className="w-3 h-3 opacity-70" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu
+                    aria-label="Report Navigation"
+                    className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
+                  >
+                    <DropdownItem
+                      key="bs"
+                      startContent={<Scale className="w-4 h-4 text-indigo-400" />}
+                      onPress={() => navigate('/reports/balance-sheet')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Balancesheet
+                    </DropdownItem>
+                    <DropdownItem
+                      key="pnl"
+                      startContent={<BarChart3 className="w-4 h-4 text-emerald-400" />}
+                      onPress={() => navigate('/reports/profit-loss')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Profit and Loss
+                    </DropdownItem>
+                    <DropdownItem
+                      key="budget-rep"
+                      startContent={<PieChart className="w-4 h-4 text-purple-400" />}
+                      onPress={() => navigate('/reports/budget')}
+                      className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                    >
+                      Budget Report
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+              </>
+            ) : (
+              <>
+                {/* Standard User Clean Navigation */}
+                <Link
+                  to="/products"
+                  className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
+                    location.pathname === '/products'
                       ? 'bg-white text-black font-semibold shadow-sm'
                       : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
                   }`}
                 >
-                  <span>Report</span>
-                  <ChevronDown className="w-3 h-3 opacity-70" />
-                </button>
-              </DropdownTrigger>
-              <DropdownMenu
-                aria-label="Report Navigation"
-                className="w-56 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-obsidian-card"
-              >
-                <DropdownItem
-                  key="bs"
-                  startContent={<Scale className="w-4 h-4 text-indigo-400" />}
-                  onPress={() => navigate('/reports/balance-sheet')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                  Furniture Catalog
+                </Link>
+                <Link
+                  to="/workshop"
+                  className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
+                    location.pathname === '/workshop'
+                      ? 'bg-white text-black font-semibold shadow-sm'
+                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                  }`}
                 >
-                  Balancesheet
-                </DropdownItem>
-                <DropdownItem
-                  key="pnl"
-                  startContent={<BarChart3 className="w-4 h-4 text-emerald-400" />}
-                  onPress={() => navigate('/reports/profit-loss')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                  3D Workshop
+                </Link>
+                <Link
+                  to="/sales-orders"
+                  className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
+                    location.pathname === '/sales-orders'
+                      ? 'bg-white text-black font-semibold shadow-sm'
+                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                  }`}
                 >
-                  Profit and Loss
-                </DropdownItem>
-                <DropdownItem
-                  key="budget-rep"
-                  startContent={<PieChart className="w-4 h-4 text-purple-400" />}
-                  onPress={() => navigate('/reports/budget')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                  My Orders
+                </Link>
+                <Link
+                  to="/invoices"
+                  className={`px-3.5 py-1.5 rounded-full font-medium transition-all ${
+                    location.pathname === '/invoices'
+                      ? 'bg-white text-black font-semibold shadow-sm'
+                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                  }`}
                 >
-                  Budget Report
-                </DropdownItem>
-              </DropdownMenu>
-            </Dropdown>
+                  My Invoices
+                </Link>
+              </>
+            )}
 
             {/* Portal link for customer users */}
             {user?.role === UserRole.USER && (
@@ -466,57 +519,86 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
                   Dashboard
                 </Link>
 
-                {/* Sales Section */}
-                <div className="border-t border-white/[0.06] pt-2">
-                  <span className="text-[#7042f4] font-bold uppercase tracking-wider text-[10px] block mb-1">
-                    Sales
-                  </span>
-                  <div className="pl-2 space-y-1">
-                    <Link to="/sales-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Sales order</Link>
-                    <Link to="/invoices" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Sale Invoice</Link>
-                    <Link to="/payments?type=receive" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Receipt</Link>
-                  </div>
-                </div>
+                {isAccountantOrAdmin ? (
+                  <>
+                    {/* Sales Section */}
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-[#7042f4] font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        Sales
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/sales-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Sales order</Link>
+                        <Link to="/invoices" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Sale Invoice</Link>
+                        <Link to="/payments?type=receive" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Receipt</Link>
+                      </div>
+                    </div>
 
-                {/* Purchase Section */}
-                <div className="border-t border-white/[0.06] pt-2">
-                  <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
-                    Purchase
-                  </span>
-                  <div className="pl-2 space-y-1">
-                    <Link to="/purchase-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Purchase Order</Link>
-                    <Link to="/bills" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Purchase Bill (Vendor Bill)</Link>
-                    <Link to="/payments?type=send" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Payment</Link>
-                  </div>
-                </div>
+                    {/* Purchase Section */}
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-amber-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        Purchase
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/purchase-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Purchase Order</Link>
+                        <Link to="/bills" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Purchase Bill (Vendor Bill)</Link>
+                        <Link to="/payments?type=send" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Payment</Link>
+                      </div>
+                    </div>
 
-                {/* Account Section */}
-                <div className="border-t border-white/[0.06] pt-2">
-                  <span className="text-sky-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
-                    Account Masters
-                  </span>
-                  <div className="pl-2 space-y-1">
-                    <Link to="/contacts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Contact</Link>
-                    <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Product</Link>
-                    <Link to="/accounts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Chart of Account</Link>
-                    <Link to="/journals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journals</Link>
-                    <Link to="/journal" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journal Entries</Link>
-                    <Link to="/analyticals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analyticals</Link>
-                    <Link to="/budgets" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analytical Budget</Link>
-                  </div>
-                </div>
+                    {/* Account Section */}
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-sky-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        Account Masters
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/contacts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Contact</Link>
+                        <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Product</Link>
+                        <Link to="/accounts" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Chart of Account</Link>
+                        <Link to="/journals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journals</Link>
+                        <Link to="/journal" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Journal Entries</Link>
+                        <Link to="/analyticals" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analyticals</Link>
+                        <Link to="/budgets" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Analytical Budget</Link>
+                      </div>
+                    </div>
 
-                {/* Report Section */}
-                <div className="border-t border-white/[0.06] pt-2">
-                  <span className="text-emerald-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
-                    Reports
-                  </span>
-                  <div className="pl-2 space-y-1">
-                    <Link to="/reports/balance-sheet" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Balancesheet</Link>
-                    <Link to="/reports/profit-loss" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Profit and Loss</Link>
-                    <Link to="/reports/budget" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Budget Report</Link>
-                  </div>
-                </div>
+                    {/* Report Section */}
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-emerald-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        Reports
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/reports/balance-sheet" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Balancesheet</Link>
+                        <Link to="/reports/profit-loss" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Profit and Loss</Link>
+                        <Link to="/reports/budget" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Budget Report</Link>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Standard User Mobile Links */}
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-[#c084fc] font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        Workspace & Catalog
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/products" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">Furniture Catalog</Link>
+                        <Link to="/workshop" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">3D Workshop</Link>
+                        <Link to="/portal" onClick={() => setMobileMenuOpen(false)} className="block text-emerald-400 hover:text-emerald-300 py-0.5">Client Portal</Link>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/[0.06] pt-2">
+                      <span className="text-indigo-400 font-bold uppercase tracking-wider text-[10px] block mb-1">
+                        My Orders & Invoices
+                      </span>
+                      <div className="pl-2 space-y-1">
+                        <Link to="/sales-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">My Sales Orders</Link>
+                        <Link to="/purchase-orders" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">My Purchase Orders</Link>
+                        <Link to="/invoices" onClick={() => setMobileMenuOpen(false)} className="block text-[#a0a0b0] hover:text-white py-0.5">My Invoices</Link>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           )}

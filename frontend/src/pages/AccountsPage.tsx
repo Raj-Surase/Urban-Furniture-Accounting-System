@@ -734,7 +734,7 @@ export const AccountsPage: React.FC = () => {
                     }))}
                     onReviseBudget={(bId) => {
                       setIsLedgerOpen(false);
-                      navigate(bId ? `/accounting/budgets?id=${bId}` : '/accounting/budgets');
+                      navigate(bId ? `/budgets?id=${bId}` : '/budgets');
                     }}
                   />
                 </div>

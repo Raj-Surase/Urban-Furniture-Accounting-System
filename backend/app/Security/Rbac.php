@@ -7,6 +7,7 @@ class Rbac
     // Roles
     public const ROLE_ADMIN = 'admin';
     public const ROLE_MANAGER = 'manager';
+    public const ROLE_ACCOUNTANT = 'accountant';
     public const ROLE_USER = 'user';
 
     // Permissions: Items
@@ -82,14 +83,22 @@ class Rbac
 
     // Permissions: Payments & Treasury
     public const PERMISSION_PAYMENTS_VIEW_ANY = 'payments:view_any';
+    public const PERMISSION_PAYMENTS_VIEW_OWN = 'payments:view_own';
     public const PERMISSION_PAYMENTS_CREATE = 'payments:create';
     public const PERMISSION_PAYMENTS_RECONCILE = 'payments:reconcile';
     public const PERMISSION_PAYMENTS_DELETE = 'payments:delete';
 
-    // Permissions: General Ledger Journal
+    // Permissions: General Ledger Journal & Analytics
     public const PERMISSION_JOURNAL_VIEW_ANY = 'journal:view_any';
     public const PERMISSION_JOURNAL_POST = 'journal:post';
     public const PERMISSION_JOURNAL_REVERSE = 'journal:reverse';
+    public const PERMISSION_JOURNALS_MANAGE = 'journals:manage';
+    public const PERMISSION_ANALYTICS_MANAGE = 'analytics:manage';
+    public const PERMISSION_BUDGETS_MANAGE = 'budgets:manage';
+
+    // Permissions: Contacts Master
+    public const PERMISSION_CONTACTS_VIEW_ANY = 'contacts:view_any';
+    public const PERMISSION_CONTACTS_MANAGE = 'contacts:manage';
 
     /**
      * All recognized system roles.
@@ -110,6 +119,12 @@ class Rbac
                 'tier' => 'Tier 2 Management',
                 'description' => 'Departmental operations access. Can create and edit any item, broadcast updates, and view user directory.',
                 'color' => 'warning',
+            ],
+            self::ROLE_ACCOUNTANT => [
+                'name' => 'Accountant',
+                'tier' => 'Tier 2 Accounting',
+                'description' => 'Full accounting and financial operations access. Manages journals, ledgers, reconciliations, and financial reporting.',
+                'color' => 'secondary',
             ],
             self::ROLE_USER => [
                 'name' => 'Standard User',
@@ -308,6 +323,11 @@ class Rbac
                 'category' => 'Treasury & Payments',
                 'description' => 'Reconcile settlement and auto-post double-entry journal records.',
             ],
+            self::PERMISSION_PAYMENTS_VIEW_OWN => [
+                'label' => 'View Own Payments',
+                'category' => 'Treasury & Payments',
+                'description' => 'Inspect payment records associated with own orders and invoices.',
+            ],
             self::PERMISSION_JOURNAL_VIEW_ANY => [
                 'label' => 'View General Ledger Journal',
                 'category' => 'Accounting & General Ledger',
@@ -322,6 +342,31 @@ class Rbac
                 'label' => 'Reverse Journal Entry',
                 'category' => 'Accounting & General Ledger',
                 'description' => 'Issue contra reversal entries to offset posted transactions.',
+            ],
+            self::PERMISSION_JOURNALS_MANAGE => [
+                'label' => 'Manage Accounting Journals',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Create, modify, and configure journal registers.',
+            ],
+            self::PERMISSION_ANALYTICS_MANAGE => [
+                'label' => 'Manage Analytic Accounts',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Manage cost centers, project analytic accounts, and tracking tags.',
+            ],
+            self::PERMISSION_BUDGETS_MANAGE => [
+                'label' => 'Manage Budgets',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Create, revise, confirm, and audit financial budgets.',
+            ],
+            self::PERMISSION_CONTACTS_VIEW_ANY => [
+                'label' => 'View Contacts Directory',
+                'category' => 'Contacts Master',
+                'description' => 'Inspect company-wide customer and vendor directory.',
+            ],
+            self::PERMISSION_CONTACTS_MANAGE => [
+                'label' => 'Manage Contacts',
+                'category' => 'Contacts Master',
+                'description' => 'Create, update, and manage CRM contact records.',
             ],
         ];
     }
@@ -393,70 +438,83 @@ class Rbac
             self::PERMISSION_JOURNAL_VIEW_ANY,
             self::PERMISSION_JOURNAL_POST,
             self::PERMISSION_JOURNAL_REVERSE,
+            self::PERMISSION_JOURNALS_MANAGE,
+            self::PERMISSION_ANALYTICS_MANAGE,
+            self::PERMISSION_BUDGETS_MANAGE,
+            self::PERMISSION_CONTACTS_VIEW_ANY,
+            self::PERMISSION_CONTACTS_MANAGE,
+            self::PERMISSION_PAYMENTS_VIEW_OWN,
+        ];
+
+        $managerFinancialPermissions = [
+            self::PERMISSION_ITEMS_VIEW_ANY,
+            self::PERMISSION_ITEMS_VIEW,
+            self::PERMISSION_ITEMS_CREATE,
+            self::PERMISSION_ITEMS_UPDATE_OWN,
+            self::PERMISSION_ITEMS_UPDATE_ANY,
+            self::PERMISSION_USERS_VIEW_ANY,
+            self::PERMISSION_SYSTEM_BROADCAST,
+            // Manager / Accountant business operations
+            self::PERMISSION_ACCOUNTS_VIEW_ANY,
+            self::PERMISSION_ACCOUNTS_CREATE,
+            self::PERMISSION_ACCOUNTS_UPDATE,
+            self::PERMISSION_REPORTS_VIEW_FINANCIAL,
+            self::PERMISSION_CUSTOMERS_VIEW_ANY,
+            self::PERMISSION_CUSTOMERS_CREATE,
+            self::PERMISSION_CUSTOMERS_UPDATE,
+            self::PERMISSION_VENDORS_VIEW_ANY,
+            self::PERMISSION_VENDORS_CREATE,
+            self::PERMISSION_VENDORS_UPDATE,
+            self::PERMISSION_CONTACTS_VIEW_ANY,
+            self::PERMISSION_CONTACTS_MANAGE,
+            self::PERMISSION_PRODUCTS_VIEW_ANY,
+            self::PERMISSION_PRODUCTS_CREATE,
+            self::PERMISSION_PRODUCTS_UPDATE,
+            self::PERMISSION_INVENTORY_ADJUST,
+            self::PERMISSION_PURCHASE_ORDERS_VIEW_ANY,
+            self::PERMISSION_PURCHASE_ORDERS_CREATE,
+            self::PERMISSION_PURCHASE_ORDERS_APPROVE,
+            self::PERMISSION_PURCHASE_ORDERS_REJECT,
+            self::PERMISSION_PURCHASE_ORDERS_RECEIVE,
+            self::PERMISSION_SALES_ORDERS_VIEW_ANY,
+            self::PERMISSION_SALES_ORDERS_CREATE,
+            self::PERMISSION_SALES_ORDERS_APPROVE,
+            self::PERMISSION_SALES_ORDERS_INVOICE,
+            self::PERMISSION_SALES_ORDERS_DELIVER,
+            self::PERMISSION_INVOICES_VIEW_ANY,
+            self::PERMISSION_INVOICES_CREATE,
+            self::PERMISSION_INVOICES_APPROVE,
+            self::PERMISSION_INVOICES_VOID,
+            self::PERMISSION_PAYMENTS_VIEW_ANY,
+            self::PERMISSION_PAYMENTS_VIEW_OWN,
+            self::PERMISSION_PAYMENTS_CREATE,
+            self::PERMISSION_PAYMENTS_RECONCILE,
+            self::PERMISSION_JOURNAL_VIEW_ANY,
+            self::PERMISSION_JOURNAL_POST,
+            self::PERMISSION_JOURNAL_REVERSE,
+            self::PERMISSION_JOURNALS_MANAGE,
+            self::PERMISSION_ANALYTICS_MANAGE,
+            self::PERMISSION_BUDGETS_MANAGE,
         ];
 
         return [
             self::ROLE_ADMIN => $domainPermissions,
-            self::ROLE_MANAGER => [
-                self::PERMISSION_ITEMS_VIEW_ANY,
-                self::PERMISSION_ITEMS_VIEW,
-                self::PERMISSION_ITEMS_CREATE,
-                self::PERMISSION_ITEMS_UPDATE_OWN,
-                self::PERMISSION_ITEMS_UPDATE_ANY,
-                self::PERMISSION_USERS_VIEW_ANY,
-                self::PERMISSION_SYSTEM_BROADCAST,
-                // Manager business operations
-                self::PERMISSION_ACCOUNTS_VIEW_ANY,
-                self::PERMISSION_ACCOUNTS_CREATE,
-                self::PERMISSION_ACCOUNTS_UPDATE,
-                self::PERMISSION_REPORTS_VIEW_FINANCIAL,
-                self::PERMISSION_CUSTOMERS_VIEW_ANY,
-                self::PERMISSION_CUSTOMERS_CREATE,
-                self::PERMISSION_CUSTOMERS_UPDATE,
-                self::PERMISSION_VENDORS_VIEW_ANY,
-                self::PERMISSION_VENDORS_CREATE,
-                self::PERMISSION_VENDORS_UPDATE,
-                self::PERMISSION_PRODUCTS_VIEW_ANY,
-                self::PERMISSION_PRODUCTS_CREATE,
-                self::PERMISSION_PRODUCTS_UPDATE,
-                self::PERMISSION_INVENTORY_ADJUST,
-                self::PERMISSION_PURCHASE_ORDERS_VIEW_ANY,
-                self::PERMISSION_PURCHASE_ORDERS_CREATE,
-                self::PERMISSION_PURCHASE_ORDERS_APPROVE,
-                self::PERMISSION_PURCHASE_ORDERS_REJECT,
-                self::PERMISSION_PURCHASE_ORDERS_RECEIVE,
-                self::PERMISSION_SALES_ORDERS_VIEW_ANY,
-                self::PERMISSION_SALES_ORDERS_CREATE,
-                self::PERMISSION_SALES_ORDERS_APPROVE,
-                self::PERMISSION_SALES_ORDERS_INVOICE,
-                self::PERMISSION_SALES_ORDERS_DELIVER,
-                self::PERMISSION_INVOICES_VIEW_ANY,
-                self::PERMISSION_INVOICES_CREATE,
-                self::PERMISSION_INVOICES_APPROVE,
-                self::PERMISSION_INVOICES_VOID,
-                self::PERMISSION_PAYMENTS_VIEW_ANY,
-                self::PERMISSION_PAYMENTS_CREATE,
-                self::PERMISSION_PAYMENTS_RECONCILE,
-                self::PERMISSION_JOURNAL_VIEW_ANY,
-                self::PERMISSION_JOURNAL_POST,
-                self::PERMISSION_JOURNAL_REVERSE,
-            ],
+            self::ROLE_MANAGER => $managerFinancialPermissions,
+            self::ROLE_ACCOUNTANT => $managerFinancialPermissions,
             self::ROLE_USER => [
                 self::PERMISSION_ITEMS_VIEW_ANY,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
-                // Standard user operations
+                // Standard user operations: strictly limited to catalog and own documents
                 self::PERMISSION_PRODUCTS_VIEW_ANY,
-                self::PERMISSION_CUSTOMERS_VIEW_ANY,
-                self::PERMISSION_VENDORS_VIEW_ANY,
                 self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
                 self::PERMISSION_PURCHASE_ORDERS_CREATE,
                 self::PERMISSION_SALES_ORDERS_VIEW_OWN,
                 self::PERMISSION_SALES_ORDERS_CREATE,
                 self::PERMISSION_INVOICES_VIEW_OWN,
                 self::PERMISSION_INVOICES_CREATE,
-                self::PERMISSION_PAYMENTS_VIEW_ANY,
+                self::PERMISSION_PAYMENTS_VIEW_OWN,
                 self::PERMISSION_PAYMENTS_CREATE,
             ],
         ];

@@ -63,82 +63,109 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navRef = useRef<HTMLElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  const isAccountantOrAdmin = isAdmin || user?.role === UserRole.MANAGER;
+  const isAccountantOrAdmin = isAdmin || user?.role === UserRole.MANAGER || user?.role === UserRole.ACCOUNTANT;
 
-  const menuGroups: MenuGroup[] = [
-    {
-      id: 'overview',
-      category: 'Overview & Ops',
-      items: [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Customer Portal', path: '/portal', icon: Globe },
-        { name: 'Workshop Items', path: '/items', icon: Package },
-      ],
-    },
-    {
-      id: 'sales',
-      category: 'Sales Module',
-      items: [
-        { name: 'Sales Orders', path: '/sales-orders', icon: Truck },
-        { name: 'Customer Invoices', path: '/invoices', icon: FileText },
-        { name: 'Customer Receipts', path: '/payments?type=receive', icon: ArrowDownLeft },
-        { name: 'Customer Directory', path: '/customers', icon: Users },
-      ],
-    },
-    {
-      id: 'purchase',
-      category: 'Purchase Module',
-      items: [
-        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
-        { name: 'Vendor Bills', path: '/bills', icon: Receipt },
-        { name: 'Vendor Payments', path: '/payments?type=send', icon: ArrowUpRight },
-        { name: 'Vendor Directory', path: '/vendors', icon: Truck },
-      ],
-    },
-    ...(isAccountantOrAdmin
-      ? [
-          {
-            id: 'master',
-            category: 'Master Data',
-            items: [
-              { name: 'Contacts Master', path: '/contacts', icon: Contact },
-              { name: 'Products & Services', path: '/products', icon: Store },
-              { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
-              { name: 'Journals', path: '/journals', icon: ScrollText },
-              { name: 'Journal Entries', path: '/journal', icon: Layers },
-              { name: 'Analytic Accounts', path: '/analyticals', icon: FolderTree },
-              { name: 'Analytical Budgets', path: '/budgets', icon: Calculator },
-            ],
-          },
-          {
-            id: 'reports',
-            category: 'Financial Reports',
-            items: [
-              { name: 'Reports Hub', path: '/reports', icon: FileSpreadsheet },
-              { name: 'Profit & Loss', path: '/reports/profit-loss', icon: TrendingUp },
-              { name: 'Balance Sheet', path: '/reports/balance-sheet', icon: BarChart3 },
-              { name: 'Budget Performance', path: '/reports/budget', icon: PieChart },
-            ],
-          },
-        ]
-      : []),
-    {
-      id: 'system',
-      category: 'System & Security',
-      items: [
-        ...(isAdmin
-          ? [
-              {
-                name: 'Admin Console',
-                path: '/admin',
-                icon: Shield,
-              },
-            ]
-          : []),
-        { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
-      ],
-    },
-  ];
+  const menuGroups: MenuGroup[] = isAccountantOrAdmin
+    ? [
+        {
+          id: 'overview',
+          category: 'Overview & Ops',
+          items: [
+            { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+            { name: 'Products & Catalog', path: '/products', icon: Store },
+            { name: '3D Workshop', path: '/workshop', icon: Package },
+            { name: 'Customer Portal', path: '/portal', icon: Globe },
+            { name: 'Workshop Items', path: '/items', icon: Layers },
+          ],
+        },
+        {
+          id: 'sales',
+          category: 'Sales Module',
+          items: [
+            { name: 'Sales Orders', path: '/sales-orders', icon: Truck },
+            { name: 'Customer Invoices', path: '/invoices', icon: FileText },
+            { name: 'Customer Receipts', path: '/payments?type=receive', icon: ArrowDownLeft },
+            { name: 'Customer Directory', path: '/customers', icon: Users },
+          ],
+        },
+        {
+          id: 'purchase',
+          category: 'Purchase Module',
+          items: [
+            { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+            { name: 'Vendor Bills', path: '/bills', icon: Receipt },
+            { name: 'Vendor Payments', path: '/payments?type=send', icon: ArrowUpRight },
+            { name: 'Vendor Directory', path: '/vendors', icon: Truck },
+          ],
+        },
+        {
+          id: 'master',
+          category: 'Master Data',
+          items: [
+            { name: 'Contacts Master', path: '/contacts', icon: Contact },
+            { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
+            { name: 'Journals', path: '/journals', icon: ScrollText },
+            { name: 'Journal Entries', path: '/journal', icon: Layers },
+            { name: 'Analytic Accounts', path: '/analyticals', icon: FolderTree },
+            { name: 'Analytical Budgets', path: '/budgets', icon: Calculator },
+          ],
+        },
+        {
+          id: 'reports',
+          category: 'Financial Reports',
+          items: [
+            { name: 'Reports Hub', path: '/reports', icon: FileSpreadsheet },
+            { name: 'Profit & Loss', path: '/reports/profit-loss', icon: TrendingUp },
+            { name: 'Balance Sheet', path: '/reports/balance-sheet', icon: BarChart3 },
+            { name: 'Budget Performance', path: '/reports/budget', icon: PieChart },
+          ],
+        },
+        {
+          id: 'system',
+          category: 'System & Security',
+          items: [
+            ...(isAdmin
+              ? [
+                  {
+                    name: 'Admin Console',
+                    path: '/admin',
+                    icon: Shield,
+                  },
+                ]
+              : []),
+            { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
+          ],
+        },
+      ]
+    : [
+        {
+          id: 'overview',
+          category: 'Workspace & Catalog',
+          items: [
+            { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+            { name: 'Furniture Catalog', path: '/products', icon: Store },
+            { name: '3D Workshop', path: '/workshop', icon: Package },
+            { name: 'Customer Portal', path: '/portal', icon: Globe },
+          ],
+        },
+        {
+          id: 'my_activity',
+          category: 'My Orders & Invoices',
+          items: [
+            { name: 'My Sales Orders', path: '/sales-orders', icon: Truck },
+            { name: 'My Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+            { name: 'My Invoices', path: '/invoices', icon: FileText },
+            { name: 'Workshop Items', path: '/items', icon: Layers },
+          ],
+        },
+        {
+          id: 'system',
+          category: 'My Account',
+          items: [
+            { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
+          ],
+        },
+      ];
 
   const isActive = (path: string) => {
     if (path.includes('?')) {

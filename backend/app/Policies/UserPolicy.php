@@ -29,6 +29,15 @@ class UserPolicy
     }
 
     /**
+     * Determine whether the user can create users.
+     * Strict access policy: Only Admins can provision new users.
+     */
+    public function create(User $user): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can delete another user.
      */
     public function delete(User $user, User $targetUser): bool

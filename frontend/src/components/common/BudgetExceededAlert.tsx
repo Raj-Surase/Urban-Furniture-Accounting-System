@@ -160,7 +160,8 @@ export const BudgetExceededAlert: React.FC<BudgetExceededAlertProps> = ({
                   if (onReviseBudget) {
                     onReviseBudget(items[0]?.budgetId);
                   } else {
-                    navigate('/budgets');
+                    const targetBudgetId = items[0]?.budgetId;
+                    navigate(targetBudgetId ? `/budgets?id=${targetBudgetId}` : '/budgets');
                   }
                 }}
                 className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7042f4] to-[#9062f8] hover:from-[#6032e4] hover:to-[#8052e8] text-white text-xs font-semibold shadow-md transition-all whitespace-nowrap"
@@ -192,7 +193,8 @@ export const BudgetExceededAlert: React.FC<BudgetExceededAlertProps> = ({
                 if (onReviseBudget) {
                   onReviseBudget(items[0]?.budgetId);
                 } else {
-                  navigate('/budgets');
+                  const targetBudgetId = items[0]?.budgetId;
+                  navigate(targetBudgetId ? `/budgets?id=${targetBudgetId}` : '/budgets');
                 }
               }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4] text-white text-xs font-semibold"

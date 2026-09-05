@@ -215,4 +215,101 @@ class RbacPolicyTest extends TestCase
                 'environment',
             ]);
     }
+
+    public function test_create_user_endpoint_restricted_to_admin(): void
+    {
+        $payload = [
+            'name' => 'New User Attempt',
+            'login_id' => 'newuser123',
+            'email' => 'newuser@example.com',
+            'role' => 'admin',
+            'password' => 'Secret123!',
+            're_enter_password' => 'Secret123!',
+        ];
+
+        // Standard user cannot create user
+        $userResponse = $this->actingAs($this->standardUser)->postJson('/api/admin/create-user', $payload);
+        $userResponse->assertStatus(403);
+
+        // Manager cannot create user
+        $managerResponse = $this->actingAs($this->manager)->postJson('/api/admin/create-user', $payload);
+        $managerResponse->assertStatus(403);
+
+        // Admin CAN create user
+        $adminResponse = $this->actingAs($this->admin)->postJson('/api/admin/create-user', $payload);
+        $adminResponse->assertStatus(201);
+        $this->assertDatabaseHas('users', ['email' => 'newuser@example.com']);
+    }
+
+    public function test_financial_modules_restricted_from_standard_user(): void
+    {
+        // Contacts
+        $this->actingAs($this->standardUser)->getJson('/api/contacts')->assertStatus(403);
+        $this->actingAs($this->manager)->getJson('/api/contacts')->assertStatus(200);
+
+        // Journals
+        $this->actingAs($this->standardUser)->getJson('/api/journals')->assertStatus(403);
+        $this->actingAs($this->manager)->getJson('/api/journals')->assertStatus(200);
+
+        // Analytic Accounts
+        $this->actingAs($this->standardUser)->getJson('/api/analytic-accounts')->assertStatus(403);
+        $this->actingAs($this->manager)->getJson('/api/analytic-accounts')->assertStatus(200);
+
+        // Budgets
+        $this->actingAs($this->standardUser)->getJson('/api/budgets')->assertStatus(403);
+        $this->actingAs($this->manager)->getJson('/api/budgets')->assertStatus(200);
+    }
+
+    public function test_product_cost_hidden_from_standard_user(): void
+    {
+        $product = \App\Models\Product::create([
+            'sku' => 'TEST-CHAIR-01',
+            'name' => 'Ergonomic Desk Chair',
+            'category' => 'Chairs',
+            'type' => 'goods',
+            'unit_price' => 5999.00,
+            'cost_price' => 3200.00,
+            'current_stock' => 10,
+            'minimum_stock' => 2,
+            'reorder_point' => 3,
+            'is_active' => true,
+        ]);
+
+        // Standard user list
+        $userList = $this->actingAs($this->standardUser)->getJson('/api/products');
+        $userList->assertStatus(200);
+        $found = collect($userList->json('data'))->firstWhere('sku', 'TEST-CHAIR-01');
+        $this->assertNotNull($found);
+        $this->assertArrayNotHasKey('cost_price', $found);
+
+        // Standard user show
+        $userShow = $this->actingAs($this->standardUser)->getJson("/api/products/{$product->id}");
+        $userShow->assertStatus(200);
+        $this->assertArrayNotHasKey('cost_price', $userShow->json('data'));
+
+        // Manager can see cost_price
+        $managerShow = $this->actingAs($this->manager)->getJson("/api/products/{$product->id}");
+        $managerShow->assertStatus(200);
+        $this->assertArrayHasKey('cost_price', $managerShow->json('data'));
+        $this->assertEquals(3200.00, (float) $managerShow->json('data.cost_price'));
+    }
+
+    public function test_dashboard_data_isolated_for_standard_user(): void
+    {
+        // Manager sees enterprise KPIs
+        $mgrSummary = $this->actingAs($this->manager)->getJson('/api/dashboard/summary');
+        $mgrSummary->assertStatus(200);
+        $this->assertArrayHasKey('total_revenue', $mgrSummary->json('kpis'));
+
+        // Standard user sees personal KPIs and no total_revenue
+        $usrSummary = $this->actingAs($this->standardUser)->getJson('/api/dashboard/summary');
+        $usrSummary->assertStatus(200);
+        $this->assertArrayNotHasKey('total_revenue', $usrSummary->json('kpis'));
+        $this->assertArrayHasKey('my_total_orders', $usrSummary->json('kpis'));
+
+        // Standard user recent transactions omits journal_entries
+        $usrTx = $this->actingAs($this->standardUser)->getJson('/api/dashboard/transactions');
+        $usrTx->assertStatus(200);
+        $this->assertEmpty($usrTx->json('journal_entries'));
+    }
 }

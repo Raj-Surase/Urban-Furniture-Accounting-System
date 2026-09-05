@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { dashboardApi } from '../lib/api';
 import { PageTransition } from '../components/layout/PageTransition';
+import { UserRole } from '../types';
 
 // Redesigned Obsidian Visual Widgets matching Expected UI
 import { HeroMetricsSection } from '../components/dashboard/HeroMetricsSection';
@@ -99,8 +100,9 @@ export const DashboardPage: React.FC = () => {
           <RecentTransactionsCard
             onSearchClick={() => navigate('/invoices')}
             onItemClick={(tx) => {
+              const isElevated = user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER || user?.role === UserRole.ACCOUNTANT;
               const isPayment = tx.id?.startsWith('pay-') || tx.category?.includes('Payment') || tx.category?.includes('Settlement');
-              if (isPayment) {
+              if (isPayment && isElevated) {
                 const payId = tx.id?.replace('pay-', '');
                 navigate(`/payments?id=${payId}&search=${encodeURIComponent(tx.reference_number || '')}`);
               } else {

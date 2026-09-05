@@ -49,7 +49,8 @@ import {
 } from '../types';
 
 export const InvoicesPage: React.FC = () => {
-  const { user, isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
 
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -100,19 +101,19 @@ export const InvoicesPage: React.FC = () => {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<any>(null);
   const [payAmount, setPayAmount] = useState<string>('');
-  const [payMethod, setPayMethod] = useState<string>(PaymentMethod.BANK_TRANSFER);
-  const [payReference, setPayReference] = useState('');
+  const [payMethod, setPayMethod] = useState<PaymentMethod>(PaymentMethod.BANK_TRANSFER);
+  const [payReference, setPayReference] = useState<string>('');
+  const [isPaying, setIsPaying] = useState<boolean>(false);
   const [payFieldErrors, setPayFieldErrors] = useState<Record<string, string>>({});
   const [payFormError, setPayFormError] = useState<string | null>(null);
-  const [isPaying, setIsPaying] = useState(false);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const [invRes, custRes, vendRes, prodRes] = await Promise.all([
         invoicesApi.list(),
-        customersApi.list(),
-        vendorsApi.list(),
+        isElevated ? customersApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        isElevated ? vendorsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         productsApi.list(),
       ]);
       setInvoices(invRes.data || invRes || []);
@@ -627,36 +628,38 @@ export const InvoicesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => {
-              setCreateType(ContactType.CUSTOMER);
-              setSelectedPartyId('');
-              setCreateFieldErrors({});
-              setCreateFormError(null);
-              setIsCreateModalOpen(true);
-            }}
-            className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            New Tax Invoice (AR)
-          </Button>
+        {isElevated && (
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => {
+                setCreateType(ContactType.CUSTOMER);
+                setSelectedPartyId('');
+                setCreateFieldErrors({});
+                setCreateFormError(null);
+                setIsCreateModalOpen(true);
+              }}
+              className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              New Tax Invoice (AR)
+            </Button>
 
-          <Button
-            variant="outline"
-            onClick={() => {
-              setCreateType(ContactType.VENDOR);
-              setSelectedPartyId('');
-              setCreateFieldErrors({});
-              setCreateFormError(null);
-              setIsCreateModalOpen(true);
-            }}
-            className="border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 gap-2 text-xs font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            New Vendor Bill (AP)
-          </Button>
-        </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateType(ContactType.VENDOR);
+                setSelectedPartyId('');
+                setCreateFieldErrors({});
+                setCreateFormError(null);
+                setIsCreateModalOpen(true);
+              }}
+              className="border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 gap-2 text-xs font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              New Vendor Bill (AP)
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Stats Section */}
@@ -879,7 +882,7 @@ export const InvoicesPage: React.FC = () => {
                           </button>
 
                           {/* Approve & Auto-Post Button */}
-                          {inv.status === InvoiceStatus.DRAFT && (isAdmin || isManager) && (
+                          {inv.status === InvoiceStatus.DRAFT && isElevated && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -893,7 +896,7 @@ export const InvoicesPage: React.FC = () => {
                           )}
 
                           {/* Record Payment / Receipt Button */}
-                          {inv.status === InvoiceStatus.APPROVED && (inv.balance_due === undefined || inv.balance_due > 0) && (
+                          {isElevated && inv.status === InvoiceStatus.APPROVED && (inv.balance_due === undefined || inv.balance_due > 0) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -911,7 +914,7 @@ export const InvoicesPage: React.FC = () => {
                           )}
 
                           {/* Void Button */}
-                          {inv.status === InvoiceStatus.APPROVED && (isAdmin || isManager) && (
+                          {inv.status === InvoiceStatus.APPROVED && isElevated && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1433,7 +1436,7 @@ export const InvoicesPage: React.FC = () => {
                 <label className="text-xs font-semibold text-neutral-300 block mb-1">Payment Method</label>
                 <select
                   value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value)}
+                  onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 >
                   <option value={PaymentMethod.RAZORPAY}>Razorpay Gateway (UPI, Cards, Netbanking)</option>
@@ -1646,7 +1649,7 @@ export const InvoicesPage: React.FC = () => {
                   View & Print PDF (pdfcn)
                 </button>
 
-                {detailInvoice.status === InvoiceStatus.DRAFT && (isAdmin || isManager) && (
+                {detailInvoice.status === InvoiceStatus.DRAFT && isElevated && (
                   <button
                     onClick={async () => {
                       await handleApprove(detailInvoice.id);
@@ -1659,7 +1662,7 @@ export const InvoicesPage: React.FC = () => {
                   </button>
                 )}
 
-                {detailInvoice.status === InvoiceStatus.APPROVED && (detailInvoice.balance_due === undefined || detailInvoice.balance_due > 0) && (
+                {isElevated && detailInvoice.status === InvoiceStatus.APPROVED && (detailInvoice.balance_due === undefined || detailInvoice.balance_due > 0) && (
                   <button
                     onClick={() => {
                       setPayInvoice(detailInvoice);
@@ -1675,7 +1678,7 @@ export const InvoicesPage: React.FC = () => {
                   </button>
                 )}
 
-                {detailInvoice.status === InvoiceStatus.APPROVED && (isAdmin || isManager) && (
+                {detailInvoice.status === InvoiceStatus.APPROVED && isElevated && (
                   <button
                     onClick={async () => {
                       await handleVoid(detailInvoice.id);

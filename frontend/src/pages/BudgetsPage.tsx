@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PieChart,
@@ -101,7 +101,9 @@ interface BudgetRecord {
 }
 
 export const BudgetsPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { id: paramId } = useParams<{ id?: string }>();
   const [budgets, setBudgets] = useState<BudgetRecord[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -131,6 +133,16 @@ export const BudgetsPage: React.FC = () => {
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
   const [modalLoading, setModalLoading] = useState<boolean>(false);
   const [modalAnalyticName, setModalAnalyticName] = useState<string>('');
+
+  const handleBackToList = () => {
+    setViewMode('list');
+    setActiveBudget(null);
+    if (paramId) {
+      navigate('/budgets');
+    } else {
+      setSearchParams({});
+    }
+  };
 
   // Auto-dismiss success message
   useEffect(() => {
@@ -166,6 +178,9 @@ export const BudgetsPage: React.FC = () => {
     setError(null);
     setSuccessMessage(null);
     if (budgetId) {
+      if (searchParams.get('id') !== String(budgetId) && !paramId) {
+        setSearchParams({ id: String(budgetId) });
+      }
       try {
         const full = await budgetsApi.get(budgetId);
         const b: BudgetRecord = full?.data;
@@ -209,12 +224,21 @@ export const BudgetsPage: React.FC = () => {
     setViewMode('form');
   };
 
-  // Auto-open new budget form when ?new=true is in URL and data is ready
+  // Deep-linking: auto-open budget when id is in URL params or query, or when ?new=true
   useEffect(() => {
-    if (searchParams.get('new') === 'true' && !loading) {
-      handleOpenForm();
+    if (loading) return;
+    const rawId = paramId || searchParams.get('id');
+    if (rawId) {
+      const bId = parseInt(rawId, 10);
+      if (!isNaN(bId) && (!activeBudget || activeBudget.id !== bId)) {
+        handleOpenForm(bId);
+      }
+    } else if (searchParams.get('new') === 'true') {
+      if (!activeBudget && viewMode !== 'form') {
+        handleOpenForm();
+      }
     }
-  }, [searchParams, loading]);
+  }, [paramId, searchParams, loading]);
 
   // If opening new form before analytics finished loading, sync initial line when analytics arrive
   useEffect(() => {
@@ -392,7 +416,15 @@ export const BudgetsPage: React.FC = () => {
       setSuccessMessage('Revision created in Draft state.');
       await fetchInitialData();
       // Open the newly created revised budget
-      handleOpenForm(res.data.id);
+      const newId = res.data?.id;
+      if (newId) {
+        if (paramId) {
+          navigate(`/budgets/${newId}`);
+        } else {
+          setSearchParams({ id: String(newId) });
+        }
+        await handleOpenForm(newId);
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to revise budget.');
     } finally {
@@ -425,7 +457,7 @@ export const BudgetsPage: React.FC = () => {
       await budgetsApi.delete(activeBudget.id);
       setSuccessMessage('Budget deleted successfully.');
       await fetchInitialData();
-      setViewMode('list');
+      handleBackToList();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to delete budget.');
     } finally {
@@ -500,7 +532,7 @@ export const BudgetsPage: React.FC = () => {
       viewMode={viewMode}
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
-      onBack={() => setViewMode('list')}
+      onBack={handleBackToList}
     >
       {/* Notifications Banner across list/form */}
       <AnimatePresence>
@@ -694,7 +726,7 @@ export const BudgetsPage: React.FC = () => {
               )}
               <button
                 type="button"
-                onClick={() => setViewMode('list')}
+                onClick={handleBackToList}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-[#8a8a9a] hover:text-white border border-white/[0.08]"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back

@@ -11,8 +11,18 @@ use Illuminate\Support\Facades\DB;
 
 class BudgetController extends Controller
 {
+    private function authorizeBudgetAccess(): void
+    {
+        $user = request()->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant())) {
+            abort(403, 'Unauthorized access to budgets.');
+        }
+    }
+
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $query = Budget::with(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         if ($request->filled('status')) {
@@ -63,6 +73,8 @@ class BudgetController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'start_date' => 'required|date',
@@ -129,6 +141,8 @@ class BudgetController extends Controller
 
     public function show(Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
         return response()->json([
@@ -139,6 +153,8 @@ class BudgetController extends Controller
 
     public function update(Request $request, Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'start_date' => 'sometimes|date',
@@ -207,6 +223,8 @@ class BudgetController extends Controller
 
     public function confirm(Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $budget->update(['status' => 'confirm']);
         $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
@@ -219,6 +237,8 @@ class BudgetController extends Controller
 
     public function revise(Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         if ($budget->status !== 'confirm') {
             return response()->json([
                 'success' => false,
@@ -271,6 +291,8 @@ class BudgetController extends Controller
 
     public function cancel(Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $budget->update(['status' => 'cancelled']);
         $budget->load(['originalBudget', 'revisedBudget', 'lines.analyticAccount']);
 
@@ -283,6 +305,8 @@ class BudgetController extends Controller
 
     public function destroy(Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         if ($budget->status === 'confirm') {
             return response()->json([
                 'success' => false,
@@ -344,6 +368,8 @@ class BudgetController extends Controller
      */
     public function checkLimit(Request $request): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $validated = $request->validate([
             'analytic_account_id' => 'required|exists:analytic_accounts,id',
             'amount' => 'required|numeric|min:0',
@@ -425,6 +451,8 @@ class BudgetController extends Controller
      */
     public function analyticTransactions(Request $request, Budget $budget): JsonResponse
     {
+        $this->authorizeBudgetAccess();
+
         $request->validate([
             'analytic_account_id' => 'required|exists:analytic_accounts,id',
             'type' => 'required|in:income,expense',

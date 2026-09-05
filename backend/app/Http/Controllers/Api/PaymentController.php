@@ -29,6 +29,16 @@ class PaymentController extends Controller
 
         $query = Payment::with(['invoice', 'bankAccount', 'creator', 'reconciler', 'party'])->latest();
 
+        $user = $request->user();
+        if ($user && ! $user->hasPermission(\App\Security\Rbac::PERMISSION_PAYMENTS_VIEW_ANY)) {
+            $query->where(function ($q) use ($user) {
+                $q->where('created_by', $user->id)
+                  ->orWhereHas('invoice', function ($iq) use ($user) {
+                      $iq->where('created_by', $user->id);
+                  });
+            });
+        }
+
         if ($type = $request->query('type')) {
             if ($type === 'customer_receipt') {
                 $query->where('type', 'received');

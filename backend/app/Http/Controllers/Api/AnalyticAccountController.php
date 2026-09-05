@@ -10,8 +10,18 @@ use Illuminate\Support\Facades\DB;
 
 class AnalyticAccountController extends Controller
 {
+    private function authorizeAnalyticAccess(): void
+    {
+        $user = request()->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant())) {
+            abort(403, 'Unauthorized access to analytic accounts.');
+        }
+    }
+
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeAnalyticAccess();
+
         $query = AnalyticAccount::query();
 
         if ($request->filled('type')) {
@@ -99,6 +109,8 @@ class AnalyticAccountController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeAnalyticAccess();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'nullable|string|max:50',
@@ -125,6 +137,7 @@ class AnalyticAccountController extends Controller
 
     public function show(AnalyticAccount $analyticAccount): JsonResponse
     {
+        $this->authorizeAnalyticAccess();
         // Find all budgets where this analytic account is used
         $budgetLines = DB::table('budget_lines')
             ->join('budgets', 'budgets.id', '=', 'budget_lines.budget_id')
@@ -196,6 +209,8 @@ class AnalyticAccountController extends Controller
 
     public function update(Request $request, AnalyticAccount $analyticAccount): JsonResponse
     {
+        $this->authorizeAnalyticAccess();
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'code' => 'nullable|string|max:50',
@@ -222,6 +237,8 @@ class AnalyticAccountController extends Controller
 
     public function destroy(AnalyticAccount $analyticAccount): JsonResponse
     {
+        $this->authorizeAnalyticAccess();
+
         $analyticAccount->delete();
 
         return response()->json([

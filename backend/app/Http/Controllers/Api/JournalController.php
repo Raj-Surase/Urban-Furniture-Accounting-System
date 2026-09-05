@@ -9,8 +9,18 @@ use Illuminate\Http\Request;
 
 class JournalController extends Controller
 {
+    private function authorizeJournalAccess(): void
+    {
+        $user = request()->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant())) {
+            abort(403, 'Unauthorized access to accounting journals.');
+        }
+    }
+
     public function index(\Illuminate\Http\Request $request): JsonResponse
     {
+        $this->authorizeJournalAccess();
+
         $query = Journal::with('defaultAccount')->orderBy('name');
 
         if ($type = $request->query('type')) {
@@ -37,6 +47,8 @@ class JournalController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeJournalAccess();
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:sales,purchase,bank,cash',
@@ -56,6 +68,8 @@ class JournalController extends Controller
 
     public function show(Journal $journal): JsonResponse
     {
+        $this->authorizeJournalAccess();
+
         return response()->json([
             'success' => true,
             'data' => $journal->load('defaultAccount'),
@@ -64,6 +78,8 @@ class JournalController extends Controller
 
     public function update(Request $request, Journal $journal): JsonResponse
     {
+        $this->authorizeJournalAccess();
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'type' => 'sometimes|in:sales,purchase,bank,cash',
@@ -83,6 +99,8 @@ class JournalController extends Controller
 
     public function destroy(Journal $journal): JsonResponse
     {
+        $this->authorizeJournalAccess();
+
         $journal->delete();
 
         return response()->json([

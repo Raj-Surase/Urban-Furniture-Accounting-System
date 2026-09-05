@@ -15,6 +15,11 @@ class ContactController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || (! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_VIEW_ANY) && ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CUSTOMERS_VIEW_ANY))) {
+            abort(403, 'Unauthorized access to contacts directory.');
+        }
+
         $search = $request->query('search');
         $type = $request->query('type'); // 'customer', 'vendor', or null for all
 
@@ -105,6 +110,11 @@ class ContactController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || (! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_MANAGE) && ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CUSTOMERS_CREATE))) {
+            abort(403, 'Unauthorized. Contact management privileges required.');
+        }
+
         $validated = $request->validate([
             'contact_type' => 'required|in:customer,vendor,both',
             'name' => 'required|string|max:255',

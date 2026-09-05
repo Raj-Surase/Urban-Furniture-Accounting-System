@@ -64,9 +64,15 @@ class ProductController extends Controller
             });
         }
 
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+
         $perPage = $request->query('per_page', 20);
         if ($perPage === 'all' || $perPage === '-1') {
             $products = $query->get();
+            if (! $isElevated) {
+                $products->makeHidden(['cost_price', 'cogs_account_id', 'inventory_account_id', 'cogs_account', 'inventory_account']);
+            }
             return response()->json([
                 'data' => $products,
                 'total' => $products->count(),
@@ -74,6 +80,9 @@ class ProductController extends Controller
         }
 
         $products = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
+        if (! $isElevated) {
+            $products->getCollection()->makeHidden(['cost_price', 'cogs_account_id', 'inventory_account_id', 'cogs_account', 'inventory_account']);
+        }
 
         return response()->json($products);
     }
@@ -146,13 +155,19 @@ class ProductController extends Controller
         ], 201);
     }
 
-    public function show(Product $product): JsonResponse
+    public function show(Request $request, Product $product): JsonResponse
     {
         Gate::authorize('view', $product);
 
         $product->load(['inventoryAccount', 'cogsAccount', 'revenueAccount', 'movements' => function ($q) {
             $q->latest()->limit(20);
         }]);
+
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+        if (! $isElevated) {
+            $product->makeHidden(['cost_price', 'cogs_account_id', 'inventory_account_id', 'cogs_account', 'inventory_account']);
+        }
 
         return response()->json([
             'data' => $product,

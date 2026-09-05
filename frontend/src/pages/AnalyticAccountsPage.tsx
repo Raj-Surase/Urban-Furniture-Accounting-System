@@ -313,7 +313,7 @@ export const AnalyticAccountsPage: React.FC = () => {
                   exceededBy: b.exceeded_amount ?? Math.max(0, b.achieved - b.committed),
                   type,
                 }))}
-              onReviseBudget={() => navigate('/budgets')}
+              onReviseBudget={(bId) => navigate(bId ? `/budgets?id=${bId}` : '/budgets')}
             />
           )}
 
@@ -498,7 +498,7 @@ export const AnalyticAccountsPage: React.FC = () => {
                         <td className="py-2.5 px-3">
                           <button
                             type="button"
-                            onClick={() => navigate('/budgets')}
+                            onClick={() => navigate(b.budget_id ? `/budgets?id=${b.budget_id}` : '/budgets')}
                             className="font-semibold text-[#7042f4] hover:underline text-left flex items-center gap-1.5"
                           >
                             <span>{b.budget_name}</span>

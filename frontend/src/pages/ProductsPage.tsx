@@ -81,7 +81,8 @@ const productColumnDefs: ColumnFilterDef[] = [
 ];
 
 export const ProductsPage: React.FC = () => {
-  const { isAdmin, isManager } = useAuth();
+  const { isAdmin, isManager, isAccountant } = useAuth();
+  const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
 
   const [products, setProducts] = useState<any[]>([]);
@@ -130,7 +131,7 @@ export const ProductsPage: React.FC = () => {
       setLoading(true);
       const [prodRes, accRes] = await Promise.all([
         productsApi.list(),
-        accountsApi.list().catch(() => ({ data: [] })),
+        isElevated ? accountsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
       ]);
       const list = Array.isArray(prodRes?.data) ? prodRes.data : Array.isArray(prodRes) ? prodRes : [];
       setProducts(list.filter(Boolean));
@@ -366,6 +367,14 @@ export const ProductsPage: React.FC = () => {
     pageSize: 15,
   });
 
+  const activeFilterConfigs = isElevated
+    ? productFilterConfigs
+    : productFilterConfigs.filter((f) => f.key !== 'cost_price');
+
+  const activeColumnDefs = isElevated
+    ? productColumnDefs
+    : productColumnDefs.filter((c) => c.key !== 'cost_price');
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -413,7 +422,7 @@ export const ProductsPage: React.FC = () => {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search product SKU, name, category, HSN..."
-          filterConfigs={productFilterConfigs}
+          filterConfigs={activeFilterConfigs}
           activeFilters={activeFilters}
           onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
           onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
@@ -445,7 +454,7 @@ export const ProductsPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Type</th>
                 <th className="py-3 px-4">Category</th>
                 <th className="py-3 px-4 text-center">HSN Code</th>
-                <th className="py-3 px-4 text-right">Cost (₹)</th>
+                {isElevated && <th className="py-3 px-4 text-right">Cost (₹)</th>}
                 <th className="py-3 px-4 text-right">Selling Price (₹)</th>
                 <th className="py-3 px-4 text-center">GST %</th>
                 <th className="py-3 px-4 text-right">Current Stock</th>
@@ -453,7 +462,7 @@ export const ProductsPage: React.FC = () => {
               </tr>
               {showColumnFilters && (
                 <ColumnFilterRow
-                  columns={productColumnDefs}
+                  columns={activeColumnDefs}
                   values={columnFilters}
                   onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
                 />
@@ -461,11 +470,11 @@ export const ProductsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <TableSkeleton rows={6} cols={10} />
+                <TableSkeleton rows={6} cols={isElevated ? 10 : 9} />
               ) : visibleProducts.length === 0 ? (
                 <EmptyState
                   icon={Package}
-                  colSpan={10}
+                  colSpan={isElevated ? 10 : 9}
                   title="No products found"
                   description="Add raw materials, finished furniture, or hardware to your inventory catalog."
                   actionLabel="New Product"
@@ -504,9 +513,11 @@ export const ProductsPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-4 text-neutral-400">{prod.category || 'General'}</td>
                       <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.hsn_code || '9403'}</td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
-                        ₹{Number(prod.cost_price || 0).toLocaleString('en-IN')}
-                      </td>
+                      {isElevated && (
+                        <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                          ₹{Number(prod.cost_price || 0).toLocaleString('en-IN')}
+                        </td>
+                      )}
                       <td className="py-3 px-4 text-right font-mono font-bold text-white">
                         ₹{Number(prod.price).toLocaleString('en-IN')}
                       </td>
@@ -1184,13 +1195,23 @@ export const ProductsPage: React.FC = () => {
                   <div className="text-[10px] text-neutral-500">GST Rate: {detailProduct?.gst_rate || 18}%</div>
                 </div>
 
-                <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
-                  <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Inventory Valuation</div>
-                  <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
-                    ₹{(Number(detailProduct?.current_stock || 0) * Number(detailProduct?.cost_price || 0)).toLocaleString('en-IN')}
+                {isElevated ? (
+                  <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                    <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Inventory Valuation</div>
+                    <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
+                      ₹{(Number(detailProduct?.current_stock || 0) * Number(detailProduct?.cost_price || 0)).toLocaleString('en-IN')}
+                    </div>
+                    <div className="text-[10px] text-neutral-500">Unit Cost: ₹{Number(detailProduct?.cost_price || 0).toLocaleString('en-IN')}</div>
                   </div>
-                  <div className="text-[10px] text-neutral-500">Unit Cost: ₹{Number(detailProduct?.cost_price || 0).toLocaleString('en-IN')}</div>
-                </div>
+                ) : (
+                  <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                    <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Unit of Measure</div>
+                    <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5 capitalize">
+                      {detailProduct?.unit_of_measure || 'Unit'}
+                    </div>
+                    <div className="text-[10px] text-neutral-500">Classification: {detailProduct?.category || 'Furniture'}</div>
+                  </div>
+                )}
               </div>
 
               {/* Specifications & Classification */}
@@ -1205,14 +1226,21 @@ export const ProductsPage: React.FC = () => {
                     <span className="text-neutral-500">GST Slab:</span>{' '}
                     <span className="font-mono font-bold text-white">{detailProduct?.gst_rate || 18}% GST</span>
                   </div>
-                  <div>
-                    <span className="text-neutral-500">Gross Margin:</span>{' '}
-                    <span className="font-mono font-bold text-emerald-400">
-                      {detailProduct?.price && detailProduct?.cost_price
-                        ? `${Math.round(((detailProduct.price - detailProduct.cost_price) / detailProduct.price) * 100)}%`
-                        : 'N/A'}
-                    </span>
-                  </div>
+                  {isElevated ? (
+                    <div>
+                      <span className="text-neutral-500">Gross Margin:</span>{' '}
+                      <span className="font-mono font-bold text-emerald-400">
+                        {detailProduct?.price && detailProduct?.cost_price
+                          ? `${Math.round(((detailProduct.price - detailProduct.cost_price) / detailProduct.price) * 100)}%`
+                          : 'N/A'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-neutral-500">Category:</span>{' '}
+                      <span className="font-semibold text-neutral-200">{detailProduct?.category || 'General'}</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-neutral-500">Status:</span>{' '}
                     <span

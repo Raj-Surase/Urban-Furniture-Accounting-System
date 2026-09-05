@@ -38,7 +38,9 @@ class DashboardController extends Controller
                 default => $now->copy()->subDays(30)->startOfDay(), // month
             };
 
-            if ($user->isAdmin() || $user->isManager()) {
+            $isElevated = $user->isAdmin() || $user->isManager() || $user->isAccountant();
+
+            if ($isElevated) {
                 // Cash & Bank: pull balance from GL account code 1110
                 $bankAcc = Account::where('code', '1110')->first();
                 $bankBalance = $bankAcc ? (float) $bankAcc->current_balance : 0.00;
@@ -153,11 +155,13 @@ class DashboardController extends Controller
                 ];
             }
 
-            // --- Standard User / Clerk: personal work summary ---
+            // --- Standard User / Customer / Clerk: strictly isolated personal summary ---
             $myDraftPos = PurchaseOrder::where('created_by', $user->id)->where('status', 'draft')->count();
             $myDraftSos = SalesOrder::where('created_by', $user->id)->where('status', 'draft')->count();
             $myTotalOrders = SalesOrder::where('created_by', $user->id)->count() + PurchaseOrder::where('created_by', $user->id)->count();
-            $lowStockCount = Product::whereColumn('current_stock', '<=', 'reorder_point')->count();
+            $myTotalSpent = (float) SalesOrder::where('created_by', $user->id)->whereIn('status', ['confirmed', 'approved', 'delivered'])->sum('total_amount');
+            $myInvoicesCount = Invoice::where('created_by', $user->id)->count();
+            $myCompletedCount = SalesOrder::where('created_by', $user->id)->where('status', 'delivered')->count();
 
             return [
                 'role' => $user->role,
@@ -166,9 +170,10 @@ class DashboardController extends Controller
                     'my_draft_pos' => $myDraftPos,
                     'my_draft_sos' => $myDraftSos,
                     'my_total_orders' => $myTotalOrders,
-                    'catalog_low_stock_count' => $lowStockCount,
+                    'my_invoices_count' => $myInvoicesCount,
+                    'my_total_spent' => round($myTotalSpent, 2),
                     'total_items_count' => $myTotalOrders,
-                    'completed_count' => 0,
+                    'completed_count' => $myCompletedCount,
                     'in_progress_count' => $myDraftPos + $myDraftSos,
                     'equalizer' => $this->generateEqualizerBars(),
                 ],
@@ -183,12 +188,27 @@ class DashboardController extends Controller
      */
     public function recentTransactions(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+
         $page = max(1, (int) $request->query('page', 1));
         $perPage = max(1, min(100, (int) $request->query('per_page', 10)));
 
         $fetchLimit = max(50, $page * $perPage + 20);
-        $invoices = Invoice::latest('created_at')->limit($fetchLimit)->get();
-        $payments = Payment::with('bankAccount')->latest('created_at')->limit($fetchLimit)->get();
+
+        $invQuery = Invoice::latest('created_at');
+        $payQuery = Payment::with('bankAccount')->latest('created_at');
+
+        if (! $isElevated) {
+            $invQuery->where('created_by', $user->id);
+            $payQuery->where(function ($q) use ($user) {
+                $q->where('created_by', $user->id)
+                  ->orWhereHas('invoice', fn($iq) => $iq->where('created_by', $user->id));
+            });
+        }
+
+        $invoices = $invQuery->limit($fetchLimit)->get();
+        $payments = $payQuery->limit($fetchLimit)->get();
 
         $transactions = collect();
 
@@ -218,7 +238,9 @@ class DashboardController extends Controller
 
         foreach ($payments as $pay) {
             $isReceived = $pay->type === 'received';
-            $partyName = $pay->invoice?->party?->name ?? ($pay->bankAccount?->name ?? 'HDFC Bank Account');
+            $partyName = $isElevated
+                ? ($pay->invoice?->party?->name ?? ($pay->bankAccount?->name ?? 'Bank Account'))
+                : ($pay->invoice?->party?->name ?? 'Online Payment');
             $category = $isReceived ? 'Settlement' : 'Vendor Payment';
             $categoryColor = $isReceived
                 ? 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
@@ -241,12 +263,17 @@ class DashboardController extends Controller
         }
 
         $sorted = $transactions->sortByDesc('created_at')->values();
-        $total = Invoice::count() + Payment::count();
+        $totalInvoices = $isElevated ? Invoice::count() : Invoice::where('created_by', $user->id)->count();
+        $totalPayments = $isElevated ? Payment::count() : Payment::where('created_by', $user->id)->count();
+        $total = $totalInvoices + $totalPayments;
+
         $paginated = $sorted->forPage($page, $perPage)->values();
         $lastPage = max(1, (int) ceil($total / $perPage));
 
-        // Keep journal entries for backward compatibility
-        $entries = JournalEntry::with('lines.account')->latest('posting_date')->limit(10)->get();
+        // Keep journal entries for elevated users, strictly omit for standard users
+        $entries = $isElevated
+            ? JournalEntry::with('lines.account')->latest('posting_date')->limit(10)->get()
+            : collect();
 
         return response()->json([
             'data' => $paginated,
@@ -265,6 +292,9 @@ class DashboardController extends Controller
      */
     public function analytics(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+
         $months = [];
         $now = now();
 
@@ -273,15 +303,24 @@ class DashboardController extends Controller
             $start = $m->copy()->startOfMonth();
             $end = $m->copy()->endOfMonth();
 
-            $revenue = (float) Invoice::where('type', 'receivable')
-                ->whereIn('status', ['approved', 'partially_paid', 'paid'])
-                ->whereBetween('created_at', [$start, $end])
-                ->sum('total_amount');
+            if ($isElevated) {
+                $revenue = (float) Invoice::where('type', 'receivable')
+                    ->whereIn('status', ['approved', 'partially_paid', 'paid'])
+                    ->whereBetween('created_at', [$start, $end])
+                    ->sum('total_amount');
 
-            $expenses = (float) Invoice::where('type', 'payable')
-                ->whereIn('status', ['approved', 'partially_paid', 'paid'])
-                ->whereBetween('created_at', [$start, $end])
-                ->sum('total_amount');
+                $expenses = (float) Invoice::where('type', 'payable')
+                    ->whereIn('status', ['approved', 'partially_paid', 'paid'])
+                    ->whereBetween('created_at', [$start, $end])
+                    ->sum('total_amount');
+            } else {
+                $revenue = (float) SalesOrder::where('created_by', $user->id)
+                    ->whereIn('status', ['confirmed', 'approved', 'delivered'])
+                    ->whereBetween('created_at', [$start, $end])
+                    ->sum('total_amount');
+
+                $expenses = 0.00;
+            }
 
             $months[] = [
                 'month' => $m->format('M'),
@@ -295,8 +334,8 @@ class DashboardController extends Controller
         $maxRev = collect($months)->max('revenue');
         $maxExp = collect($months)->max('expenses');
 
-        // If dataset has only single-month records, normalize with actual totals over realistic curve
-        if ($maxRev <= 0 && $maxExp <= 0) {
+        // Only normalize with simulated curve for elevated users if real dataset is empty
+        if ($isElevated && $maxRev <= 0 && $maxExp <= 0) {
             $totalRev = (float) Invoice::where('type', 'receivable')->sum('total_amount') ?: 124500.00;
             $totalExp = (float) Invoice::where('type', 'payable')->sum('total_amount') ?: 68400.00;
 
@@ -327,6 +366,9 @@ class DashboardController extends Controller
      */
     public function activity(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+
         $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         $hours = ['1pm', '2pm', '3pm', '4pm', '5pm', '6pm'];
         $hourMap = [13 => 0, 14 => 1, 15 => 2, 16 => 3, 17 => 4, 18 => 5];
@@ -334,20 +376,29 @@ class DashboardController extends Controller
         $counts = array_fill(0, 6, array_fill(0, 7, 0));
 
         $dates = collect();
-        foreach (Invoice::select('created_at')->get() as $item) {
-            if ($item->created_at) $dates->push($item->created_at);
-        }
-        foreach (Payment::select('created_at')->get() as $item) {
-            if ($item->created_at) $dates->push($item->created_at);
-        }
-        foreach (SalesOrder::select('created_at')->get() as $item) {
-            if ($item->created_at) $dates->push($item->created_at);
-        }
-        foreach (PurchaseOrder::select('created_at')->get() as $item) {
-            if ($item->created_at) $dates->push($item->created_at);
-        }
-        foreach (JournalEntry::select('created_at')->get() as $item) {
-            if ($item->created_at) $dates->push($item->created_at);
+        if ($isElevated) {
+            foreach (Invoice::select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+            foreach (Payment::select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+            foreach (SalesOrder::select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+            foreach (PurchaseOrder::select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+            foreach (JournalEntry::select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+        } else {
+            foreach (SalesOrder::where('created_by', $user->id)->select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
+            foreach (Invoice::where('created_by', $user->id)->select('created_at')->get() as $item) {
+                if ($item->created_at) $dates->push($item->created_at);
+            }
         }
 
         foreach ($dates as $date) {
@@ -422,6 +473,24 @@ class DashboardController extends Controller
      */
     public function alerts(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+
+        if (! $isElevated) {
+            $overdueInvoices = Invoice::where('created_by', $user->id)
+                ->where('due_date', '<', now()->toDateString())
+                ->whereIn('status', ['approved', 'partially_paid'])
+                ->where('balance_due', '>', 0)
+                ->select(['id', 'invoice_number', 'type', 'due_date', 'balance_due', 'party_type', 'party_id'])
+                ->get();
+
+            return response()->json([
+                'low_stock' => [],
+                'overdue_invoices' => $overdueInvoices,
+                'pending_purchase_approvals' => [],
+            ]);
+        }
+
         $lowStock = Product::whereColumn('current_stock', '<=', 'reorder_point')
             ->select(['id', 'sku', 'name', 'current_stock', 'reorder_point'])
             ->get();

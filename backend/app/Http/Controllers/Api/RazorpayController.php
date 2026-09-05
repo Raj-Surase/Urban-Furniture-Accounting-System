@@ -133,7 +133,7 @@ class RazorpayController extends Controller
         $query = PaymentTransaction::with(['source', 'party', 'payment', 'creator'])->latest();
 
         // Standard users only see transactions they initiated or their associated invoices
-        if (!$request->user()->isAdmin() && !$request->user()->isManager()) {
+        if (!$request->user()->isAdmin() && !$request->user()->isManager() && !$request->user()->isAccountant()) {
             $query->where('created_by', $request->user()->id);
         }
 
@@ -182,6 +182,13 @@ class RazorpayController extends Controller
      */
     public function showTransaction(PaymentTransaction $transaction): JsonResponse
     {
+        $user = request()->user();
+        if ($user && ! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant()) {
+            if ($transaction->created_by !== $user->id) {
+                abort(403, 'Unauthorized access to transaction.');
+            }
+        }
+
         $transaction->load(['source', 'party', 'payment', 'creator']);
 
         return response()->json([
@@ -198,6 +205,11 @@ class RazorpayController extends Controller
      */
     public function syncTransaction(PaymentTransaction $transaction, Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant())) {
+            abort(403, 'Unauthorized. Manager or Accountant privileges required.');
+        }
+
         try {
             $updated = $this->transactionService->syncGatewayStatus($transaction, $request->user());
             return response()->json([
@@ -220,6 +232,11 @@ class RazorpayController extends Controller
      */
     public function refundTransaction(PaymentTransaction $transaction, Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (! $user || (! $user->isAdmin() && ! $user->isManager() && ! $user->isAccountant())) {
+            abort(403, 'Unauthorized. Manager or Accountant privileges required.');
+        }
+
         $validated = $request->validate([
             'amount' => ['nullable', 'numeric', 'min:0.01'],
             'reason' => ['required', 'string', 'max:255'],
