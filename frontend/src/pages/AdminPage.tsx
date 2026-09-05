@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../lib/api';
 import { formatApiError } from '../lib/errorHandler';
 import {
@@ -18,6 +18,11 @@ import { PageTransition } from '../components/layout/PageTransition';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   ShieldCheck,
   Users,
@@ -37,6 +42,38 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types';
 
+const userFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Name', type: 'text', placeholder: 'Filter by name...' },
+  { key: 'email', label: 'Email', type: 'text', placeholder: 'Filter by email...' },
+  {
+    key: 'role',
+    label: 'Role',
+    type: 'select',
+    options: [
+      { label: 'Admin', value: UserRole.ADMIN },
+      { label: 'Manager / Accountant', value: UserRole.MANAGER },
+      { label: 'Standard User / Contact', value: UserRole.USER },
+    ],
+  },
+  { key: 'items_count', label: 'Authored Items', type: 'number', placeholder: 'Items count...' },
+];
+
+const userColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter user...' },
+  { key: 'email', filterType: 'text', placeholder: 'Filter email...' },
+  {
+    key: 'role',
+    filterType: 'select',
+    options: [
+      { label: 'Admin', value: UserRole.ADMIN },
+      { label: 'Manager / Accountant', value: UserRole.MANAGER },
+      { label: 'Standard User', value: UserRole.USER },
+    ],
+  },
+  { key: 'items_count', filterType: 'number', placeholder: 'Items...' },
+  { key: 'actions', filterType: 'none' },
+];
+
 export const AdminPage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [stats, setStats] = useState<any>(null);
@@ -46,6 +83,57 @@ export const AdminPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
   const [selectedUserDetail, setSelectedUserDetail] = useState<any>(null);
+
+  // User Filter & Pagination State
+  const [search, setSearch] = useState('');
+  const [rolePreset, setRolePreset] = useState<string>('all');
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
+
+  const allActiveFilters = useMemo(() => {
+    const combined: ActiveFieldFilter[] = [...activeFilters];
+    for (const [key, value] of Object.entries(columnFilters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        const conf = userFilterConfigs.find((c) => c.key === key);
+        combined.push({
+          id: `col-${key}`,
+          field: key,
+          operator: conf?.type === 'number' ? 'equals' : conf?.type === 'select' ? 'equals' : 'contains',
+          value,
+        });
+      }
+    }
+    return combined;
+  }, [activeFilters, columnFilters]);
+
+  const filteredUsers = useMemo(() => {
+    let list = users;
+    if (rolePreset && rolePreset !== 'all') {
+      list = list.filter((u) => u.role === rolePreset);
+    }
+    const searchFields = ['name', 'email', 'role'];
+    return filterItems(list, search, searchFields, allActiveFilters);
+  }, [users, rolePreset, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleUsers,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredUsers,
+    pageSize: 15,
+  });
+
+  const handleClearFilters = () => {
+    setSearch('');
+    setRolePreset('all');
+    setActiveFilters([]);
+    setColumnFilters({});
+  };
 
   // Manager Onboarding State
   const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
@@ -310,6 +398,30 @@ export const AdminPage: React.FC = () => {
                       </span>
                     </div>
 
+                    <FieldFilterBar
+                      searchQuery={search}
+                      onSearchChange={setSearch}
+                      searchPlaceholder="Search personnel by name, email, or role..."
+                      filterConfigs={userFilterConfigs}
+                      activeFilters={activeFilters}
+                      onAddFilter={(filter: ActiveFieldFilter) => setActiveFilters((prev) => [...prev, filter])}
+                      onRemoveFilter={(id: string) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+                      onClearAll={handleClearFilters}
+                      presets={{
+                        field: 'role',
+                        currentValue: rolePreset,
+                        onChange: (val: string) => setRolePreset(val),
+                        options: [
+                          { label: 'All Roles', value: 'all' },
+                          { label: 'Admin', value: UserRole.ADMIN },
+                          { label: 'Accountant', value: UserRole.MANAGER },
+                          { label: 'User / Contact', value: UserRole.USER },
+                        ],
+                      }}
+                      showColumnFilters={showColumnFilters}
+                      onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+                    />
+
                     <div className="overflow-x-auto rounded-2xl border border-white/[0.06] bg-[#141418]">
                       <table className="w-full text-left text-xs text-foreground">
                         <thead className="bg-[#1c1c24] text-[#8e8e9f] font-mono uppercase text-[10px] tracking-wider border-b border-white/[0.06]">
@@ -320,19 +432,26 @@ export const AdminPage: React.FC = () => {
                             <th className="py-3 px-4">Authored Items</th>
                             <th className="py-3 px-4 text-right">Assign Role</th>
                           </tr>
+                          {showColumnFilters && (
+                            <ColumnFilterRow
+                              columns={userColumnDefs}
+                              values={columnFilters}
+                              onChange={(key: string, val: string) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                            />
+                          )}
                         </thead>
                         <tbody className="divide-y divide-white/[0.04]">
                           {loading ? (
                             <TableSkeleton columns={5} rows={5} />
-                          ) : users.length === 0 ? (
+                          ) : visibleUsers.length === 0 ? (
                             <EmptyState
                               colSpan={5}
                               icon={Users}
                               title="No users found"
-                              description="No personnel accounts currently registered in the directory."
+                              description="No personnel accounts match your search and filter criteria."
                             />
                           ) : (
-                            users.map((u) => {
+                            visibleUsers.map((u) => {
                               const isSelf = currentUser?.id === u.id;
                               const isSoleAdmin = u.role === UserRole.ADMIN && adminUsersCount <= 1;
                               const isUpdating = updatingUserId === u.id;
@@ -421,6 +540,16 @@ export const AdminPage: React.FC = () => {
                       </tbody>
                       </table>
                     </div>
+
+                    <ScrollSentinel
+                      sentinelRef={sentinelRef}
+                      loadingMore={loadingMore}
+                      hasMore={hasMore}
+                      totalCount={totalCount}
+                      visibleCount={visibleUsers.length}
+                      onLoadMore={loadMore}
+                      entityName="users"
+                    />
                   </div>
                 </Tab>
 

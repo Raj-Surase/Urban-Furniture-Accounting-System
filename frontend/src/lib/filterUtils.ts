@@ -133,3 +133,4 @@ export function filterItems<T>(
 
   return items.filter((item) => evaluateItemMatch(item, searchQuery, searchFields, activeFilters));
 }
+

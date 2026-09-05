@@ -45,7 +45,13 @@ class ItemController extends Controller
             $query->where('priority', $priority);
         }
 
-        $items = $query->paginate($request->query('per_page', 15));
+        $perPage = $request->query('per_page', 15);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $items = $query->get();
+            return ItemResource::collection($items);
+        }
+
+        $items = $query->paginate(is_numeric($perPage) ? (int)$perPage : 15);
 
         return ItemResource::collection($items);
     }

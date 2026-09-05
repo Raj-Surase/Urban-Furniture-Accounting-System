@@ -4,7 +4,47 @@ import { motion } from 'framer-motion';
 import { BookOpen, Plus, Check, ArrowLeft, Building2 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { journalsApi, accountsApi } from '../lib/api';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { JournalType } from '../types';
+
+const journalDefFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Journal Name', type: 'text', placeholder: 'e.g. Sales...' },
+  {
+    key: 'type',
+    label: 'Journal Type',
+    type: 'select',
+    options: [
+      { label: 'Sales', value: JournalType.SALES },
+      { label: 'Purchase', value: JournalType.PURCHASE },
+      { label: 'Bank', value: JournalType.BANK },
+      { label: 'Cash', value: JournalType.CASH },
+      { label: 'General', value: JournalType.GENERAL },
+    ],
+  },
+  { key: 'description', label: 'Description', type: 'text', placeholder: 'Search notes...' },
+];
+
+const journalDefColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter name...' },
+  {
+    key: 'type',
+    filterType: 'select',
+    options: [
+      { label: 'Sales', value: JournalType.SALES },
+      { label: 'Purchase', value: JournalType.PURCHASE },
+      { label: 'Bank', value: JournalType.BANK },
+      { label: 'Cash', value: JournalType.CASH },
+      { label: 'General', value: JournalType.GENERAL },
+    ],
+  },
+  { key: 'default_account_name', filterType: 'text', placeholder: 'Filter account...' },
+  { key: 'description', filterType: 'text', placeholder: 'Filter notes...' },
+  { key: 'actions', filterType: 'none' },
+];
 
 interface Journal {
   id: number;
@@ -27,6 +67,12 @@ export const JournalsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
 
+  // Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+
   // Form State
   const [activeJournal, setActiveJournal] = useState<Journal | null>(null);
   const [name, setName] = useState<string>('');
@@ -40,8 +86,8 @@ export const JournalsPage: React.FC = () => {
     setLoading(true);
     try {
       const [jRes, aRes] = await Promise.all([
-        journalsApi.list(),
-        accountsApi.list(),
+        journalsApi.list({ per_page: 'all' }),
+        accountsApi.list({ per_page: 'all' }),
       ]);
       setJournals(jRes?.data || []);
       setAccounts(aRes?.data || []);
@@ -109,11 +155,57 @@ export const JournalsPage: React.FC = () => {
     }
   };
 
-  const filteredJournals = journals.filter((j) =>
-    j.name.toLowerCase().includes(search.toLowerCase()) ||
-    j.type.toLowerCase().includes(search.toLowerCase()) ||
-    j.default_account?.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const preparedJournals = React.useMemo(() => {
+    return (journals || []).map((j) => ({
+      ...j,
+      default_account_name: j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '',
+    }));
+  }, [journals]);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = journalDefFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (typeFilter !== 'all') {
+      merged.push({
+        id: 'quick-type',
+        field: 'type',
+        operator: 'equals',
+        value: typeFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, typeFilter]);
+
+  const filteredJournals = React.useMemo(() => {
+    return filterItems(
+      preparedJournals,
+      search,
+      ['name', 'type', 'default_account_name', 'description'],
+      allActiveFilters
+    );
+  }, [preparedJournals, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleJournals,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredJournals,
+    pageSize: 15,
+  });
 
   return (
     <MasterViewLayout
@@ -123,9 +215,6 @@ export const JournalsPage: React.FC = () => {
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
       onBack={() => setViewMode('list')}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search journals..."
     >
       {viewMode === 'form' ? (
         <form onSubmit={handleSave} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6 max-w-2xl">
@@ -246,60 +335,110 @@ export const JournalsPage: React.FC = () => {
           </div>
         </form>
       ) : (
-        <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3.5 px-4">Journal Name</th>
-                  <th className="py-3.5 px-4">Type</th>
-                  <th className="py-3.5 px-4">Default Account</th>
-                  <th className="py-3.5 px-4">Description</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredJournals.map((j) => (
-                  <tr
-                    key={j.id}
-                    onClick={() => handleOpenForm(j)}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-[#7042f4]" />
-                      <span>{j.name}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-[#c084fc] border border-white/[0.06]">
-                        {j.type}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-[#a0a0b0]">
-                      {j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-[#8a8a9a] max-w-xs truncate">
-                      {j.description || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => navigate(`/journal?search=${encodeURIComponent(j.name)}`)}
-                        className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-[#a0a0b0] text-[11px] font-semibold transition-colors"
-                        title="View Journal Entries for this journal"
-                      >
-                        Entries →
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {filteredJournals.length === 0 && !loading && (
+        <div className="space-y-4">
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search journals by name, type, account..."
+            filterConfigs={journalDefFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setActiveFilters([]);
+              setColumnFilters({});
+              setSearch('');
+              setTypeFilter('all');
+            }}
+            presets={{
+              field: 'type',
+              currentValue: typeFilter,
+              onChange: setTypeFilter,
+              options: [
+                { label: 'All Types', value: 'all' },
+                { label: 'Sales', value: JournalType.SALES },
+                { label: 'Purchase', value: JournalType.PURCHASE },
+                { label: 'Bank', value: JournalType.BANK },
+                { label: 'Cash', value: JournalType.CASH },
+                { label: 'General', value: JournalType.GENERAL },
+              ],
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+          />
+
+          <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-[#707080]">
-                      No journals found. Click "+ New" to create one.
-                    </td>
+                    <th className="py-3.5 px-4">Journal Name</th>
+                    <th className="py-3.5 px-4">Type</th>
+                    <th className="py-3.5 px-4">Default Account</th>
+                    <th className="py-3.5 px-4">Description</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {showColumnFilters && (
+                    <ColumnFilterRow
+                      columns={journalDefColumnDefs}
+                      values={columnFilters}
+                      onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  )}
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {visibleJournals.map((j) => (
+                    <tr
+                      key={j.id}
+                      onClick={() => handleOpenForm(j)}
+                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-[#7042f4]" />
+                        <span>{j.name}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-[#c084fc] border border-white/[0.06]">
+                          {j.type}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-[#a0a0b0]">
+                        {j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-[#8a8a9a] max-w-xs truncate">
+                        {j.description || '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => navigate(`/journal?search=${encodeURIComponent(j.name)}`)}
+                          className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-[#a0a0b0] text-[11px] font-semibold transition-colors"
+                          title="View Journal Entries for this journal"
+                        >
+                          Entries →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {visibleJournals.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-[#707080]">
+                        No journals found matching the filters. Click "+ New" to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <ScrollSentinel
+              sentinelRef={sentinelRef}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              totalCount={totalCount}
+              visibleCount={visibleJournals.length}
+              onLoadMore={loadMore}
+              entityName="journals"
+            />
           </div>
         </div>
       )}

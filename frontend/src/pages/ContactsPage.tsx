@@ -3,7 +3,47 @@ import { motion } from 'framer-motion';
 import { User, Mail, Phone, MapPin, Building, Image as ImageIcon, Check, ArrowLeft, Plus } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { contactsApi } from '../lib/api';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { ContactType } from '../types';
+
+const contactFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Contact Name', type: 'text', placeholder: 'e.g. Acme...' },
+  { key: 'email', label: 'Email', type: 'text', placeholder: 'Email...' },
+  { key: 'phone', label: 'Phone', type: 'text', placeholder: 'Phone...' },
+  { key: 'gstin', label: 'GSTIN', type: 'text', placeholder: 'GSTIN...' },
+  {
+    key: 'contact_type',
+    label: 'Contact Type',
+    type: 'select',
+    options: [
+      { label: 'Customer', value: ContactType.CUSTOMER },
+      { label: 'Vendor', value: ContactType.VENDOR },
+    ],
+  },
+  { key: 'city', label: 'City', type: 'text', placeholder: 'City...' },
+  { key: 'state', label: 'State', type: 'text', placeholder: 'State...' },
+];
+
+const contactColumnDefs: ColumnFilterDef[] = [
+  { key: 'select', filterType: 'none' },
+  { key: 'image', filterType: 'none' },
+  { key: 'name', filterType: 'text', placeholder: 'Filter name...' },
+  { key: 'email', filterType: 'text', placeholder: 'Filter email...' },
+  { key: 'phone', filterType: 'text', placeholder: 'Filter phone...' },
+  { key: 'gstin', filterType: 'text', placeholder: 'Filter GSTIN...' },
+  {
+    key: 'contact_type',
+    filterType: 'select',
+    options: [
+      { label: 'Customer', value: ContactType.CUSTOMER },
+      { label: 'Vendor', value: ContactType.VENDOR },
+    ],
+  },
+];
 
 interface Contact {
   id: number;
@@ -28,6 +68,11 @@ export const ContactsPage: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'all' | ContactType>('all');
 
+  // Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
   // Form state
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [formData, setFormData] = useState({
@@ -51,8 +96,7 @@ export const ContactsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await contactsApi.list({
-        search: search || undefined,
-        type: selectedType === 'all' ? undefined : selectedType,
+        per_page: 'all',
       });
       setContacts(res?.data || []);
     } catch (err) {
@@ -64,7 +108,7 @@ export const ContactsPage: React.FC = () => {
 
   useEffect(() => {
     fetchContacts();
-  }, [search, selectedType]);
+  }, []);
 
   const handleOpenForm = (contact?: Contact) => {
     if (contact) {
@@ -133,6 +177,51 @@ export const ContactsPage: React.FC = () => {
     }
   };
 
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = contactFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (selectedType !== 'all') {
+      merged.push({
+        id: 'quick-type',
+        field: 'contact_type',
+        operator: 'equals',
+        value: selectedType,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, selectedType]);
+
+  const filteredContacts = React.useMemo(() => {
+    return filterItems(
+      contacts,
+      search,
+      ['name', 'email', 'phone', 'gstin', 'city', 'state'],
+      allActiveFilters
+    );
+  }, [contacts, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleContacts,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredContacts,
+    pageSize: 15,
+  });
+
   return (
     <MasterViewLayout
       title={viewMode === 'form' ? (activeContact ? 'Contact Details' : 'New Contact') : 'Contacts Master'}
@@ -141,28 +230,6 @@ export const ContactsPage: React.FC = () => {
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
       onBack={() => setViewMode('list')}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search by name, email, or phone..."
-      extraHeaderActions={
-        viewMode !== 'form' ? (
-          <div className="flex items-center gap-1.5 bg-[#121216] border border-white/[0.08] p-1 rounded-xl text-xs">
-            {(['all', ContactType.CUSTOMER, ContactType.VENDOR] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setSelectedType(t)}
-                className={`px-3 py-1 rounded-lg capitalize transition-all ${
-                  selectedType === t
-                    ? 'bg-[#7042f4] text-white font-semibold shadow-sm'
-                    : 'text-[#8a8a9a] hover:text-white'
-                }`}
-              >
-                {t === 'all' ? 'All' : `${t}s`}
-              </button>
-            ))}
-          </div>
-        ) : null
-      }
     >
       {/* FORM VIEW */}
       {viewMode === 'form' ? (
@@ -374,7 +441,7 @@ export const ContactsPage: React.FC = () => {
       ) : viewMode === 'kanban' ? (
         /* KANBAN VIEW */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {contacts.map((c) => (
+          {visibleContacts.map((c) => (
             <motion.div
               key={`${c.contact_type}-${c.id}`}
               onClick={() => handleOpenForm(c)}
@@ -418,62 +485,114 @@ export const ContactsPage: React.FC = () => {
               </div>
             </motion.div>
           ))}
+          {visibleContacts.length === 0 && !loading && (
+            <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
+              No contacts found matching current filters. Click "+ New" to add one.
+            </div>
+          )}
         </div>
       ) : (
         /* LIST VIEW */
-        <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3.5 px-4 w-12 text-center">Select</th>
-                  <th className="py-3.5 px-4 w-16 text-center">Image</th>
-                  <th className="py-3.5 px-4">Contact Name</th>
-                  <th className="py-3.5 px-4">Email</th>
-                  <th className="py-3.5 px-4">Phone</th>
-                  <th className="py-3.5 px-4">GSTIN</th>
-                  <th className="py-3.5 px-4">Type</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {contacts.map((c) => (
-                  <tr
-                    key={`${c.contact_type}-${c.id}`}
-                    onClick={() => handleOpenForm(c)}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-white/20 bg-transparent" />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="w-8 h-8 rounded-full mx-auto bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs">
-                        {c.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-white">{c.name}</td>
-                    <td className="py-3 px-4 text-[#a0a0b0]">{c.email}</td>
-                    <td className="py-3 px-4 text-[#a0a0b0]">{c.phone || '—'}</td>
-                    <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
-                    <td className="py-3 px-4">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                        c.contact_type === ContactType.CUSTOMER
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                      }`}>
-                        {c.contact_type}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {contacts.length === 0 && !loading && (
+        <div className="space-y-4">
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search contacts by name, email, phone, GSTIN..."
+            filterConfigs={contactFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setActiveFilters([]);
+              setColumnFilters({});
+              setSearch('');
+              setSelectedType('all');
+            }}
+            presets={{
+              field: 'contact_type',
+              currentValue: selectedType,
+              onChange: (val) => setSelectedType(val as any),
+              options: [
+                { label: 'All Contacts', value: 'all' },
+                { label: 'Customers', value: ContactType.CUSTOMER },
+                { label: 'Vendors', value: ContactType.VENDOR },
+              ],
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+          />
+
+          <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-[#707080]">
-                      No contacts found matching criteria. Click "+ New" to add one.
-                    </td>
+                    <th className="py-3.5 px-4 w-12 text-center">Select</th>
+                    <th className="py-3.5 px-4 w-16 text-center">Image</th>
+                    <th className="py-3.5 px-4">Contact Name</th>
+                    <th className="py-3.5 px-4">Email</th>
+                    <th className="py-3.5 px-4">Phone</th>
+                    <th className="py-3.5 px-4">GSTIN</th>
+                    <th className="py-3.5 px-4">Type</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {showColumnFilters && (
+                    <ColumnFilterRow
+                      columns={contactColumnDefs}
+                      values={columnFilters}
+                      onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  )}
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {visibleContacts.map((c) => (
+                    <tr
+                      key={`${c.contact_type}-${c.id}`}
+                      onClick={() => handleOpenForm(c)}
+                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    >
+                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-white/20 bg-transparent" />
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="w-8 h-8 rounded-full mx-auto bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs">
+                          {c.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-white">{c.name}</td>
+                      <td className="py-3 px-4 text-[#a0a0b0]">{c.email}</td>
+                      <td className="py-3 px-4 text-[#a0a0b0]">{c.phone || '—'}</td>
+                      <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          c.contact_type === ContactType.CUSTOMER
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                        }`}>
+                          {c.contact_type}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {visibleContacts.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-[#707080]">
+                        No contacts found matching criteria. Click "+ New" to add one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <ScrollSentinel
+              sentinelRef={sentinelRef}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              totalCount={totalCount}
+              visibleCount={visibleContacts.length}
+              onLoadMore={loadMore}
+              entityName="contacts"
+            />
           </div>
         </div>
       )}

@@ -34,6 +34,11 @@ import { formatApiError } from '../lib/errorHandler';
 import { AnimatedStatCard } from '../components/ui/AnimatedStatCard';
 import { PageTransition } from '../components/layout/PageTransition';
 import { PageHeader } from '../components/layout/PageHeader';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   Plus,
   Search,
@@ -75,6 +80,58 @@ export interface Item {
   updated_at?: string;
 }
 
+const itemFilterConfigs: FieldFilterConfig[] = [
+  { key: 'id', label: 'ID', type: 'number', placeholder: 'Filter by ID...' },
+  { key: 'title', label: 'Title', type: 'text', placeholder: 'Filter by title...' },
+  { key: 'description', label: 'Description', type: 'text', placeholder: 'Filter by description...' },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Pending', value: ItemStatus.PENDING },
+      { label: 'In Progress', value: ItemStatus.IN_PROGRESS },
+      { label: 'Completed', value: ItemStatus.COMPLETED },
+    ],
+  },
+  {
+    key: 'priority',
+    label: 'Priority',
+    type: 'select',
+    options: [
+      { label: 'Low', value: ItemPriority.LOW },
+      { label: 'Medium', value: ItemPriority.MEDIUM },
+      { label: 'High', value: ItemPriority.HIGH },
+    ],
+  },
+  { key: 'creator', label: 'Creator', type: 'text', placeholder: 'Filter by creator...' },
+];
+
+const itemColumnDefs: ColumnFilterDef[] = [
+  { key: 'id', filterType: 'number', placeholder: 'ID...' },
+  { key: 'title', filterType: 'text', placeholder: 'Filter title...' },
+  {
+    key: 'status',
+    filterType: 'select',
+    options: [
+      { label: 'Pending', value: ItemStatus.PENDING },
+      { label: 'In Progress', value: ItemStatus.IN_PROGRESS },
+      { label: 'Completed', value: ItemStatus.COMPLETED },
+    ],
+  },
+  {
+    key: 'priority',
+    filterType: 'select',
+    options: [
+      { label: 'Low', value: ItemPriority.LOW },
+      { label: 'Medium', value: ItemPriority.MEDIUM },
+      { label: 'High', value: ItemPriority.HIGH },
+    ],
+  },
+  { key: 'creator', filterType: 'text', placeholder: 'Filter creator...' },
+  { key: 'actions', filterType: 'none' },
+];
+
 export const ItemsPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
@@ -84,16 +141,12 @@ export const ItemsPage: React.FC = () => {
   // Search, Filters & Sorting
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [ownershipFilter, setOwnershipFilter] = useState<'all' | 'mine'>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-
-  // Pagination State
-  const [page, setPage] = useState<number>(1);
-  const [perPage, setPerPage] = useState<number>(10);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [totalPages, setTotalPages] = useState<number>(1);
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState(false);
 
   // Modal Disclosures
   const createModal = useDisclosure();
@@ -118,26 +171,9 @@ export const ItemsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: any = {
-        page,
-        per_page: perPage,
-      };
-      if (search.trim()) params.search = search.trim();
-      if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
-      if (priorityFilter && priorityFilter !== 'all') params.priority = priorityFilter;
-      if (ownershipFilter === 'mine') params.mine = 1;
-
-      const res = await api.get('/items', { params });
+      const res = await api.get('/items', { params: { per_page: 'all' } });
       const data = res.data.data || [];
       setItems(data);
-
-      if (res.data.meta) {
-        setTotalItems(res.data.meta.total || data.length);
-        setTotalPages(res.data.meta.last_page || 1);
-      } else {
-        setTotalItems(data.length);
-        setTotalPages(1);
-      }
     } catch (err: unknown) {
       const formatted = formatApiError(err);
       setError(formatted.message);
@@ -145,7 +181,7 @@ export const ItemsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, statusFilter, priorityFilter, ownershipFilter, toast]);
+  }, [toast]);
 
   useEffect(() => {
     fetchItems();
@@ -167,7 +203,6 @@ export const ItemsPage: React.FC = () => {
       const newItem: Item = payload.data || payload;
       if (newItem && newItem.id) {
         setItems((prev) => [newItem, ...prev.filter((it) => it.id !== newItem.id)]);
-        setTotalItems((c) => c + 1);
         toast.info(`⚡ [Realtime] New item added: "${newItem.title}"`);
       }
     };
@@ -184,7 +219,6 @@ export const ItemsPage: React.FC = () => {
       const deletedId = payload.data?.id || payload.id;
       if (deletedId) {
         setItems((prev) => prev.filter((it) => it.id !== deletedId));
-        setTotalItems((c) => Math.max(0, c - 1));
         toast.info(`⚡ [Realtime] Item #${deletedId} was deleted.`);
       }
     };
@@ -200,23 +234,67 @@ export const ItemsPage: React.FC = () => {
     };
   }, [socket, subscribe, toast]);
 
-  // Client-side sorting
-  const sortedItems = useMemo(() => {
-    const list = [...items];
+  const allActiveFilters = useMemo(() => {
+    const combined: ActiveFieldFilter[] = [...activeFilters];
+    for (const [key, value] of Object.entries(columnFilters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        const conf = itemFilterConfigs.find((c) => c.key === key);
+        combined.push({
+          id: `col-${key}`,
+          field: key,
+          operator: conf?.type === 'number' ? 'equals' : conf?.type === 'select' ? 'equals' : 'contains',
+          value,
+        });
+      }
+    }
+    return combined;
+  }, [activeFilters, columnFilters]);
+
+  const preparedItems = useMemo(() => {
+    let list = items;
+    if (ownershipFilter === 'mine' && user?.id) {
+      list = list.filter((i) => i.user_id === user.id);
+    }
+    return list.map((item) => ({
+      ...item,
+      creator: item.user?.name || 'System',
+    }));
+  }, [items, ownershipFilter, user?.id]);
+
+  const filteredItems = useMemo(() => {
+    let list = preparedItems;
+    if (statusFilter && statusFilter !== 'all') {
+      list = list.filter((i) => i.status === statusFilter);
+    }
+    const searchFields = ['title', 'description', 'creator', 'status', 'priority'];
+    const filtered = filterItems(list, search, searchFields, allActiveFilters);
+
     switch (sortBy) {
       case 'oldest':
-        return list.sort((a, b) => a.id - b.id);
+        return [...filtered].sort((a, b) => a.id - b.id);
       case 'title_asc':
-        return list.sort((a, b) => a.title.localeCompare(b.title));
+        return [...filtered].sort((a, b) => a.title.localeCompare(b.title));
       case 'priority_high': {
         const rank: Record<string, number> = { high: 3, medium: 2, low: 1 };
-        return list.sort((a, b) => (rank[b.priority] || 0) - (rank[a.priority] || 0));
+        return [...filtered].sort((a, b) => (rank[b.priority] || 0) - (rank[a.priority] || 0));
       }
       case 'newest':
       default:
-        return list.sort((a, b) => b.id - a.id);
+        return [...filtered].sort((a, b) => b.id - a.id);
     }
-  }, [items, sortBy]);
+  }, [preparedItems, statusFilter, search, allActiveFilters, sortBy]);
+
+  const {
+    visibleItems,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredItems,
+    pageSize: 15,
+  });
 
   // Calculated Stats
   const completedCount = useMemo(() => items.filter((i) => i.status === ItemStatus.COMPLETED).length, [items]);
@@ -354,9 +432,9 @@ export const ItemsPage: React.FC = () => {
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('all');
-    setPriorityFilter('all');
+    setActiveFilters([]);
+    setColumnFilters({});
     setSortBy('newest');
-    setPage(1);
   };
 
   const renderStatusChip = (status: string) => {
@@ -474,7 +552,7 @@ export const ItemsPage: React.FC = () => {
           <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
             <div className="text-xs text-[#8e8e9f] font-medium font-sans">TOTAL ITEMS</div>
             <div className="flex items-baseline justify-between mt-1">
-              <span className="text-3xl font-bold text-white tracking-tight font-sans">{totalItems}</span>
+              <span className="text-3xl font-bold text-white tracking-tight font-sans">{items.length}</span>
               <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
                 100% synchronized
               </span>
@@ -487,7 +565,7 @@ export const ItemsPage: React.FC = () => {
             <div className="flex items-baseline justify-between mt-1">
               <span className="text-3xl font-bold text-white tracking-tight font-sans">{completedCount}</span>
               <span className="text-[11px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
-                {Math.round((completedCount / Math.max(1, totalItems)) * 100)}% completion rate
+                {Math.round((completedCount / Math.max(1, items.length)) * 100)}% completion rate
               </span>
             </div>
           </div>
@@ -498,7 +576,7 @@ export const ItemsPage: React.FC = () => {
             <div className="flex items-baseline justify-between mt-1">
               <span className="text-3xl font-bold text-white tracking-tight font-sans">{inProgressCount}</span>
               <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                {Math.round((inProgressCount / Math.max(1, totalItems)) * 100)}% active sprint
+                {Math.round((inProgressCount / Math.max(1, items.length)) * 100)}% active sprint
               </span>
             </div>
           </div>
@@ -509,7 +587,7 @@ export const ItemsPage: React.FC = () => {
             <div className="flex items-baseline justify-between mt-1">
               <span className="text-3xl font-bold text-white tracking-tight font-sans">{pendingCount}</span>
               <span className="text-[11px] font-bold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/25 px-2 py-0.5 rounded-full">
-                {Math.round((pendingCount / Math.max(1, totalItems)) * 100)}% unresolved
+                {Math.round((pendingCount / Math.max(1, items.length)) * 100)}% unresolved
               </span>
             </div>
           </div>
@@ -522,10 +600,7 @@ export const ItemsPage: React.FC = () => {
             <div className="flex items-center gap-1.5 bg-[#141418] p-1 rounded-xl border border-white/[0.06] w-fit">
               <button
                 type="button"
-                onClick={() => {
-                  setOwnershipFilter('all');
-                  setPage(1);
-                }}
+                onClick={() => setOwnershipFilter('all')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   ownershipFilter === 'all'
                     ? 'bg-white text-black shadow-xs font-bold'
@@ -536,10 +611,7 @@ export const ItemsPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setOwnershipFilter('mine');
-                  setPage(1);
-                }}
+                onClick={() => setOwnershipFilter('mine')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   ownershipFilter === 'mine'
                     ? 'bg-primary text-white shadow-xs font-bold'
@@ -551,112 +623,43 @@ export const ItemsPage: React.FC = () => {
               </button>
             </div>
 
-            <div className="text-xs text-[#8e8e9f] flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-white/80">Current Clearance:</span>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${
-                  user?.role === UserRole.ADMIN
-                    ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
-                    : user?.role === UserRole.MANAGER
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                }`}
-              >
-                {user?.role || 'Guest'}
-              </span>
-              <span className="text-[11px] text-[#8e8e9f] hidden md:inline">
-                {user?.role === UserRole.ADMIN
-                  ? '• Superuser: Full CRUD & Deletion rights'
-                  : user?.role === UserRole.MANAGER
-                  ? '• Manager: Can Edit Any Item (Deletion Restricted)'
-                  : '• Standard: Can Edit Own Items Only (Deletion Restricted)'}
-              </span>
-            </div>
-          </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-xs text-[#8e8e9f] flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-white/80">Clearance:</span>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${
+                    user?.role === UserRole.ADMIN
+                      ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
+                      : user?.role === UserRole.MANAGER
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  }`}
+                >
+                  {user?.role || 'Guest'}
+                </span>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-            {/* Search Bar */}
-            <div className="sm:col-span-5">
-              <Input
-                placeholder="Search by title or description..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                startContent={<Search className="w-4 h-4 text-[#8e8e9f]" />}
-                variant="bordered"
-                size="sm"
-                isClearable
-                onClear={() => {
-                  setSearch('');
-                  setPage(1);
-                }}
-              />
-            </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#8e8e9f] font-semibold">Sort:</span>
+                <select
+                  aria-label="Sort order"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-[#22222b] border border-white/[0.06] rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="title_asc">Title (A-Z)</option>
+                  <option value="priority_high">Priority (High-Low)</option>
+                </select>
+              </div>
 
-            {/* Status Filter */}
-            <div className="sm:col-span-2">
-              <Select
-                aria-label="Filter by Status"
-                selectedKeys={[statusFilter]}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-                size="sm"
-                variant="bordered"
-              >
-                <SelectItem key="all">All Statuses</SelectItem>
-                <SelectItem key="pending">Pending</SelectItem>
-                <SelectItem key="in_progress">In Progress</SelectItem>
-                <SelectItem key="completed">Completed</SelectItem>
-              </Select>
-            </div>
-
-            {/* Priority Filter */}
-            <div className="sm:col-span-2">
-              <Select
-                aria-label="Filter by Priority"
-                selectedKeys={[priorityFilter]}
-                onChange={(e) => {
-                  setPriorityFilter(e.target.value);
-                  setPage(1);
-                }}
-                size="sm"
-                variant="bordered"
-              >
-                <SelectItem key="all">All Priorities</SelectItem>
-                <SelectItem key="low">Low Priority</SelectItem>
-                <SelectItem key="medium">Medium Priority</SelectItem>
-                <SelectItem key="high">High Priority</SelectItem>
-              </Select>
-            </div>
-
-            {/* Sort Order Selector */}
-            <div className="sm:col-span-2">
-              <Select
-                aria-label="Sort order"
-                selectedKeys={[sortBy]}
-                onChange={(e) => setSortBy(e.target.value)}
-                size="sm"
-                variant="bordered"
-              >
-                <SelectItem key="newest">Newest First</SelectItem>
-                <SelectItem key="oldest">Oldest First</SelectItem>
-                <SelectItem key="title_asc">Title (A-Z)</SelectItem>
-                <SelectItem key="priority_high">Priority (High-Low)</SelectItem>
-              </Select>
-            </div>
-
-            {/* Refresh Action */}
-            <div className="sm:col-span-1 flex items-center justify-end">
               <Tooltip content="Refresh records">
                 <Button
                   isIconOnly
                   variant="flat"
                   size="sm"
-                  className="w-full sm:w-auto rounded-xl border border-white/[0.06] bg-[#22222b] text-[#a0a0b0] hover:text-white"
+                  className="rounded-xl border border-white/[0.06] bg-[#22222b] text-[#a0a0b0] hover:text-white"
                   onPress={fetchItems}
                   isLoading={loading}
                   aria-label="Refresh records"
@@ -667,30 +670,29 @@ export const ItemsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Active filters pill list */}
-          {(search || statusFilter !== 'all' || priorityFilter !== 'all') && (
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-              <span className="text-[#8e8e9f] font-semibold">Active Filters:</span>
-              {search && (
-                <Chip size="sm" onClose={() => setSearch('')} variant="flat" color="primary">
-                  Search: "{search}"
-                </Chip>
-              )}
-              {statusFilter !== 'all' && (
-                <Chip size="sm" onClose={() => setStatusFilter('all')} variant="flat" color="secondary">
-                  Status: {statusFilter}
-                </Chip>
-              )}
-              {priorityFilter !== 'all' && (
-                <Chip size="sm" onClose={() => setPriorityFilter('all')} variant="flat" color="warning">
-                  Priority: {priorityFilter}
-                </Chip>
-              )}
-              <Button size="sm" variant="light" color="danger" className="h-6 text-[11px]" onPress={clearFilters}>
-                Clear All
-              </Button>
-            </div>
-          )}
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search items by title, description, or creator..."
+            filterConfigs={itemFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter: ActiveFieldFilter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id: string) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={clearFilters}
+            presets={{
+              field: 'status',
+              currentValue: statusFilter,
+              onChange: (val: string) => setStatusFilter(val),
+              options: [
+                { label: 'All Statuses', value: 'all' },
+                { label: 'Pending', value: ItemStatus.PENDING },
+                { label: 'In Progress', value: ItemStatus.IN_PROGRESS },
+                { label: 'Completed', value: ItemStatus.COMPLETED },
+              ],
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+          />
         </div>
 
         {/* Error Alert if query failed */}
@@ -711,158 +713,168 @@ export const ItemsPage: React.FC = () => {
           /* Table View */
           <div className="border border-white/[0.06] bg-[#18181f] shadow-obsidian-card rounded-[24px] overflow-hidden">
             <div className="p-0 overflow-x-auto">
-              <Table
-                aria-label="Items Resource Table"
-                className="min-w-full"
-                shadow="none"
-                removeWrapper
-              >
-                <TableHeader>
-                  <TableColumn className="w-20 font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">ID</TableColumn>
-                  <TableColumn className="font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">TITLE & DESCRIPTION</TableColumn>
-                  <TableColumn className="w-36 font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">STATUS</TableColumn>
-                  <TableColumn className="w-32 font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">PRIORITY</TableColumn>
-                  <TableColumn className="w-40 font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">CREATOR</TableColumn>
-                  <TableColumn className="w-32 text-right font-bold text-[#757588] bg-[#141419] py-4 px-6 text-[11px] uppercase tracking-wider">ACTIONS</TableColumn>
-                </TableHeader>
-                <TableBody
-                  isLoading={loading}
-                  emptyContent={
-                    <div className="py-16 text-center space-y-3">
-                      <div className="mx-auto w-12 h-12 rounded-2xl bg-[#22222b] flex items-center justify-center text-[#8e8e9f]">
-                        <Layers className="w-6 h-6" />
-                      </div>
-                      <div className="text-sm font-semibold text-white">
-                        No items found matching your filters
-                      </div>
-                      <Button size="sm" variant="flat" color="primary" onPress={clearFilters}>
-                        Reset Filters
-                      </Button>
-                    </div>
-                  }
-                >
-                  {sortedItems.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-white/[0.03] transition-colors border-b border-white/[0.04]">
-                      <TableCell className="font-mono text-xs text-[#7042f4] font-semibold">#{item.id}</TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => openDetailModal(item)}
-                          className="text-left font-semibold text-white hover:text-[#c084fc] transition-colors cursor-pointer"
-                        >
-                          {item.title}
-                        </button>
-                        {item.description && (
-                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1 font-sans">
-                            {item.description}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>{renderStatusChip(item.status)}</TableCell>
-                      <TableCell>{renderPriorityChip(item.priority)}</TableCell>
-                      <TableCell className="text-xs">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
-                          <span className="text-white font-medium">
-                            {item.user?.name || 'System'}
-                            {item.user_id === user?.id && (
-                              <span className="ml-1 text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                You
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/[0.06] text-[11px] font-bold text-[#757588] bg-[#141419] uppercase tracking-wider">
+                    <th className="w-20 py-4 px-6">ID</th>
+                    <th className="py-4 px-6">TITLE & DESCRIPTION</th>
+                    <th className="w-36 py-4 px-6">STATUS</th>
+                    <th className="w-32 py-4 px-6">PRIORITY</th>
+                    <th className="w-40 py-4 px-6">CREATOR</th>
+                    <th className="w-32 text-right py-4 px-6">ACTIONS</th>
+                  </tr>
+                  {showColumnFilters && (
+                    <ColumnFilterRow
+                      columns={itemColumnDefs}
+                      values={columnFilters}
+                      onChange={(key: string, val: string) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  )}
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {loading && visibleItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-16 text-center text-xs text-[#8e8e9f]">
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                        Loading operational items...
+                      </td>
+                    </tr>
+                  ) : visibleItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-16 text-center space-y-3">
+                        <div className="mx-auto w-12 h-12 rounded-2xl bg-[#22222b] flex items-center justify-center text-[#8e8e9f]">
+                          <Layers className="w-6 h-6" />
+                        </div>
+                        <div className="text-sm font-semibold text-white">
+                          No items found matching your filters
+                        </div>
+                        <Button size="sm" variant="flat" color="primary" onPress={clearFilters}>
+                          Reset Filters
+                        </Button>
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-white/[0.03] transition-colors border-b border-white/[0.04]">
+                        <td className="py-4 px-6 font-mono text-xs text-[#7042f4] font-semibold">#{item.id}</td>
+                        <td className="py-4 px-6">
+                          <button
+                            onClick={() => openDetailModal(item)}
+                            className="text-left font-semibold text-white hover:text-[#c084fc] transition-colors cursor-pointer"
+                          >
+                            {item.title}
+                          </button>
+                          {item.description && (
+                            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1 font-sans">
+                              {item.description}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4 px-6">{renderStatusChip(item.status)}</td>
+                        <td className="py-4 px-6">{renderPriorityChip(item.priority)}</td>
+                        <td className="py-4 px-6 text-xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
+                            <span className="text-white font-medium">
+                              {item.user?.name || 'System'}
+                              {item.user_id === user?.id && (
+                                <span className="ml-1 text-[9px] font-mono font-bold uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                  You
+                                </span>
+                              )}
+                            </span>
+                            {item.user?.role && (
+                              <span
+                                className={`text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border w-fit ${
+                                  item.user.role === UserRole.ADMIN
+                                    ? 'bg-[#7042f4]/15 text-[#c084fc] border-[#7042f4]/25'
+                                    : item.user.role === UserRole.MANAGER
+                                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
+                                    : 'bg-white/[0.06] text-[#8e8e9f] border-white/10'
+                                }`}
+                              >
+                                {item.user.role}
                               </span>
                             )}
-                          </span>
-                          {item.user?.role && (
-                            <span
-                              className={`text-[9.5px] font-mono font-bold uppercase px-1.5 py-0.5 rounded border w-fit ${
-                                item.user.role === UserRole.ADMIN
-                                  ? 'bg-[#7042f4]/15 text-[#c084fc] border-[#7042f4]/25'
-                                  : item.user.role === UserRole.MANAGER
-                                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
-                                  : 'bg-white/[0.06] text-[#8e8e9f] border-white/10'
-                              }`}
-                            >
-                              {item.user.role}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Tooltip content="Inspect Details">
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="light"
-                              className="text-muted-foreground hover:text-foreground cursor-pointer"
-                              onPress={() => openDetailModal(item)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Tooltip>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip content="Inspect Details">
+                              <Button
+                                isIconOnly
+                                size="sm"
+                                variant="light"
+                                className="text-muted-foreground hover:text-foreground cursor-pointer"
+                                onPress={() => openDetailModal(item)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
 
-                          {/* Role-tailored Edit Action */}
-                          {(item.can_edit ?? (isAdmin || isManager || item.user_id === user?.id)) ? (
-                            <Tooltip content={isManager && item.user_id !== user?.id ? "Edit Item (Manager Access)" : "Edit Item"}>
-                              <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                className="text-muted-foreground hover:text-primary cursor-pointer"
-                                onPress={() => openEditModal(item)}
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </Button>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip content="Read-only: You can only edit your own items">
-                              <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                isDisabled
-                                className="opacity-30 cursor-not-allowed text-[#8e8e9f]"
-                              >
-                                <Lock className="w-3.5 h-3.5" />
-                              </Button>
-                            </Tooltip>
-                          )}
+                            {(item.can_edit ?? (isAdmin || isManager || item.user_id === user?.id)) ? (
+                              <Tooltip content={isManager && item.user_id !== user?.id ? "Edit Item (Manager Access)" : "Edit Item"}>
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  className="text-muted-foreground hover:text-primary cursor-pointer"
+                                  onPress={() => openEditModal(item)}
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip content="Read-only: You can only edit your own items">
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  isDisabled
+                                  className="opacity-30 cursor-not-allowed text-[#8e8e9f]"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                </Button>
+                              </Tooltip>
+                            )}
 
-                          {/* Role-tailored Delete Action */}
-                          {(item.can_delete ?? isAdmin) ? (
-                            <Tooltip content="Delete Item" color="danger">
-                              <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                className="text-muted-foreground hover:text-rose-400 cursor-pointer"
-                                onPress={() => openDeleteModal(item)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip content="Administrator clearance required to delete items">
-                              <Button
-                                isIconOnly
-                                size="sm"
-                                variant="light"
-                                isDisabled
-                                className="opacity-30 cursor-not-allowed text-rose-500/50"
-                              >
-                                <Lock className="w-3.5 h-3.5 text-rose-400/50" />
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            {(item.can_delete ?? isAdmin) ? (
+                              <Tooltip content="Delete Item" color="danger">
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  className="text-muted-foreground hover:text-rose-400 cursor-pointer"
+                                  onPress={() => openDeleteModal(item)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip content="Administrator clearance required to delete items">
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="light"
+                                  isDisabled
+                                  className="opacity-30 cursor-not-allowed text-rose-500/50"
+                                >
+                                  <Lock className="w-3.5 h-3.5 text-rose-400/50" />
+                                </Button>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (
           /* Card Grid View */
           <div>
-            {sortedItems.length === 0 && !loading ? (
+            {visibleItems.length === 0 && !loading ? (
               <div className="border border-white/[0.06] bg-[#18181f] shadow-obsidian-card rounded-[24px] p-12 text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-2xl bg-[#22222b] flex items-center justify-center text-[#8e8e9f]">
                   <Layers className="w-6 h-6" />
@@ -876,7 +888,7 @@ export const ItemsPage: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {sortedItems.map((item) => (
+                {visibleItems.map((item) => (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, scale: 0.98 }}
@@ -1008,42 +1020,16 @@ export const ItemsPage: React.FC = () => {
           </div>
         )}
 
-        {/* Pagination & Count Footer Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 sm:p-6 rounded-[24px] bg-[#18181f] border border-white/[0.06] shadow-obsidian-card text-xs text-[#8e8e9f]">
-          <div>
-            Showing <strong className="text-white">{sortedItems.length}</strong> of{' '}
-            <strong className="text-white">{totalItems}</strong> total records
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[#8e8e9f] font-semibold">Per page:</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="bg-[#22222b] border border-white/[0.06] rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-              </select>
-            </div>
-
-            {totalPages > 1 && (
-              <Pagination
-                total={totalPages}
-                page={page}
-                onChange={(p) => setPage(p)}
-                size="sm"
-                color="primary"
-                showControls
-              />
-            )}
-          </div>
-        </div>
+        {/* Scroll Pagination Sentinel */}
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleItems.length}
+          onLoadMore={loadMore}
+          entityName="items"
+        />
 
         {/* Create Item Modal */}
         <Modal

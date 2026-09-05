@@ -22,7 +22,49 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { AccountClassification } from '../types';
+
+const journalFilterConfigs: FieldFilterConfig[] = [
+  { key: 'entry_number', label: 'Entry Number', type: 'text', placeholder: 'e.g. JE-2026...' },
+  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'description', label: 'Description', type: 'text', placeholder: 'Narration...' },
+  { key: 'reference_number', label: 'Reference', type: 'text', placeholder: 'Ref...' },
+  {
+    key: 'derived_status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Posted', value: 'posted' },
+      { label: 'Reversed', value: 'reversed' },
+    ],
+  },
+  { key: 'entry_total', label: 'Amount (₹)', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const journalColumnDefs: ColumnFilterDef[] = [
+  { key: 'expand', filterType: 'none' },
+  { key: 'entry_number', filterType: 'text', placeholder: 'Filter entry #...' },
+  { key: 'journal', filterType: 'text', placeholder: 'Journal...' },
+  { key: 'date', filterType: 'date' },
+  { key: 'description', filterType: 'text', placeholder: 'Narration...' },
+  { key: 'source', filterType: 'text', placeholder: 'Source...' },
+  { key: 'entry_total', filterType: 'number', placeholder: 'Min debit...' },
+  { key: 'credit_total', filterType: 'none' },
+  {
+    key: 'derived_status',
+    filterType: 'select',
+    options: [
+      { label: 'Posted', value: 'posted' },
+      { label: 'Reversed', value: 'reversed' },
+    ],
+  },
+  { key: 'actions', filterType: 'none' },
+];
 
 // Standard corporate journal entry templates
 const JOURNAL_PRESETS = [
@@ -79,6 +121,12 @@ export const JournalPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Record<number, boolean>>({});
 
+  // Field & Column Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
   // New Journal Entry Modal
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [journalId, setJournalId] = useState<number | ''>('');
@@ -100,9 +148,9 @@ export const JournalPage: React.FC = () => {
     try {
       setLoading(true);
       const [jRes, accRes, journalsRes] = await Promise.all([
-        journalApi.list(),
-        accountsApi.list(),
-        journalsApi.list().catch(() => ({ data: [] })),
+        journalApi.list({ per_page: 'all' }),
+        accountsApi.list({ per_page: 'all' }),
+        journalsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
       const entryList = Array.isArray(jRes?.data) ? jRes.data : Array.isArray(jRes) ? jRes : [];
       setEntries(entryList);
@@ -273,12 +321,68 @@ export const JournalPage: React.FC = () => {
     }
   };
 
-  const filteredEntries = entries.filter(
-    (je) =>
-      je.entry_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      je.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      je.reference_number?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const preparedEntries = React.useMemo(() => {
+    return (entries || []).map((je) => {
+      const entryTotal = (je.lines || []).reduce(
+        (s: number, l: any) => s + Number(l.debit || 0),
+        0
+      );
+      const status = je.is_reversed ? 'reversed' : 'posted';
+      const date = je.posting_date || je.entry_date || '';
+      return {
+        ...je,
+        entry_total: entryTotal,
+        derived_status: status,
+        date,
+        journal_name: je.journal?.name || 'General',
+      };
+    });
+  }, [entries]);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = journalFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key === 'journal' ? 'journal_name' : key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (statusFilter !== 'all') {
+      merged.push({
+        id: 'quick-status',
+        field: 'derived_status',
+        operator: 'equals',
+        value: statusFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, statusFilter]);
+
+  const filteredEntries = React.useMemo(() => {
+    return filterItems(
+      preparedEntries,
+      searchQuery,
+      ['entry_number', 'description', 'reference_number', 'journal_name'],
+      allActiveFilters
+    );
+  }, [preparedEntries, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleEntries,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredEntries,
+    pageSize: 15,
+  });
 
   return (
     <div className="space-y-6">
@@ -305,18 +409,33 @@ export const JournalPage: React.FC = () => {
       </div>
 
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-            <input
-              type="text"
-              placeholder="Search entry #, reference, or narration..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-72"
-            />
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search entry #, reference, or narration..."
+          filterConfigs={journalFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+            setStatusFilter('all');
+          }}
+          presets={{
+            field: 'status',
+            currentValue: statusFilter,
+            onChange: setStatusFilter,
+            options: [
+              { label: 'All Entries', value: 'all' },
+              { label: 'Posted', value: 'posted' },
+              { label: 'Reversed', value: 'reversed' },
+            ],
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -333,11 +452,18 @@ export const JournalPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={journalColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton columns={10} rows={6} />
-              ) : filteredEntries.length === 0 ? (
+              ) : visibleEntries.length === 0 ? (
                 <EmptyState
                   colSpan={10}
                   icon={FileCode2}
@@ -351,7 +477,7 @@ export const JournalPage: React.FC = () => {
                   onAction={isAdmin || isManager ? () => setIsNewOpen(true) : undefined}
                 />
               ) : (
-                filteredEntries.map((je) => {
+                visibleEntries.map((je) => {
                   const isExpanded = !!expandedEntries[je.id];
                   const entryTotal = (je.lines || []).reduce(
                     (s: number, l: any) => s + Number(l.debit || 0),
@@ -475,6 +601,16 @@ export const JournalPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleEntries.length}
+          onLoadMore={loadMore}
+          entityName="journal entries"
+        />
       </Card>
 
       {/* New Manual Journal Entry Modal */}

@@ -206,7 +206,7 @@ export const usersApi = {
 };
 
 export const journalsApi = {
-  list: () => api.get('/journals').then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/journals', { params }).then(res => res.data),
   get: (id: number) => api.get(`/journals/${id}`).then(res => res.data),
   create: (data: any) => api.post('/journals', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/journals/${id}`, data).then(res => res.data),

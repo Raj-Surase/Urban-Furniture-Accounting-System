@@ -493,7 +493,7 @@ export const AccountsPage: React.FC = () => {
                   onAction={isAdmin || isManager ? handleOpenNewModal : undefined}
                 />
               ) : (
-                sortedAccounts.map((acc) => {
+                visibleAccounts.map((acc) => {
                   const isNewGroup = acc.type !== lastAccountType;
                   if (isNewGroup) {
                     lastAccountType = acc.type;
@@ -682,6 +682,16 @@ export const AccountsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleAccounts.length}
+          onLoadMore={loadMore}
+          entityName="accounts"
+        />
       </Card>
 
       {/* Ledger Drawer/Modal */}
