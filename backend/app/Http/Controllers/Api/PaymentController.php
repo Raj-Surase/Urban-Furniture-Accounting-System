@@ -15,6 +15,13 @@ use Illuminate\Support\Facades\Gate;
 
 class PaymentController extends Controller
 {
+    /**
+     * List all payments with optional filters (type, status, search by number).
+     * Returns paginated results with invoice and bank account relations eager-loaded.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('viewAny', Payment::class);
@@ -39,6 +46,14 @@ class PaymentController extends Controller
         return response()->json($payments);
     }
 
+    /**
+     * Record a new payment and auto-post a double-entry journal entry.
+     * If an invoice_id is provided, reconciles balance_due and updates invoice status.
+     * Auto-generates payment number in PAY-YYYY-NNNN format.
+     *
+     * @param  Request  $request
+     * @return JsonResponse  201 on success
+     */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', Payment::class);
@@ -117,6 +132,12 @@ class PaymentController extends Controller
         });
     }
 
+    /**
+     * Retrieve a single payment with invoice, bank account, and creator relations.
+     *
+     * @param  Payment  $payment  Route-model-bound payment
+     * @return JsonResponse
+     */
     public function show(Payment $payment): JsonResponse
     {
         Gate::authorize('view', $payment);
@@ -128,6 +149,14 @@ class PaymentController extends Controller
         ]);
     }
 
+    /**
+     * Mark a pending payment as cleared and stamp reconciled_by / reconciled_at.
+     * Broadcasts a realtime event to the treasury channel.
+     *
+     * @param  Request  $request
+     * @param  Payment  $payment
+     * @return JsonResponse
+     */
     public function reconcile(Request $request, Payment $payment): JsonResponse
     {
         Gate::authorize('reconcile', $payment);
@@ -150,6 +179,13 @@ class PaymentController extends Controller
         ]);
     }
 
+    /**
+     * Delete a payment record.
+     * Note: reversing journal entries must be handled separately.
+     *
+     * @param  Payment  $payment
+     * @return JsonResponse
+     */
     public function destroy(Payment $payment): JsonResponse
     {
         Gate::authorize('delete', $payment);
