@@ -16,6 +16,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const ProductsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -235,17 +238,21 @@ export const ProductsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={10} className="py-12 text-center text-neutral-400">
-                    Loading inventory catalog...
-                  </td>
-                </tr>
+                <TableSkeleton rows={6} cols={10} />
               ) : filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="py-12 text-center text-neutral-500 italic">
-                    No products found matching criteria.
-                  </td>
-                </tr>
+                <EmptyState
+                  icon={Package}
+                  colSpan={10}
+                  title="No products found"
+                  description="Add raw materials, finished furniture, or hardware to your inventory catalog."
+                  actionLabel="New Product"
+                  onAction={() => setIsNewOpen(true)}
+                  secondaryActionLabel={searchQuery || categoryFilter !== 'all' ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setCategoryFilter('all');
+                  }}
+                />
               ) : (
                 filteredProducts.map((prod) => {
                   const isLow = Number(prod.current_stock) <= Number(prod.min_stock_alert || 5);
@@ -315,9 +322,13 @@ export const ProductsPage: React.FC = () => {
       </Card>
 
       {/* Adjust Stock Modal */}
-      {isAdjustOpen && selectedProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isAdjustOpen && !!selectedProduct}
+        onClose={() => setIsAdjustOpen(false)}
+        zIndex="z-[70]"
+        containerClassName="max-w-md"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">Adjust Product Stock</h3>
             <p className="text-xs text-neutral-400">
               Update inventory quantity for <span className="text-white font-semibold">{selectedProduct.name}</span> (SKU: {selectedProduct.sku}).
@@ -392,13 +403,16 @@ export const ProductsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* New Product SKU Modal */}
-      {isNewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isNewOpen}
+        onClose={() => setIsNewOpen(false)}
+        zIndex="z-[60]"
+        containerClassName="max-w-lg"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">Add Product SKU</h3>
 
             <form onSubmit={handleCreateProduct} className="space-y-4">
@@ -542,13 +556,17 @@ export const ProductsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Product Detail Modal */}
-      {detailProduct && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={!!detailProduct}
+        onClose={() => setDetailProduct(null)}
+        zIndex="z-[60]"
+        containerClassName="max-w-xl"
+      >
+        {detailProduct && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -679,8 +697,8 @@ export const ProductsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

@@ -13,6 +13,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const CustomersPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -145,17 +148,20 @@ export const CustomersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-neutral-400">
-                    Loading customers...
-                  </td>
-                </tr>
+                <TableSkeleton columns={5} rows={6} />
               ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-neutral-500 italic">
-                    No customers found.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={5}
+                  icon={Users}
+                  title="No customer accounts found"
+                  description={
+                    searchQuery
+                      ? 'No customers match your search criteria. Try a different query.'
+                      : 'Add your first commercial or retail customer account to get started.'
+                  }
+                  actionLabel={isAdmin || isManager ? 'Add Customer Account' : undefined}
+                  onAction={isAdmin || isManager ? () => setIsModalOpen(true) : undefined}
+                />
               ) : (
                 filtered.map((c) => (
                   <tr
@@ -191,134 +197,142 @@ export const CustomersPage: React.FC = () => {
       </Card>
 
       {/* Add Customer Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
-            <h3 className="text-base font-bold">Add Customer Account</h3>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Contact Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    placeholder="e.g. Nimesh Pathak"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Company / Entity Name</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    required
-                    placeholder="e.g. Pathak Design Studio"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
+      <PortalModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        zIndex="z-[60]"
+        maxWidth="max-w-lg"
+      >
+        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
+          <h3 className="text-base font-bold">Add Customer Account</h3>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Contact Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="e.g. Nimesh Pathak"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Company / Entity Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  required
+                  placeholder="e.g. Pathak Design Studio"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">GSTIN</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 27ABCDE1234F1Z5"
-                    value={gstin}
-                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">PAN</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ABCDE1234F"
-                    value={pan}
-                    onChange={(e) => setPan(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">GSTIN</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 27ABCDE1234F1Z5"
+                  value={gstin}
+                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
+                />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">PAN</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ABCDE1234F"
+                  value={pan}
+                  onChange={(e) => setPan(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
+                />
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. nimesh.pathak@example.com"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +91 98200 12345"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. nimesh.pathak@example.com"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +91 98200 12345"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">State</label>
-                  <input
-                    type="text"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    required
-                    placeholder="e.g. Maharashtra"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Billing Address</label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Suite 402, High Street Phoenix, Lower Parel, Mumbai"
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">State</label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  required
+                  placeholder="e.g. Maharashtra"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Billing Address</label>
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="e.g. Suite 402, High Street Phoenix, Lower Parel, Mumbai"
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
+              </div>
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsModalOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-                >
-                  {isSubmitting ? 'Adding...' : 'Save Customer'}
-                </Button>
-              </div>
-            </form>
-          </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+              >
+                {isSubmitting ? 'Adding...' : 'Save Customer'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
+      </PortalModal>
 
       {/* Customer Detail Modal */}
-      {detailCustomer && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={Boolean(detailCustomer)}
+        onClose={() => setDetailCustomer(null)}
+        zIndex="z-[60]"
+        maxWidth="max-w-lg"
+      >
+        {detailCustomer && (
+          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -401,8 +415,8 @@ export const CustomersPage: React.FC = () => {
               </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

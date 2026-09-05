@@ -25,6 +25,8 @@ import {
   exportAgingPdf,
   exportGstSummaryPdf,
 } from '../components/pdf/ReportPdfGenerator';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const ReportsPage: React.FC = () => {
   const { addToast } = useToast();
@@ -398,17 +400,14 @@ export const ReportsPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/[0.04] text-xs">
                   {loading ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-neutral-400">
-                        Computing trial balance...
-                      </td>
-                    </tr>
+                    <TableSkeleton columns={5} rows={6} />
                   ) : !trialBalanceData?.rows || trialBalanceData.rows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-neutral-500 italic">
-                        No accounts available.
-                      </td>
-                    </tr>
+                    <EmptyState
+                      colSpan={5}
+                      icon={Scale}
+                      title="No accounts available"
+                      description="No journal entries or account balances found for the selected period."
+                    />
                   ) : (
                     trialBalanceData.rows.map((row: any) => (
                       <tr key={row.id} className="hover:bg-white/[0.02]">

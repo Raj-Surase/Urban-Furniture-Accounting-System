@@ -16,6 +16,7 @@ import {
   CreditCard,
   Percent,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -23,6 +24,9 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfModal';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const InvoicesPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
@@ -100,6 +104,8 @@ export const InvoicesPage: React.FC = () => {
     }
   };
 
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     fetchData();
 
@@ -109,6 +115,23 @@ export const InvoicesPage: React.FC = () => {
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, [user?.id, user?.role]);
+
+  // Deep-link handling from Dashboard / Recent Transactions
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+    if (idParam && invoices.length > 0) {
+      const found = invoices.find(
+        (inv) => String(inv.id) === String(idParam) || String(inv.invoice_number) === String(idParam)
+      );
+      if (found) {
+        setDetailInvoice(found);
+      }
+    }
+  }, [searchParams, invoices]);
 
   // Determine place of supply and interstate
   const selectedParty =
@@ -520,17 +543,22 @@ export const InvoicesPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-400">
-                    Loading invoices and GST records...
-                  </td>
-                </tr>
+                <TableSkeleton rows={6} cols={9} />
               ) : filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500 italic">
-                    No matching invoices found.
-                  </td>
-                </tr>
+                <EmptyState
+                  icon={FileText}
+                  colSpan={9}
+                  title="No matching invoices found"
+                  description="Try adjusting your filters or search query, or create a new invoice or vendor bill."
+                  actionLabel="New Invoice"
+                  onAction={() => setIsCreateModalOpen(true)}
+                  secondaryActionLabel={searchQuery || activeTab !== 'all' || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setActiveTab('all');
+                    setStatusFilter('all');
+                  }}
+                />
               ) : (
                 filteredInvoices.map((inv) => {
                   const isCust = inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer';
@@ -687,9 +715,13 @@ export const InvoicesPage: React.FC = () => {
       />
 
       {/* Create Invoice / Bill Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden text-white">
+      <PortalModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        zIndex="z-[60]"
+        containerClassName="max-w-3xl"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
               <div className="flex items-center gap-2.5">
                 <FileText className="w-5 h-5 text-purple-400" />
@@ -965,13 +997,16 @@ export const InvoicesPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Record Payment Modal */}
-      {isPayModalOpen && payInvoice && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden text-white">
+      <PortalModal
+        isOpen={isPayModalOpen && !!payInvoice}
+        onClose={() => setIsPayModalOpen(false)}
+        zIndex="z-[70]"
+        containerClassName="max-w-md"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
               <div className="flex items-center gap-2.5">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
@@ -1053,13 +1088,17 @@ export const InvoicesPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Invoice Detail Modal on Tap Row */}
-      {detailInvoice && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-5 max-h-[90vh] overflow-y-auto">
+      <PortalModal
+        isOpen={!!detailInvoice}
+        onClose={() => setDetailInvoice(null)}
+        zIndex="z-[60]"
+        containerClassName="max-w-3xl"
+      >
+        {detailInvoice && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start border-b border-white/[0.06] pb-4">
               <div>
                 <div className="flex items-center gap-2.5">
@@ -1257,8 +1296,8 @@ export const InvoicesPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

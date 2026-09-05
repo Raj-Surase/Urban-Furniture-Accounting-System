@@ -16,6 +16,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const SalesOrdersPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
@@ -251,17 +254,21 @@ export const SalesOrdersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-400">
-                    Loading sales orders...
-                  </td>
-                </tr>
+                <TableSkeleton rows={5} cols={8} />
               ) : filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-500 italic">
-                    No sales orders found.
-                  </td>
-                </tr>
+                <EmptyState
+                  icon={Truck}
+                  colSpan={8}
+                  title="No sales orders found"
+                  description="Create a sales order to initiate order fulfillment and GST invoicing."
+                  actionLabel="New Sales Order"
+                  onAction={() => setIsCreateOpen(true)}
+                  secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setStatusFilter('all');
+                  }}
+                />
               ) : (
                 filteredOrders.map((so) => {
                   return (
@@ -354,9 +361,13 @@ export const SalesOrdersPage: React.FC = () => {
       </Card>
 
       {/* Create SO Modal */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        zIndex="z-[60]"
+        containerClassName="max-w-2xl"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">New Sales Order</h3>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
@@ -490,65 +501,72 @@ export const SalesOrdersPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Deliver Modal */}
-      {isDeliverOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
-            <h3 className="text-base font-bold">Deliver Goods (COGS Auto-Post)</h3>
-            <p className="text-xs text-neutral-400">
-              Delivery records fulfillment, automatically relieves finished inventory (Cr Inventory 1130) and posts Cost of Goods Sold (Dr COGS 5010).
-            </p>
+      <PortalModal
+        isOpen={isDeliverOpen && !!selectedOrder}
+        onClose={() => setIsDeliverOpen(false)}
+        zIndex="z-[70]"
+        containerClassName="max-w-md"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
+          <h3 className="text-base font-bold">Deliver Goods (COGS Auto-Post)</h3>
+          <p className="text-xs text-neutral-400">
+            Delivery records fulfillment, automatically relieves finished inventory (Cr Inventory 1130) and posts Cost of Goods Sold (Dr COGS 5010).
+          </p>
 
-            <div className="space-y-3">
-              {(selectedOrder.items || []).map((item: any) => (
-                <div key={item.id} className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs flex justify-between items-center">
-                  <div>
-                    <div className="font-semibold text-white">{item.product?.name || item.description}</div>
-                    <div className="text-[10px] text-neutral-500">Ordered: {item.quantity} | Previously Delivered: {item.quantity_delivered || 0}</div>
-                  </div>
-                  <input
-                    type="number"
-                    min="1"
-                    max={item.quantity - (item.quantity_delivered || 0)}
-                    value={deliverQtys[item.id] ?? (item.quantity - (item.quantity_delivered || 0))}
-                    onChange={(e) =>
-                      setDeliverQtys({ ...deliverQtys, [item.id]: Number(e.target.value) })
-                    }
-                    className="w-20 px-2 py-1 bg-[#1a1a22] border border-neutral-700 rounded text-right text-xs font-mono font-bold text-emerald-400"
-                  />
+          <div className="space-y-3">
+            {(selectedOrder?.items || []).map((item: any) => (
+              <div key={item.id} className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs flex justify-between items-center">
+                <div>
+                  <div className="font-semibold text-white">{item.product?.name || item.description}</div>
+                  <div className="text-[10px] text-neutral-500">Ordered: {item.quantity} | Previously Delivered: {item.quantity_delivered || 0}</div>
                 </div>
-              ))}
-            </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={item.quantity - (item.quantity_delivered || 0)}
+                  value={deliverQtys[item.id] ?? (item.quantity - (item.quantity_delivered || 0))}
+                  onChange={(e) =>
+                    setDeliverQtys({ ...deliverQtys, [item.id]: Number(e.target.value) })
+                  }
+                  className="w-20 px-2 py-1 bg-[#1a1a22] border border-neutral-700 rounded text-right text-xs font-mono font-bold text-emerald-400"
+                />
+              </div>
+            ))}
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsDeliverOpen(false)}
-                className="border-neutral-700 bg-neutral-800 text-neutral-300"
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={isDelivering}
-                onClick={handleDeliverConfirm}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-              >
-                {isDelivering ? 'Processing...' : 'Confirm Delivery & Post COGS'}
-              </Button>
-            </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeliverOpen(false)}
+              className="border-neutral-700 bg-neutral-800 text-neutral-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isDelivering}
+              onClick={handleDeliverConfirm}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+            >
+              {isDelivering ? 'Processing...' : 'Confirm Delivery & Post COGS'}
+            </Button>
           </div>
         </div>
-      )}
+      </PortalModal>
 
       {/* Sales Order Detail Modal */}
-      {detailOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={!!detailOrder}
+        onClose={() => setDetailOrder(null)}
+        zIndex="z-[60]"
+        containerClassName="max-w-2xl"
+      >
+        {detailOrder && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -720,8 +738,8 @@ export const SalesOrdersPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

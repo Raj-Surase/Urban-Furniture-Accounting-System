@@ -14,6 +14,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const JournalPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -207,17 +210,20 @@ export const JournalPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-400">
-                    Loading journal entries...
-                  </td>
-                </tr>
+                <TableSkeleton columns={9} rows={6} />
               ) : filteredEntries.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-neutral-500 italic">
-                    No journal entries recorded.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={9}
+                  icon={FileCode2}
+                  title="No journal entries recorded"
+                  description={
+                    searchQuery
+                      ? 'No journal entries match your search criteria.'
+                      : 'Post manual journal entries or generate operational transactions to populate the ledger.'
+                  }
+                  actionLabel={isAdmin || isManager ? 'Post Journal Entry' : undefined}
+                  onAction={isAdmin || isManager ? () => setIsNewOpen(true) : undefined}
+                />
               ) : (
                 filteredEntries.map((je) => {
                   const isExpanded = !!expandedEntries[je.id];
@@ -341,209 +347,224 @@ export const JournalPage: React.FC = () => {
       </Card>
 
       {/* New Manual Journal Entry Modal */}
-      {isNewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-base font-bold">Post General Ledger Journal Entry</h3>
-              <button onClick={() => setIsNewOpen(false)} className="text-neutral-400 hover:text-white">
-                ✕
-              </button>
-            </div>
+      <PortalModal
+        isOpen={isNewOpen}
+        onClose={() => setIsNewOpen(false)}
+        zIndex="z-[60]"
+        maxWidth="max-w-3xl"
+      >
+        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
+          <div className="flex justify-between items-center">
+            <h3 className="text-base font-bold">Post General Ledger Journal Entry</h3>
+            <button onClick={() => setIsNewOpen(false)} className="text-neutral-400 hover:text-white">
+              ✕
+            </button>
+          </div>
 
-            <form onSubmit={handleCreateEntry} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Entry Date</label>
-                  <input
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. ADJ-2026-001"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
-                  />
-                </div>
-              </div>
-
+          <form onSubmit={handleCreateEntry} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Description / Narration</label>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Entry Date</label>
                 <input
-                  type="text"
-                  placeholder="e.g. Month-end inventory adjustment for timber scrap / COGS"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  type="date"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
                   required
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
                 />
               </div>
 
-              {/* Lines Table */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-neutral-400">
-                  <span>Debits & Credits</span>
-                  <button
-                    type="button"
-                    onClick={handleAddLine}
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    + Add Line
-                  </button>
-                </div>
-
-                <div className="border border-neutral-800 rounded-xl overflow-hidden bg-[#181820]">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-neutral-800 bg-neutral-900/60 text-neutral-400 text-[10px] uppercase">
-                        <th className="py-2.5 px-3">Account</th>
-                        <th className="py-2.5 px-2">Line Narration</th>
-                        <th className="py-2.5 px-2 w-28 text-right">Debit (₹)</th>
-                        <th className="py-2.5 px-2 w-28 text-right">Credit (₹)</th>
-                        <th className="py-2.5 px-2 w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800/60">
-                      {lines.map((line, idx) => (
-                        <tr key={idx}>
-                          <td className="py-2 px-3">
-                            <select
-                              value={line.account_id}
-                              onChange={(e) => {
-                                const updated = [...lines];
-                                updated[idx].account_id = Number(e.target.value);
-                                setLines(updated);
-                              }}
-                              required
-                              className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white"
-                            >
-                              <option value="">Select Account...</option>
-                              {accounts.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.code} - {a.name} ({a.type})
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-2 px-2">
-                            <input
-                              type="text"
-                              placeholder="Line description"
-                              value={line.description}
-                              onChange={(e) => {
-                                const updated = [...lines];
-                                updated[idx].description = e.target.value;
-                                setLines(updated);
-                              }}
-                              className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-right">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={line.debit}
-                              onChange={(e) => {
-                                const updated = [...lines];
-                                updated[idx].debit = Number(e.target.value);
-                                if (Number(e.target.value) > 0) updated[idx].credit = 0;
-                                setLines(updated);
-                              }}
-                              className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right font-mono"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-right">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={line.credit}
-                              onChange={(e) => {
-                                const updated = [...lines];
-                                updated[idx].credit = Number(e.target.value);
-                                if (Number(e.target.value) > 0) updated[idx].debit = 0;
-                                setLines(updated);
-                              }}
-                              className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right font-mono"
-                            />
-                          </td>
-                          <td className="py-2 px-2 text-center">
-                            {lines.length > 2 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveLine(idx)}
-                                className="text-neutral-500 hover:text-rose-400"
-                              >
-                                ✕
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Balance validation bar */}
-                <div className="p-3 bg-[#181820] border border-neutral-800 rounded-xl flex items-center justify-between text-xs font-mono">
-                  <div className="flex gap-4">
-                    <span>
-                      Total Debits: <strong className="text-emerald-400">₹{totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                    </span>
-                    <span>
-                      Total Credits: <strong className="text-indigo-400">₹{totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                    </span>
-                  </div>
-
-                  <div>
-                    {isBalanced ? (
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> BALANCED
-                      </span>
-                    ) : (
-                      <span className="text-rose-400 font-bold">
-                        DIFF: ₹{Math.abs(totalDebits - totalCredits).toFixed(2)} (Out of Balance)
-                      </span>
-                    )}
-                  </div>
-                </div>
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / Document #</label>
+                <input
+                  type="text"
+                  placeholder="e.g. JV-2026-004 or Direct Vendor Debit Note"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+                />
               </div>
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Narration / Description</label>
+              <input
+                type="text"
+                placeholder="e.g. Monthly workshop electricity accrual & factory overhead"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                required
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+              />
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-semibold text-neutral-300">Journal Lines (Double Entry)</label>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setIsNewOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
+                  onClick={handleAddLine}
+                  className="text-xs h-7 gap-1 border-neutral-700 text-neutral-300"
                 >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!isBalanced || isSubmitting}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
-                >
-                  {isSubmitting ? 'Posting...' : 'Post Journal Entry'}
+                  <Plus className="w-3 h-3" /> Add Account Line
                 </Button>
               </div>
-            </form>
-          </div>
+
+              <div className="border border-neutral-800 rounded-xl overflow-hidden bg-black/30">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#1a1a22] border-b border-neutral-800 text-neutral-400">
+                    <tr>
+                      <th className="py-2 px-3">General Ledger Account</th>
+                      <th className="py-2 px-3">Narration (Optional)</th>
+                      <th className="py-2 px-3 w-28 text-right">Debit (₹)</th>
+                      <th className="py-2 px-3 w-28 text-right">Credit (₹)</th>
+                      <th className="py-2 px-2 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800">
+                    {lines.map((line, idx) => (
+                      <tr key={idx} className="hover:bg-white/[0.01]">
+                        <td className="p-2">
+                          <select
+                            value={line.account_id}
+                            onChange={(e) => {
+                              const updated = [...lines];
+                              updated[idx].account_id = e.target.value ? Number(e.target.value) : '';
+                              setLines(updated);
+                            }}
+                            required
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white"
+                          >
+                            <option value="">Select GL Account...</option>
+                            {accounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.code} - {acc.name} ({acc.type})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            placeholder={description || 'Line item narration'}
+                            value={line.description}
+                            onChange={(e) => {
+                              const updated = [...lines];
+                              updated[idx].description = e.target.value;
+                              setLines(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.debit || ''}
+                            onChange={(e) => {
+                              const updated = [...lines];
+                              const val = parseFloat(e.target.value) || 0;
+                              updated[idx].debit = val;
+                              if (val > 0) updated[idx].credit = 0;
+                              setLines(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-emerald-400 font-mono font-bold"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.credit || ''}
+                            onChange={(e) => {
+                              const updated = [...lines];
+                              const val = parseFloat(e.target.value) || 0;
+                              updated[idx].credit = val;
+                              if (val > 0) updated[idx].debit = 0;
+                              setLines(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-right text-indigo-400 font-mono font-bold"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          {lines.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLine(idx)}
+                              className="text-neutral-500 hover:text-rose-400 text-sm font-bold"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Balance Verification Footer */}
+              <div className="p-3 bg-black/40 rounded-xl border border-neutral-800 flex items-center justify-between text-xs font-mono">
+                <div className="space-x-4">
+                  <span>
+                    Total Debits: <strong className="text-emerald-400">₹{totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                  </span>
+                  <span>
+                    Total Credits: <strong className="text-indigo-400">₹{totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                  </span>
+                </div>
+
+                <div>
+                  {isBalanced ? (
+                    <span className="text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" /> BALANCED
+                    </span>
+                  ) : (
+                    <span className="text-rose-400 font-bold">
+                      DIFF: ₹{Math.abs(totalDebits - totalCredits).toFixed(2)} (Out of Balance)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsNewOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!isBalanced || isSubmitting}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
+              >
+                {isSubmitting ? 'Posting...' : 'Post Journal Entry'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
+      </PortalModal>
 
       {/* Journal Entry Detail Modal */}
-      {detailEntry && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={Boolean(detailEntry)}
+        onClose={() => setDetailEntry(null)}
+        zIndex="z-[60]"
+        maxWidth="max-w-2xl"
+      >
+        {detailEntry && (
+          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -665,8 +686,8 @@ export const JournalPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

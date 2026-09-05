@@ -8,13 +8,21 @@ import {
   ArrowUpRight,
   Filter,
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { paymentsApi, customersApi, vendorsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
-export const PaymentsPage: React.FC = () => {
+export interface PaymentsPageProps {
+  openNew?: boolean;
+}
+
+export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) => {
   const { isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
@@ -58,6 +66,8 @@ export const PaymentsPage: React.FC = () => {
   // Detail Payment Modal State
   const [detailPayment, setDetailPayment] = useState<any>(null);
 
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     fetchPayments();
 
@@ -67,6 +77,29 @@ export const PaymentsPage: React.FC = () => {
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
+
+  // Deep linking and navigation support (Record Payment from Dashboard / Transactions)
+  useEffect(() => {
+    if (openNew || searchParams.get('new') === 'true') {
+      setIsNewOpen(true);
+    }
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+  }, [openNew, searchParams]);
+
+  useEffect(() => {
+    const idParam = searchParams.get('id');
+    if (idParam && payments.length > 0) {
+      const found = payments.find(
+        (p) => String(p.id) === String(idParam) || String(p.payment_number) === String(idParam)
+      );
+      if (found) {
+        setDetailPayment(found);
+      }
+    }
+  }, [searchParams, payments]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,17 +229,21 @@ export const PaymentsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-400">
-                    Loading payments...
-                  </td>
-                </tr>
+                <TableSkeleton rows={5} cols={8} />
               ) : filteredPayments.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-500 italic">
-                    No payments found.
-                  </td>
-                </tr>
+                <EmptyState
+                  icon={CreditCard}
+                  colSpan={8}
+                  title="No payments found"
+                  description="Record a customer receipt or vendor payment to begin tracking transactions."
+                  actionLabel="Record Payment"
+                  onAction={() => setIsNewOpen(true)}
+                  secondaryActionLabel={searchQuery || typeFilter !== 'all' ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setTypeFilter('all');
+                  }}
+                />
               ) : (
                 filteredPayments.map((p) => {
                   const isInflow = p.payment_type === 'customer_receipt';
@@ -285,9 +322,13 @@ export const PaymentsPage: React.FC = () => {
       </Card>
 
       {/* New Payment Modal */}
-      {isNewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isNewOpen}
+        onClose={() => setIsNewOpen(false)}
+        zIndex="z-[60]"
+        containerClassName="max-w-lg"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">Record Payment Voucher</h3>
 
             <form onSubmit={handleCreate} className="space-y-4">
@@ -410,13 +451,17 @@ export const PaymentsPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Payment Voucher Detail Modal */}
-      {detailPayment && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={!!detailPayment}
+        onClose={() => setDetailPayment(null)}
+        zIndex="z-[60]"
+        containerClassName="max-w-lg"
+      >
+        {detailPayment && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -529,8 +574,8 @@ export const PaymentsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

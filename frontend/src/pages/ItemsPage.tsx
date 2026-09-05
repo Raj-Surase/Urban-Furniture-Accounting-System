@@ -415,14 +415,14 @@ export const ItemsPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
-                Items Management
+                Items & Operations Tracker
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#7042f4]/20 text-[#c084fc] border border-[#7042f4]/30">
-                Master Operations & Telemetry
+                Operational Work Items & Audit Tasks
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#8e8e9f] mt-1 font-sans">
-              Create, inspect, filter, and modify inventory & work items with instantaneous multi-client Socket.io updates.
+              Operational work items, warehouse audit tasks, and internal action items (distinct from Catalog Products). Synchronized live across accounting clients via WebSocket.
             </p>
           </div>
 
@@ -1052,7 +1052,8 @@ export const ItemsPage: React.FC = () => {
           radius="lg"
           classNames={{
             base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
-            backdrop: 'bg-black/70 backdrop-blur-md',
+            backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
+            wrapper: 'z-[61]',
           }}
         >
           <ModalContent>
@@ -1142,7 +1143,8 @@ export const ItemsPage: React.FC = () => {
           radius="lg"
           classNames={{
             base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
-            backdrop: 'bg-black/70 backdrop-blur-md',
+            backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
+            wrapper: 'z-[61]',
           }}
         >
           <ModalContent>
@@ -1231,7 +1233,8 @@ export const ItemsPage: React.FC = () => {
           radius="lg"
           classNames={{
             base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
-            backdrop: 'bg-black/70 backdrop-blur-md',
+            backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
+            wrapper: 'z-[61]',
           }}
         >
           <ModalContent>
@@ -1313,7 +1316,8 @@ export const ItemsPage: React.FC = () => {
           radius="lg"
           classNames={{
             base: 'border border-rose-500/30 bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
-            backdrop: 'bg-black/70 backdrop-blur-md',
+            backdrop: 'bg-black/70 backdrop-blur-md z-[80]',
+            wrapper: 'z-[81]',
           }}
         >
           <ModalContent>

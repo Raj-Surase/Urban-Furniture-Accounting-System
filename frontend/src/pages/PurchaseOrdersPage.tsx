@@ -16,6 +16,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const PurchaseOrdersPage: React.FC = () => {
   const { user, isAdmin, isManager } = useAuth();
@@ -252,17 +255,21 @@ export const PurchaseOrdersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-400">
-                    Loading purchase orders...
-                  </td>
-                </tr>
+                <TableSkeleton rows={5} cols={8} />
               ) : filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-neutral-500 italic">
-                    No purchase orders found.
-                  </td>
-                </tr>
+                <EmptyState
+                  icon={ShoppingBag}
+                  colSpan={8}
+                  title="No purchase orders found"
+                  description="Create a purchase order to initiate procurement with vendors."
+                  actionLabel="New Purchase Order"
+                  onAction={() => setIsCreateOpen(true)}
+                  secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setStatusFilter('all');
+                  }}
+                />
               ) : (
                 filteredOrders.map((po) => {
                   return (
@@ -355,9 +362,13 @@ export const PurchaseOrdersPage: React.FC = () => {
       </Card>
 
       {/* Create PO Modal */}
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        zIndex="z-[60]"
+        containerClassName="max-w-2xl"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">New Purchase Order</h3>
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
@@ -491,13 +502,16 @@ export const PurchaseOrdersPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Receive Modal */}
-      {isReceiveOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
+      <PortalModal
+        isOpen={isReceiveOpen && !!selectedOrder}
+        onClose={() => setIsReceiveOpen(false)}
+        zIndex="z-[70]"
+        containerClassName="max-w-md"
+      >
+        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">Receive Goods (GRNI Auto-Post)</h3>
             <p className="text-xs text-neutral-400">
               Receiving will automatically increase warehouse stock and debit Raw Materials / Inventory with a credit to GRNI clearing account.
@@ -543,13 +557,17 @@ export const PurchaseOrdersPage: React.FC = () => {
               </Button>
             </div>
           </div>
-        </div>
-      )}
+      </PortalModal>
 
       {/* Purchase Order Detail Modal */}
-      {detailOrder && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+      <PortalModal
+        isOpen={!!detailOrder}
+        onClose={() => setDetailOrder(null)}
+        zIndex="z-[60]"
+        containerClassName="max-w-2xl"
+      >
+        {detailOrder && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white space-y-5">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
               <div>
@@ -721,8 +739,8 @@ export const PurchaseOrdersPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

@@ -13,6 +13,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 export const AccountsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -173,17 +176,20 @@ export const AccountsPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-neutral-400">
-                    Loading accounts...
-                  </td>
-                </tr>
+                <TableSkeleton columns={6} rows={6} />
               ) : filteredAccounts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-neutral-500 italic">
-                    No accounts found.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={6}
+                  icon={BookOpen}
+                  title="No accounts found"
+                  description={
+                    searchQuery
+                      ? 'No chart accounts match your search filter.'
+                      : 'Initialize standard chart of accounts or create custom ledgers.'
+                  }
+                  actionLabel={isAdmin || isManager ? 'Add General Ledger Account' : undefined}
+                  onAction={isAdmin || isManager ? () => setIsNewOpen(true) : undefined}
+                />
               ) : (
                 filteredAccounts.map((acc) => (
                   <tr
@@ -241,9 +247,14 @@ export const AccountsPage: React.FC = () => {
       </Card>
 
       {/* Ledger Drawer/Modal */}
-      {isLedgerOpen && ledgerAccount && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto overflow-hidden text-white">
+      <PortalModal
+        isOpen={isLedgerOpen && Boolean(ledgerAccount)}
+        onClose={() => setIsLedgerOpen(false)}
+        zIndex="z-[60]"
+        maxWidth="max-w-3xl"
+      >
+        {ledgerAccount && (
+          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216]">
               <div>
                 <h3 className="text-base font-bold font-mono">
@@ -295,87 +306,90 @@ export const AccountsPage: React.FC = () => {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
 
       {/* New Account Modal */}
-      {isNewOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
-            <h3 className="text-base font-bold">Add Account to Chart</h3>
-            <form onSubmit={handleCreateAccount} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Code</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1130 or 5010"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
-                />
-              </div>
+      <PortalModal
+        isOpen={isNewOpen}
+        onClose={() => setIsNewOpen(false)}
+        zIndex="z-[60]"
+        maxWidth="max-w-md"
+      >
+        <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
+          <h3 className="text-base font-bold">Add Account to Chart</h3>
+          <form onSubmit={handleCreateAccount} className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Code</label>
+              <input
+                type="text"
+                placeholder="e.g. 1130 or 5010"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white font-mono"
+              />
+            </div>
 
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Teakwood Raw Materials Inventory"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Title</label>
+              <input
+                type="text"
+                placeholder="e.g. Teakwood Raw Materials Inventory"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+              />
+            </div>
 
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Classification</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                >
-                  <option value="asset">Asset (1xxx) — Cash, HDFC Bank, Inventory, AR</option>
-                  <option value="liability">Liability (2xxx) — AP, GST Payables, Advances</option>
-                  <option value="equity">Capital / Equity (3xxx) — Owner Capital, Reserves</option>
-                  <option value="revenue">Income / Revenue (4xxx) — Furniture Sales, Service Fees</option>
-                  <option value="expense">Expense (5xxx) — COGS, Workshop Rent, Scrap</option>
-                </select>
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Account Classification</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+              >
+                <option value="asset">Asset (1xxx) — Cash, HDFC Bank, Inventory, AR</option>
+                <option value="liability">Liability (2xxx) — AP, GST Payables, Advances</option>
+                <option value="equity">Capital / Equity (3xxx) — Owner Capital, Reserves</option>
+                <option value="revenue">Income / Revenue (4xxx) — Furniture Sales, Service Fees</option>
+                <option value="expense">Expense (5xxx) — COGS, Workshop Rent, Scrap</option>
+              </select>
+            </div>
 
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Description / Notes</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 block mb-1">Description / Notes</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white"
+              />
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsNewOpen(false)}
-                  className="border-neutral-700 bg-neutral-800 text-neutral-300"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
-                >
-                  {isSubmitting ? 'Creating...' : 'Create Account'}
-                </Button>
-              </div>
-            </form>
-          </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsNewOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Account'}
+              </Button>
+            </div>
+          </form>
         </div>
-      )}
+      </PortalModal>
     </div>
   );
 };

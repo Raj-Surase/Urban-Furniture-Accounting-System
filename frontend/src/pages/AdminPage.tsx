@@ -15,6 +15,9 @@ import {
 } from '@heroui/react';
 import { Spinner } from '../components/ui/Spinner';
 import { PageTransition } from '../components/layout/PageTransition';
+import { PortalModal } from '../components/common/PortalModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 import {
   ShieldCheck,
   Users,
@@ -318,10 +321,20 @@ export const AdminPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.04]">
-                          {users.map((u) => {
-                            const isSelf = currentUser?.id === u.id;
-                            const isSoleAdmin = u.role === 'admin' && adminUsersCount <= 1;
-                            const isUpdating = updatingUserId === u.id;
+                          {loading ? (
+                            <TableSkeleton columns={5} rows={5} />
+                          ) : users.length === 0 ? (
+                            <EmptyState
+                              colSpan={5}
+                              icon={Users}
+                              title="No users found"
+                              description="No personnel accounts currently registered in the directory."
+                            />
+                          ) : (
+                            users.map((u) => {
+                              const isSelf = currentUser?.id === u.id;
+                              const isSoleAdmin = u.role === 'admin' && adminUsersCount <= 1;
+                              const isUpdating = updatingUserId === u.id;
 
                             return (
                               <tr
@@ -402,8 +415,9 @@ export const AdminPage: React.FC = () => {
                                 </td>
                               </tr>
                             );
-                          })}
-                        </tbody>
+                          })
+                        )}
+                      </tbody>
                       </table>
                     </div>
                   </div>
@@ -589,131 +603,142 @@ export const AdminPage: React.FC = () => {
         )}
 
         {/* Manager Onboarding Modal */}
-        {isOnboardModalOpen && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-            <div className="relative w-full max-w-md bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-5 h-5 text-purple-400" />
-                  <h3 className="text-base font-bold">Onboard Accountant (Invoicing User)</h3>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsOnboardModalOpen(false);
-                    setGeneratedCredentials(null);
-                  }}
-                  className="text-neutral-400 hover:text-white"
-                >
-                  ✕
-                </button>
+        <PortalModal
+          isOpen={isOnboardModalOpen}
+          onClose={() => {
+            setIsOnboardModalOpen(false);
+            setGeneratedCredentials(null);
+          }}
+          zIndex="z-[60]"
+          maxWidth="max-w-md"
+        >
+          <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-purple-400" />
+                <h3 className="text-base font-bold">Onboard Accountant (Invoicing User)</h3>
               </div>
+              <button
+                onClick={() => {
+                  setIsOnboardModalOpen(false);
+                  setGeneratedCredentials(null);
+                }}
+                className="text-neutral-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
 
-              {generatedCredentials ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4" /> Accountant Account Initialized
-                    </div>
-                    <p className="text-xs text-neutral-300">
-                      Email with credentials has been queued and logged for: <strong className="text-white">{generatedCredentials.email}</strong>.
-                    </p>
-                    <div className="mt-2 p-3 bg-black/40 rounded-lg border border-white/10 font-mono text-xs flex justify-between items-center">
-                      <span className="text-neutral-400">Password:</span>
-                      <span className="font-bold text-purple-300">{generatedCredentials.temporary_password}</span>
-                      <button
-                        onClick={() => {
-                          if (generatedCredentials.temporary_password) {
-                            navigator.clipboard.writeText(generatedCredentials.temporary_password);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }
-                        }}
-                        className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white font-sans"
-                      >
-                        {copied ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
+            {generatedCredentials ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4" /> Accountant Account Initialized
                   </div>
-
-                  <div className="flex justify-end">
+                  <p className="text-xs text-neutral-300">
+                    Email with credentials has been queued and logged for: <strong className="text-white">{generatedCredentials.email}</strong>.
+                  </p>
+                  <div className="mt-2 p-3 bg-black/40 rounded-lg border border-white/10 font-mono text-xs flex justify-between items-center">
+                    <span className="text-neutral-400">Password:</span>
+                    <span className="font-bold text-purple-300">{generatedCredentials.temporary_password}</span>
                     <button
                       onClick={() => {
-                        setIsOnboardModalOpen(false);
-                        setGeneratedCredentials(null);
+                        if (generatedCredentials.temporary_password) {
+                          navigator.clipboard.writeText(generatedCredentials.temporary_password);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }
                       }}
-                      className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                      className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white font-sans"
                     >
-                      Done
+                      {copied ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
                 </div>
-              ) : (
-                <form onSubmit={handleOnboardManager} className="space-y-4">
-                  <p className="text-xs text-neutral-400">
-                    Public registration is restricted to contact users. Use this admin form to provision Invoicing Users / Accountants with auto-generated secure credentials.
-                  </p>
 
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-300 block mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Vikram Sharma"
-                      value={managerName}
-                      onChange={(e) => setManagerName(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
-                    />
-                  </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setIsOnboardModalOpen(false);
+                      setGeneratedCredentials(null);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-4 py-2 rounded-lg"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleOnboardManager} className="space-y-4">
+                <p className="text-xs text-neutral-400">
+                  Public registration is restricted to contact users. Use this admin form to provision Invoicing Users / Accountants with auto-generated secure credentials.
+                </p>
 
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-300 block mb-1">Corporate Email</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="e.g. accountant@urbanfurniture.in"
-                      value={managerEmail}
-                      onChange={(e) => setManagerEmail(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Vikram Sharma"
+                    value={managerName}
+                    onChange={(e) => setManagerName(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. +91 98765 43210"
-                      value={managerPhone}
-                      onChange={(e) => setManagerPhone(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
-                    />
-                  </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Corporate Email</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. accountant@urbanfurniture.in"
+                    value={managerEmail}
+                    onChange={(e) => setManagerEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
 
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsOnboardModalOpen(false)}
-                      className="px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 text-xs hover:bg-neutral-800"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isOnboarding}
-                      className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
-                    >
-                      {isOnboarding ? 'Provisioning...' : 'Provision Accountant'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Phone (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. +91 98765 43210"
+                    value={managerPhone}
+                    onChange={(e) => setManagerPhone(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOnboardModalOpen(false)}
+                    className="px-3 py-1.5 rounded-lg border border-neutral-700 text-neutral-300 text-xs hover:bg-neutral-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isOnboarding}
+                    className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                  >
+                    {isOnboarding ? 'Provisioning...' : 'Provision Accountant'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        )}
+        </PortalModal>
 
         {/* User Detail Modal */}
-        {selectedUserDetail && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
-            <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-5">
+        <PortalModal
+          isOpen={Boolean(selectedUserDetail)}
+          onClose={() => setSelectedUserDetail(null)}
+          zIndex="z-[60]"
+          maxWidth="max-w-lg"
+        >
+          {selectedUserDetail && (
+            <div className="w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-5 shadow-2xl">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#7042f4] to-[#c084fc] flex items-center justify-center text-white font-bold text-base uppercase">
@@ -812,8 +837,8 @@ export const AdminPage: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </PortalModal>
       </div>
     </PageTransition>
   );
