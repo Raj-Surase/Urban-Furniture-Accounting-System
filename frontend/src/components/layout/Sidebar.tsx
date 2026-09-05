@@ -57,13 +57,119 @@ interface MenuGroup {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isCustomer, isVendor, logout } = useAuth();
   const { isConnected } = useSocket();
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const isAccountantOrAdmin = isAdmin || user?.role === UserRole.MANAGER || user?.role === UserRole.ACCOUNTANT;
+
+  let nonElevatedMenuGroups: MenuGroup[] = [];
+
+  if (isCustomer || user?.role === UserRole.CUSTOMER) {
+    nonElevatedMenuGroups = [
+      {
+        id: 'overview',
+        category: 'Client Studio & Catalog',
+        items: [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Furniture Catalog', path: '/products', icon: Store },
+          { name: '3D Workshop', path: '/workshop', icon: Package },
+          { name: 'Customer Portal', path: '/portal', icon: Globe },
+        ],
+      },
+      {
+        id: 'my_activity',
+        category: 'Orders & Documents',
+        items: [
+          { name: 'My Sales Orders', path: '/sales-orders', icon: Truck },
+          { name: 'My Invoices', path: '/invoices', icon: FileText },
+          { name: 'Payment Receipts', path: '/payments', icon: ArrowDownLeft },
+          { name: 'Workshop Items', path: '/items', icon: Layers },
+        ],
+      },
+      {
+        id: 'account',
+        category: 'My Account',
+        items: [
+          { name: 'My Customer Profile', path: '/customers', icon: Users },
+          { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
+        ],
+      },
+    ];
+  } else if (isVendor || user?.role === UserRole.VENDOR) {
+    nonElevatedMenuGroups = [
+      {
+        id: 'overview',
+        category: 'Vendor Workspace',
+        items: [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Furniture Catalog', path: '/products', icon: Store },
+          { name: '3D Workshop', path: '/workshop', icon: Package },
+        ],
+      },
+      {
+        id: 'my_activity',
+        category: 'Procurement & Bills',
+        items: [
+          { name: 'My Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+          { name: 'My Vendor Bills', path: '/bills', icon: Receipt },
+          { name: 'Settlement Payments', path: '/payments', icon: ArrowUpRight },
+          { name: 'Workshop Items', path: '/items', icon: Layers },
+        ],
+      },
+      {
+        id: 'account',
+        category: 'My Account',
+        items: [
+          { name: 'My Vendor Profile', path: '/vendors', icon: Truck },
+          { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
+        ],
+      },
+    ];
+  } else {
+    // Standard User (Staff)
+    nonElevatedMenuGroups = [
+      {
+        id: 'overview',
+        category: 'Workspace & Catalog',
+        items: [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Furniture Catalog', path: '/products', icon: Store },
+          { name: '3D Workshop', path: '/workshop', icon: Package },
+          { name: 'Customer Portal', path: '/portal', icon: Globe },
+          { name: 'Operations Tracker', path: '/items', icon: Layers },
+        ],
+      },
+      {
+        id: 'my_activity',
+        category: 'My Orders & Invoices',
+        items: [
+          { name: 'My Sales Orders', path: '/sales-orders', icon: Truck },
+          { name: 'My Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
+          { name: 'My Invoices', path: '/invoices', icon: FileText },
+        ],
+      },
+      {
+        id: 'operations',
+        category: 'Partner Records',
+        items: [
+          { name: 'My Customer Profile', path: '/customers', icon: Users },
+          { name: 'My Vendor Profile', path: '/vendors', icon: Truck },
+          { name: 'My Bills', path: '/bills', icon: Receipt },
+          { name: 'Payments & Receipts', path: '/payments', icon: ArrowDownLeft },
+        ],
+      },
+      {
+        id: 'system',
+        category: 'My Account',
+        items: [
+          { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
+        ],
+      },
+    ];
+  }
 
   const menuGroups: MenuGroup[] = isAccountantOrAdmin
     ? [
@@ -137,45 +243,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           ],
         },
       ]
-    : [
-        {
-          id: 'overview',
-          category: 'Workspace & Catalog',
-          items: [
-            { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-            { name: 'Furniture Catalog', path: '/products', icon: Store },
-            { name: '3D Workshop', path: '/workshop', icon: Package },
-            { name: 'Customer Portal', path: '/portal', icon: Globe },
-          ],
-        },
-        {
-          id: 'my_activity',
-          category: 'My Orders & Invoices',
-          items: [
-            { name: 'My Sales Orders', path: '/sales-orders', icon: Truck },
-            { name: 'My Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
-            { name: 'My Invoices', path: '/invoices', icon: FileText },
-            { name: 'Workshop Items', path: '/items', icon: Layers },
-          ],
-        },
-        {
-          id: 'operations',
-          category: 'Operations & Directory',
-          items: [
-            { name: 'Customer Directory', path: '/customers', icon: Users },
-            { name: 'Vendor Directory', path: '/vendors', icon: Truck },
-            { name: 'Vendor Bills', path: '/bills', icon: Receipt },
-            { name: 'Payments & Receipts', path: '/payments', icon: ArrowDownLeft },
-          ],
-        },
-        {
-          id: 'system',
-          category: 'My Account',
-          items: [
-            { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
-          ],
-        },
-      ];
+    : nonElevatedMenuGroups;
+
 
   const isActive = (path: string) => {
     if (path.includes('?')) {

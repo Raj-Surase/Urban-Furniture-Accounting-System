@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Customer;
+use App\Security\Rbac;
 use App\Services\RealtimeService;
 use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,16 @@ class CustomerController extends Controller
     {
         Gate::authorize('viewAny', Customer::class);
 
+        $user = $request->user();
         $query = Customer::with('receivableAccount')->orderBy('name', 'asc');
+
+        // Non-admin/manager/accountant users: scope to own records only
+        if (!$user->hasPermission(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY)) {
+            $query->where(function ($q) use ($user) {
+                $q->where('created_by', $user->id)
+                  ->orWhere('email', $user->email);
+            });
+        }
 
         if ($name = $request->query('name')) {
             $query->where('name', 'like', "%{$name}%");

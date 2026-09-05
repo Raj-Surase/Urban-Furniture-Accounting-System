@@ -95,6 +95,7 @@ class PaymentTransactionService
             'transaction' => $transaction,
             'order' => $order,
             'key_id' => $this->razorpay->getKeyId(),
+            'is_mock' => $this->razorpay->isMockMode(),
             'customer' => [
                 'name' => $partyName,
                 'email' => $partyEmail,
@@ -171,6 +172,7 @@ class PaymentTransactionService
             'transaction' => $transaction,
             'order' => $order,
             'key_id' => $this->razorpay->getKeyId(),
+            'is_mock' => $this->razorpay->isMockMode(),
             'customer' => [
                 'name' => $partyName,
                 'email' => $partyEmail,
@@ -327,7 +329,8 @@ class PaymentTransactionService
      */
     public function processWebhook(string $rawPayload, string $signatureHeader): array
     {
-        $isValid = $this->razorpay->verifyWebhookSignature($rawPayload, $signatureHeader);
+        $isMock = $this->razorpay->isMockMode();
+        $isValid = $isMock || $this->razorpay->verifyWebhookSignature($rawPayload, $signatureHeader);
         if (!$isValid) {
             throw new \RuntimeException("Webhook signature verification failed.");
         }

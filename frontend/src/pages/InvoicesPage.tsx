@@ -33,6 +33,7 @@ import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfMod
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
@@ -617,6 +618,8 @@ export const InvoicesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <RolePortalBanner entityName="Invoices" />
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -1019,40 +1022,53 @@ export const InvoicesPage: React.FC = () => {
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
                     {createType === ContactType.CUSTOMER ? 'Customer (Buyer)' : 'Vendor (Supplier)'} <span className="text-rose-400">*</span>
                   </label>
-                  <select
-                    value={selectedPartyId}
-                    onChange={(e) => {
-                      const pId = Number(e.target.value);
-                      setSelectedPartyId(pId);
-                      if (createFieldErrors.party_id) {
-                        setCreateFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.party_id;
-                          return next;
-                        });
-                      }
-                      // Auto-apply customer/vendor payment terms if set
-                      const p = (createType === ContactType.CUSTOMER ? customers : vendors).find((x) => x.id === pId);
-                      if (p?.payment_terms_days !== undefined) {
-                        const days = Number(p.payment_terms_days);
-                        setPaymentTermsDays(days);
-                        setDueDate(calculateDueDate(invoiceDate, days));
-                      }
-                    }}
-                    required
-                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
-                      createFieldErrors.party_id
-                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
-                        : 'border-neutral-700 focus:border-purple-500'
-                    }`}
-                  >
-                    <option value="">Select party...</option>
-                    {(createType === ContactType.CUSTOMER ? customers : vendors).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.gstin ? `(${p.gstin})` : ''} - {p.state || 'MH'}
-                      </option>
-                    ))}
-                  </select>
+                  {!isElevated ? (
+                    <div className="p-2.5 bg-[#121216] border border-purple-500/30 rounded-lg text-xs flex items-center justify-between">
+                      <span className="font-semibold text-white truncate">
+                        {createType === ContactType.CUSTOMER
+                          ? (customers.find((c) => c.id === selectedPartyId)?.name || user?.customer_name || user?.name)
+                          : (vendors.find((v) => v.id === selectedPartyId)?.name || user?.vendor_name || user?.name)}
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 shrink-0">
+                        Locked Profile
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedPartyId}
+                      onChange={(e) => {
+                        const pId = Number(e.target.value);
+                        setSelectedPartyId(pId);
+                        if (createFieldErrors.party_id) {
+                          setCreateFieldErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.party_id;
+                            return next;
+                          });
+                        }
+                        // Auto-apply customer/vendor payment terms if set
+                        const p = (createType === ContactType.CUSTOMER ? customers : vendors).find((x) => x.id === pId);
+                        if (p?.payment_terms_days !== undefined) {
+                          const days = Number(p.payment_terms_days);
+                          setPaymentTermsDays(days);
+                          setDueDate(calculateDueDate(invoiceDate, days));
+                        }
+                      }}
+                      required
+                      className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                        createFieldErrors.party_id
+                          ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                          : 'border-neutral-700 focus:border-purple-500'
+                      }`}
+                    >
+                      <option value="">Select party...</option>
+                      {(createType === ContactType.CUSTOMER ? customers : vendors).map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.gstin ? `(${p.gstin})` : ''} - {p.state || 'MH'}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {createFieldErrors.party_id && (
                     <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.party_id}</span>
                   )}

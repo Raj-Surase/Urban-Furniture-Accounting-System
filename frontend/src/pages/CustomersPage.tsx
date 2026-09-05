@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Plus,
@@ -13,6 +14,10 @@ import {
   FolderTree,
   ShieldCheck,
   FileText,
+  ShoppingCart,
+  Sparkles,
+  CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { customersApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +25,7 @@ import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
@@ -56,7 +62,8 @@ const customerColumnDefs: ColumnFilterDef[] = [
 ];
 
 export const CustomersPage: React.FC = () => {
-  const { isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const [customers, setCustomers] = useState<any[]>([]);
@@ -246,6 +253,190 @@ export const CustomersPage: React.FC = () => {
     items: filteredCustomers,
     pageSize: 15,
   });
+
+  const isElevated = isAdmin || isManager || isAccountant;
+
+  if (!isElevated) {
+    const myCustomer = customers.length > 0 ? customers[0] : null;
+
+    return (
+      <div className="space-y-6">
+        <RolePortalBanner entityName="Customer Profile" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <Users className="w-7 h-7 text-emerald-400" />
+              My Customer Profile
+            </h1>
+            <p className="text-sm text-neutral-400 mt-1">
+              Your registered commercial profile, place of supply, and accounts receivable balance.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <Button
+              onClick={() => navigate('/sales-orders?new=true')}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 shadow-lg shadow-emerald-600/20 text-xs font-semibold"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              New Order
+            </Button>
+            <Button
+              onClick={() => navigate('/workshop')}
+              className="bg-[#1e1e28] hover:bg-[#252533] text-amber-300 border border-amber-500/30 text-xs font-semibold gap-2"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              3D Workshop
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <TableSkeleton columns={3} rows={4} />
+        ) : !myCustomer ? (
+          <Card className="p-8 text-center bg-[#141418] border-white/[0.06] rounded-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto mb-3">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">No Linked Customer Profile</h3>
+            <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+              Your user account ({user?.email}) has not been linked to a customer ledger profile yet. Once an order is created or your account is verified by our admin team, your profile details will appear here.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <Button
+                onClick={() => navigate('/workshop')}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+              >
+                Configure Custom Item in 3D
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Profile Info */}
+            <Card className="lg:col-span-2 p-6 bg-[#141418] border-white/[0.06] rounded-2xl space-y-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-emerald-600/20">
+                    {myCustomer.name?.charAt(0) || 'C'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-white tracking-tight">{myCustomer.name}</h2>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        {myCustomer.code || `CUST-${myCustomer.id}`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {myCustomer.company_name || 'Commercial Client Entity'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Active Profile</span>
+                </div>
+              </div>
+
+              {/* Tax & GST Specs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/[0.06]">
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <span className="text-[10.5px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    GSTIN / Place of Supply
+                  </span>
+                  <div className="font-mono text-sm font-semibold text-emerald-300">
+                    {myCustomer.gstin || 'Unregistered / B2C'}
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    State: <span className="text-white font-medium">{myCustomer.state || 'Maharashtra'}</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <span className="text-[10.5px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    Income Tax PAN
+                  </span>
+                  <div className="font-mono text-sm font-semibold text-white">
+                    {myCustomer.pan || 'N/A'}
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    Contact: <span className="text-white font-medium">{myCustomer.contact_person || user?.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact & Address */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                  Registered Addresses & Communication
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
+                      <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Email & Phone</span>
+                    </div>
+                    <div className="text-white font-medium">{myCustomer.email || user?.email || 'N/A'}</div>
+                    <div className="text-neutral-400 mt-0.5">{myCustomer.phone || user?.phone || 'N/A'}</div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Billing & Shipping Address</span>
+                    </div>
+                    <div className="text-neutral-300">{myCustomer.billing_address || 'Same as corporate headquarters'}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Financial Ledger Summary */}
+            <div className="space-y-6">
+              <Card className="p-6 bg-gradient-to-br from-emerald-500/10 via-[#181820] to-[#121216] border-emerald-500/20 rounded-2xl space-y-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">
+                  Outstanding Receivable
+                </span>
+                <div className="text-3xl font-extrabold font-mono text-emerald-400">
+                  ₹{Number(myCustomer.outstanding_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1 text-xs">
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Credit Terms:</span>
+                    <span className="text-white font-semibold">{myCustomer.payment_terms_days || 30} Days Net</span>
+                  </div>
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Credit Limit:</span>
+                    <span className="text-white font-semibold font-mono">
+                      ₹{Number(myCustomer.credit_limit || 500000).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 space-y-2">
+                  <Button
+                    onClick={() => navigate('/invoices')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2.5 rounded-xl shadow-md shadow-emerald-600/20"
+                  >
+                    View Invoices & Statements
+                  </Button>
+                  <Button
+                    onClick={() => navigate('/sales-orders')}
+                    variant="outline"
+                    className="w-full border-white/10 text-neutral-300 hover:text-white text-xs py-2.5 rounded-xl"
+                  >
+                    Track Sales Orders
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

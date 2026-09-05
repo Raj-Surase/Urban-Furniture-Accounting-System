@@ -19,6 +19,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi, budgetsApi } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
 import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
@@ -71,6 +73,8 @@ const billColumnDefs: ColumnFilterDef[] = [
 export const VendorBillsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const isElevated = isAdmin || isManager || isAccountant;
   const [bills, setBills] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -247,7 +251,12 @@ export const VendorBillsPage: React.FC = () => {
       );
     } else {
       setActiveBill(null);
-      setVendorId(vendors[0]?.id ? vendors[0].id.toString() : '');
+      if (!isElevated) {
+        const matched = (user?.vendor_id && vendors.find((v) => v.id === user.vendor_id)) || vendors[0];
+        setVendorId(matched?.id ? matched.id.toString() : '');
+      } else {
+        setVendorId(vendors[0]?.id ? vendors[0].id.toString() : '');
+      }
       setBillReference('');
       setBillDate(new Date().toISOString().split('T')[0]);
       setDueDate(new Date().toISOString().split('T')[0]);
@@ -526,22 +535,43 @@ export const VendorBillsPage: React.FC = () => {
               <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
                 Vendor Name *
               </label>
-              <select
-                required
-                disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
-                value={vendorId}
-                onChange={(e) => setVendorId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
-              >
-                <option value="">-- Select Vendor --</option>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.email})
-                  </option>
-                ))}
-              </select>
+              {!isElevated ? (
+                <div className="p-3 bg-[#121216] border border-indigo-500/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                      {vendorName.charAt(0) || 'V'}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        {vendorName}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 block">
+                        {user?.company_name || 'Authorized Vendor Partner'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    Active Vendor
+                  </span>
+                </div>
+              ) : (
+                <select
+                  required
+                  disabled={activeBill && activeBill.status !== InvoiceStatus.DRAFT}
+                  value={vendorId}
+                  onChange={(e) => setVendorId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] disabled:opacity-60"
+                >
+                  <option value="">-- Select Vendor --</option>
+                  {vendors.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} ({v.email})
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className="text-[10px] text-[#606070] mt-1 block">
-                (from Contact master - Many to one)
+                {isElevated ? '(from Contact master - Many to one)' : 'Strictly bound to your verified vendor account'}
               </span>
             </div>
 
@@ -814,6 +844,7 @@ export const VendorBillsPage: React.FC = () => {
       ) : (
         /* LIST VIEW */
         <div className="space-y-4">
+          <RolePortalBanner entityName="Vendor Bills" />
           <ExcalidrawGuideBanner
             module="Purchase"
             concept="Vendor Bills (AP) & Cost Center Allocation"

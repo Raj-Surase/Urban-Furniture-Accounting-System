@@ -29,10 +29,11 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
   summaryData,
   loading = false,
 }) => {
-  const { user } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
   const navigate = useNavigate();
 
-  const isStandardUser = user?.role === UserRole.USER;
+  const isElevated = isAdmin || isManager || isAccountant;
+  const isStandardUser = !isElevated;
   const kpis = summaryData?.kpis;
 
   const formatCurrency = (val?: number) => {

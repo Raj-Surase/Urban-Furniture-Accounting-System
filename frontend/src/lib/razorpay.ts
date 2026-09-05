@@ -14,6 +14,8 @@ export interface RazorpayCheckoutOptions {
   name?: string;
   description?: string;
   customer?: RazorpayCustomerPrefill;
+  /** When true, skip the real Razorpay SDK and use the local mock dialog */
+  is_mock?: boolean;
   onSuccess: (response: any) => void;
   onError: (error: any) => void;
   onDismiss?: () => void;
@@ -54,10 +56,41 @@ export const loadRazorpayScript = (): Promise<boolean> => {
  * Launch Razorpay Standard Checkout modal and verify signature on completion.
  */
 export const openRazorpayCheckout = async (options: RazorpayCheckoutOptions): Promise<void> => {
+  // Use mock simulation if the backend is in sandbox/mock mode, or the order ID is a mock
+  const isMockMode = options.is_mock || options.order_id.startsWith('order_mock_');
+
+  if (isMockMode) {
+    console.info('[Razorpay] Mock mode detected — using sandbox simulation.');
+    const shouldSimulateSuccess = window.confirm(
+      `[Razorpay Mock Sandbox]\n\n` +
+      `Simulate successful online payment for ₹${options.amount.toLocaleString('en-IN')}?\n` +
+      `Order ID: ${options.order_id}\n\n` +
+      `Click OK to simulate captured payment, or Cancel to dismiss.`
+    );
+
+    if (shouldSimulateSuccess) {
+      try {
+        const mockPaymentId = `pay_mock_${Date.now()}`;
+        const mockSignature = `mock_sig_${mockPaymentId}`;
+        const verifyRes = await razorpayApi.verify({
+          razorpay_order_id: options.order_id,
+          razorpay_payment_id: mockPaymentId,
+          razorpay_signature: mockSignature,
+        });
+        options.onSuccess(verifyRes);
+      } catch (err) {
+        options.onError(err);
+      }
+    } else {
+      if (options.onDismiss) options.onDismiss();
+    }
+    return;
+  }
+
   const isLoaded = await loadRazorpayScript();
 
   if (!isLoaded || !(window as any).Razorpay) {
-    // Fallback sandbox/mock modal for offline or development environments
+    // Fallback mock dialog if CDN script failed to load in non-mock mode
     console.info('Using Sandbox/Mock simulation mode for Razorpay checkout.');
     const shouldSimulateSuccess = window.confirm(
       `[Razorpay Mock Sandbox]\n\n` +

@@ -453,7 +453,7 @@ export const WorkshopPage: React.FC = () => {
             </Card>
 
             {/* LIVE FINANCIAL VALUATION BAR */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className={`grid ${isElevated ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'} gap-3`}>
               <div className="p-4 rounded-2xl bg-[#181820] border border-white/[0.06] shadow-sm">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8a8a9a] block">
                   Selling Price (Excl. Tax)
@@ -464,15 +464,17 @@ export const WorkshopPage: React.FC = () => {
                 <span className="text-[10px] text-[#8a8a9a]">Base + Wood spec</span>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#181820] border border-white/[0.06] shadow-sm">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8a8a9a] block">
-                  Estimated Cost (COGS)
-                </span>
-                <span className="text-xl font-extrabold font-mono text-indigo-300 mt-1 block">
-                  ₹{calculatedCost.toLocaleString('en-IN')}
-                </span>
-                <span className="text-[10px] text-emerald-400 font-semibold">{grossMarginPercent}% Gross Margin</span>
-              </div>
+              {isElevated && (
+                <div className="p-4 rounded-2xl bg-[#181820] border border-white/[0.06] shadow-sm">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8a8a9a] block">
+                    Estimated Cost (COGS)
+                  </span>
+                  <span className="text-xl font-extrabold font-mono text-indigo-300 mt-1 block">
+                    ₹{calculatedCost.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">{grossMarginPercent}% Gross Margin</span>
+                </div>
+              )}
 
               <div className="p-4 rounded-2xl bg-[#181820] border border-white/[0.06] shadow-sm">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8a8a9a] block">
@@ -509,26 +511,31 @@ export const WorkshopPage: React.FC = () => {
                 className="flex-1 bg-gradient-to-r from-[#7042f4] to-[#8b5cf6] hover:from-[#5f32e6] hover:to-[#7c3aed] text-white font-bold text-xs py-3 rounded-2xl shadow-lg shadow-[#7042f4]/30 flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-4 h-4" />
-                <span>Create Sales Order for Nimesh Pathak</span>
+                <span>
+                  Create Sales Order {user?.customer_name ? `for ${user.customer_name}` : user?.name ? `for ${user.name}` : ''}
+                </span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
 
-              <Button
-                size="md"
-                variant="flat"
-                onPress={() =>
-                  navigate(
-                    `/purchase-orders?new=true&wood=${encodeURIComponent(
-                      selectedWood.name
-                    )}&raw_cost=${calculatedCost}`
-                  )
-                }
-                className="bg-[#1e1e28] hover:bg-[#252533] text-amber-300 border border-amber-500/30 font-semibold text-xs py-3 px-5 rounded-2xl"
-              >
-                <ShoppingBag className="w-4 h-4 mr-1 text-amber-400" />
-                <span>Procure Raw Timber (PO)</span>
-              </Button>
+              {isElevated && (
+                <Button
+                  size="md"
+                  variant="flat"
+                  onPress={() =>
+                    navigate(
+                      `/purchase-orders?new=true&wood=${encodeURIComponent(
+                        selectedWood.name
+                      )}&raw_cost=${calculatedCost}`
+                    )
+                  }
+                  className="bg-[#1e1e28] hover:bg-[#252533] text-amber-300 border border-amber-500/30 font-semibold text-xs py-3 px-5 rounded-2xl"
+                >
+                  <ShoppingBag className="w-4 h-4 mr-1 text-amber-400" />
+                  <span>Procure Raw Timber (PO)</span>
+                </Button>
+              )}
             </div>
+
           </div>
 
           {/* RIGHT 5 COLS: CUSTOMIZER CONTROLS & SPECIFICATION PALETTE */}
@@ -727,7 +734,7 @@ export const WorkshopPage: React.FC = () => {
           </div>
         </div>
 
-        {/* BOTTOM EXCALIDRAW & ACCOUNTING SPECIFICATION GUIDE */}
+        {/* BOTTOM WORKFLOW GUIDE */}
         <div className="mt-12 bg-gradient-to-br from-[#181822] to-[#121218] border border-white/[0.08] rounded-3xl p-6 sm:p-8 shadow-xl">
           <div className="flex items-center gap-3 border-b border-white/[0.06] pb-4 mb-6">
             <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
@@ -735,73 +742,122 @@ export const WorkshopPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-lg font-bold text-white tracking-tight">
-                Urban Furniture: Accounting & Workshop Integration Workflow
+                {isElevated ? 'Urban Furniture: Accounting & Workshop Integration Workflow' : 'Custom Furniture Studio & Ordering Guide'}
               </h2>
               <p className="text-xs text-[#8a8a9a] mt-0.5">
-                Official guide following the Hackathon Problem Statement and Excalidraw Wireframe Specifications
+                {isElevated
+                  ? 'Official guide following the Hackathon Problem Statement and Excalidraw Wireframe Specifications'
+                  : 'How your custom furniture is engineered, fabricated, and delivered directly to your project site'}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
-            {/* Step 1: Procurement */}
-            <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
-              <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[11px]">
-                <span>1. Raw Timber Procurement</span>
+          {isElevated ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
+              {/* Step 1: Procurement */}
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>1. Raw Timber Procurement</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  When ordering raw timber (e.g. Burmese Teak or White Oak from Azure Furniture or Open Wood):
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Create <strong className="text-white">Purchase Order</strong> (PO-2026-XXXX).</li>
+                  <li>On intake, convert PO into <strong className="text-white">Vendor Bill</strong>.</li>
+                  <li>Auto-generates balanced Journal Entry:</li>
+                </ul>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-amber-300">
+                  Debit: Purchase Expense (5200)<br />
+                  Credit: Creditor A/c (Rahul Sharma / Azure)
+                </div>
               </div>
-              <p className="text-[#9090a0]">
-                When ordering raw timber (e.g. Burmese Teak or White Oak from Azure Furniture or Open Wood):
-              </p>
-              <ul className="space-y-1 text-neutral-300 list-disc list-inside">
-                <li>Create <strong className="text-white">Purchase Order</strong> (PO-2026-XXXX).</li>
-                <li>On intake, convert PO into <strong className="text-white">Vendor Bill</strong>.</li>
-                <li>Auto-generates balanced Journal Entry:</li>
-              </ul>
-              <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-amber-300">
-                Debit: Purchase Expense (5200)<br />
-                Credit: Creditor A/c (Rahul Sharma / Azure)
-              </div>
-            </div>
 
-            {/* Step 2: Workshop & Budget */}
-            <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
-              <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[11px]">
-                <span>2. Analytical Cost Center Tracking</span>
+              {/* Step 2: Workshop & Budget */}
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>2. Analytical Cost Center Tracking</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  Every joinery task is marked against an <strong className="text-white">Analytic Account</strong> (e.g. <em>Furniture Workshop</em>):
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Allocated under <strong className="text-white">Analytical Budget</strong> (Draft → Confirm → Revise).</li>
+                  <li>Committed Amount vs Achieved Amount tracked in real-time.</li>
+                  <li>Variance alerts prevent over-budget procurement.</li>
+                </ul>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-indigo-300">
+                  Achieved % = (Achieved / Committed) * 100<br />
+                  Amount to Achieve = Committed - Achieved
+                </div>
               </div>
-              <p className="text-[#9090a0]">
-                Every joinery task is marked against an <strong className="text-white">Analytic Account</strong> (e.g. <em>Furniture Workshop</em>):
-              </p>
-              <ul className="space-y-1 text-neutral-300 list-disc list-inside">
-                <li>Allocated under <strong className="text-white">Analytical Budget</strong> (Draft → Confirm → Revise).</li>
-                <li>Committed Amount vs Achieved Amount tracked in real-time.</li>
-                <li>Variance alerts prevent over-budget procurement.</li>
-              </ul>
-              <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-indigo-300">
-                Achieved % = (Achieved / Committed) * 100<br />
-                Amount to Achieve = Committed - Achieved
-              </div>
-            </div>
 
-            {/* Step 3: Sales & Reporting */}
-            <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
-              <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
-                <span>3. Customer Fulfillment & Ledger</span>
-              </div>
-              <p className="text-[#9090a0]">
-                When fulfilling the custom order for Nimesh Pathak or commercial clients:
-              </p>
-              <ul className="space-y-1 text-neutral-300 list-disc list-inside">
-                <li>Generate <strong className="text-white">Customer Invoice</strong> from Sales Order.</li>
-                <li>Customer pays via Cash / Bank (HDFC Bank).</li>
-                <li>Automated General Ledger posting reflects immediately in:</li>
-              </ul>
-              <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-emerald-300">
-                • Balance Sheet (Assets: Bank/Cash + Debtors)<br />
-                • Profit & Loss (Sales Income - Cost = Net Profit)
+              {/* Step 3: Sales & Reporting */}
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>3. Customer Fulfillment & Ledger</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  When fulfilling the custom order for commercial or individual clients:
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Generate <strong className="text-white">Customer Invoice</strong> from Sales Order.</li>
+                  <li>Customer pays via Cash / Bank (HDFC Bank).</li>
+                  <li>Automated General Ledger posting reflects immediately in:</li>
+                </ul>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-white/5 font-mono text-[10.5px] text-emerald-300">
+                  • Balance Sheet (Assets: Bank/Cash + Debtors)<br />
+                  • Profit & Loss (Sales Income - Cost = Net Profit)
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>1. 3D Visualization & Finishes</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  Configure your furniture in real-time with authentic woods and premium upholstery fabrics.
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Select sustainably harvested hardwoods.</li>
+                  <li>Customize dimensions to fit your exact floor plan.</li>
+                  <li>Instant GST-compliant price estimate.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>2. Precision Timber Craftsmanship</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  Every joinery piece is hand-crafted by experienced artisans adhering to strict architectural tolerances.
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Traditional mortise & tenon joinery.</li>
+                  <li>Multi-coat hand-rubbed oil and matte protective finishes.</li>
+                  <li>10-year structural warranty on solid wood frames.</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#121216] border border-white/[0.04] space-y-2">
+                <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
+                  <span>3. Direct Order & Site Delivery</span>
+                </div>
+                <p className="text-[#9090a0]">
+                  Place your customized order with one click and track fulfillment directly from your account.
+                </p>
+                <ul className="space-y-1 text-neutral-300 list-disc list-inside">
+                  <li>Directly generates your Sales Order quote.</li>
+                  <li>White-glove delivery and professional on-site installation.</li>
+                  <li>Digital invoices with clear tax breakdowns.</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
+
       </div>
     </PageTransition>
   );

@@ -10,25 +10,22 @@ class CustomerPolicy
 {
     public function viewAny(User $user): bool
     {
+        // Admins/managers/accountants: full directory access
+        // Customer/vendor/user roles: allowed to call index but receive scoped results (own records only)
         return $user->hasPermission(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY) ||
-               $user->isCustomer() ||
-               $user->isStandardUser();
+               $user->hasPermission(Rbac::PERMISSION_CUSTOMERS_VIEW_OWN);
     }
 
     public function view(User $user, Customer $customer): bool
     {
         return $user->hasPermission(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY) ||
-               $user->isCustomer() ||
-               $user->isStandardUser() ||
                $customer->created_by === $user->id ||
                $customer->email === $user->email;
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPermission(Rbac::PERMISSION_CUSTOMERS_CREATE) ||
-               $user->isCustomer() ||
-               $user->isStandardUser();
+        return $user->hasPermission(Rbac::PERMISSION_CUSTOMERS_CREATE);
     }
 
     public function update(User $user, Customer $customer): bool
@@ -37,10 +34,7 @@ class CustomerPolicy
             return true;
         }
 
-        if ($user->isCustomer() || $user->isStandardUser()) {
-            return true;
-        }
-
+        // Only allow update of own customer record
         return $customer->created_by === $user->id || $customer->email === $user->email;
     }
 

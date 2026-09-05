@@ -16,7 +16,8 @@ class ItemPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission(Rbac::PERMISSION_ITEMS_VIEW_ANY);
+        return $user->hasPermission(Rbac::PERMISSION_ITEMS_VIEW_ANY) ||
+               $user->hasPermission(Rbac::PERMISSION_ITEMS_VIEW_OWN);
     }
 
     /**

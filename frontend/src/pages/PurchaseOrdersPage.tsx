@@ -25,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
@@ -83,7 +84,8 @@ const poColumnDefs: ColumnFilterDef[] = [
 export const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -159,14 +161,37 @@ export const PurchaseOrdersPage: React.FC = () => {
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
-  // Auto-open create modal when ?new=true (e.g., from Dashboard quick-action)
+  const handleOpenCreateModal = () => {
+    if (!isElevated && vendors.length > 0) {
+      const matched = (user?.vendor_id && vendors.find((v) => v.id === user.vendor_id)) || vendors[0];
+      if (matched) {
+        handleVendorSelect(matched.id);
+      } else {
+        setVendorId('');
+      }
+    } else {
+      setVendorId('');
+    }
+    setIsCreateOpen(true);
+  };
+
+  // Auto-open create modal when ?new=true (e.g., from Dashboard quick-action or 3D timber procurement)
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
-      setVendorId('');
+      if (!isElevated && vendors.length > 0) {
+        const matched = (user?.vendor_id && vendors.find((v) => v.id === user.vendor_id)) || vendors[0];
+        if (matched) {
+          handleVendorSelect(matched.id);
+        } else {
+          setVendorId('');
+        }
+      } else if (isElevated) {
+        setVendorId('');
+      }
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
       setIsCreateOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isElevated, vendors, user?.vendor_id]);
 
   const handleProductChange = (index: number, productId: number) => {
     const prod = products.find((p) => p.id === productId);
@@ -357,6 +382,8 @@ export const PurchaseOrdersPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <RolePortalBanner entityName="Purchase Orders" />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
@@ -369,10 +396,7 @@ export const PurchaseOrdersPage: React.FC = () => {
         </div>
 
         <Button
-          onClick={() => {
-            setVendorId('');
-            setIsCreateOpen(true);
-          }}
+          onClick={handleOpenCreateModal}
           className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 shadow-lg shadow-indigo-600/20 text-xs font-semibold"
         >
           <Plus className="w-4 h-4" />
@@ -622,19 +646,40 @@ export const PurchaseOrdersPage: React.FC = () => {
                 )}
               </div>
 
-              <select
-                value={vendorId}
-                onChange={(e) => handleVendorSelect(e.target.value === '' ? '' : Number(e.target.value))}
-                required
-                className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none transition-colors"
-              >
-                <option value="">Choose an approved vendor / manufacturer...</option>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} • {v.state || 'MH'} {v.gstin ? `(${v.gstin})` : '(Unregistered)'}
-                  </option>
-                ))}
-              </select>
+              {!isElevated ? (
+                <div className="p-3 bg-white/[0.02] border border-indigo-500/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-bold text-xs">
+                      {selectedVendor?.name?.charAt(0) || user?.name?.charAt(0) || 'V'}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        {selectedVendor?.name || user?.vendor_name || user?.name}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 block">
+                        {selectedVendor?.company_name || 'Supplier Account'} • {selectedVendor?.state || 'Maharashtra'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    Active Vendor Partner
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={vendorId}
+                  onChange={(e) => handleVendorSelect(e.target.value === '' ? '' : Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-indigo-500 focus:outline-none transition-colors"
+                >
+                  <option value="">Choose an approved vendor / manufacturer...</option>
+                  {vendors.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} • {v.state || 'MH'} {v.gstin ? `(${v.gstin})` : '(Unregistered)'}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {selectedVendor && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs border-t border-white/[0.04]">
