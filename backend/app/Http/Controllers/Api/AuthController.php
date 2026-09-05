@@ -21,14 +21,15 @@ class AuthController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'string', Password::defaults()],
-            'role' => ['nullable', 'string', 'in:admin,manager,user'],
         ]);
 
+        // Directive 4: Public registration is locked strictly to 'user' role.
+        // Managers can only be onboarded by Admin via /api/admin/onboard-manager.
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => $validated['role'] ?? User::ROLE_USER,
+            'role' => User::ROLE_USER,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
