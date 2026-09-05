@@ -383,4 +383,55 @@ class BackendBugFixesTest extends TestCase
         $this->assertEquals(1500.00, (float) $movement->unit_cost);
         $this->assertEquals(-6000.00, (float) $movement->total_value);
     }
+
+    public function test_account_ledger_returns_paginated_data_with_running_balances(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $account = $this->accounts['1110']; // Cash & Bank, debit normal, opening balance = 0
+        $account->update(['opening_balance' => 10000.00]);
+
+        $entry = \App\Models\JournalEntry::create([
+            'entry_number' => 'JE-2026-TEST1',
+            'type' => 'manual',
+            'description' => 'Initial capital injection',
+            'posting_date' => '2026-09-01',
+            'status' => 'posted',
+            'posted_by' => $this->admin->id,
+            'created_by' => $this->admin->id,
+        ]);
+
+        \App\Models\JournalEntryLine::create([
+            'journal_entry_id' => $entry->id,
+            'account_id' => $account->id,
+            'account_code' => $account->code,
+            'account_name' => $account->name,
+            'debit' => 5000.00,
+            'credit' => 0.00,
+            'description' => 'Deposit cash',
+        ]);
+
+        \App\Models\JournalEntryLine::create([
+            'journal_entry_id' => $entry->id,
+            'account_id' => $account->id,
+            'account_code' => $account->code,
+            'account_name' => $account->name,
+            'debit' => 0.00,
+            'credit' => 2000.00,
+            'description' => 'Office expense withdrawal',
+        ]);
+
+        $res = $this->getJson("/api/accounts/{$account->id}/ledger");
+        $res->assertOk();
+        $res->assertJsonStructure([
+            'account' => ['id', 'code', 'name'],
+            'ledger' => ['data', 'current_page', 'total'],
+        ]);
+
+        $data = $res->json('ledger.data');
+        $this->assertCount(2, $data);
+        // Newest first
+        $this->assertEquals(13000.00, (float) $data[0]['running_balance']); // 10000 + 5000 - 2000 = 13000
+        $this->assertEquals(15000.00, (float) $data[1]['running_balance']); // 10000 + 5000 = 15000
+    }
 }

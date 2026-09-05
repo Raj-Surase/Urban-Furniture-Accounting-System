@@ -13,12 +13,19 @@ class SalesOrderItem extends Model
     protected $fillable = [
         "sales_order_id",
         "product_id",
+        "hsn_code",
         "description",
         "quantity_ordered",
         "quantity_delivered",
         "unit_price",
         "discount_percent",
         "tax_rate",
+        "cgst_rate",
+        "cgst_amount",
+        "sgst_rate",
+        "sgst_amount",
+        "igst_rate",
+        "igst_amount",
         "tax_amount",
         "line_total",
     ];
@@ -35,11 +42,23 @@ class SalesOrderItem extends Model
 
     protected $appends = [
         "quantity",
+        "gst_rate",
+        "total_amount",
     ];
 
     public function getQuantityAttribute(): float
     {
         return (float) $this->quantity_ordered;
+    }
+
+    public function getGstRateAttribute(): float
+    {
+        return (float) ($this->tax_rate ?? 18);
+    }
+
+    public function getTotalAmountAttribute(): float
+    {
+        return (float) ($this->line_total ?? 0);
     }
 
     public function salesOrder(): BelongsTo

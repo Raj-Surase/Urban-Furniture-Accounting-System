@@ -17,10 +17,10 @@ class RealtimeService
      */
     public static function broadcast(string $event, array $data = [], ?string $channel = 'global'): bool
     {
-        $url = config('services.realtime.url', env('REALTIME_SERVER_URL', 'http://localhost:3001')) . '/api/broadcast';
+        $url = config('services.realtime.url', env('REALTIME_SERVER_URL', 'http://127.0.0.1:3001')) . '/api/broadcast';
 
         try {
-            $response = Http::timeout(2)->post($url, [
+            $response = Http::connectTimeout(1)->timeout(2)->post($url, [
                 'event' => $event,
                 'data' => $data,
                 'channel' => $channel,

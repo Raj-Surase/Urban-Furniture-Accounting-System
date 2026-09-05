@@ -23,7 +23,7 @@ class SalesOrderController extends Controller
     {
         Gate::authorize('viewAny', SalesOrder::class);
 
-        $query = SalesOrder::with(['customer', 'creator', 'approver'])->latest();
+        $query = SalesOrder::with(['customer', 'items.product', 'creator', 'approver'])->latest();
 
         if (!$request->user()->isAdmin() && !$request->user()->isManager()) {
             $query->where('created_by', $request->user()->id);
@@ -54,6 +54,19 @@ class SalesOrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', SalesOrder::class);
+
+        $items = $request->input('items', []);
+        if (is_array($items)) {
+            foreach ($items as $k => $it) {
+                if (isset($it['quantity']) && !isset($it['quantity_ordered'])) {
+                    $items[$k]['quantity_ordered'] = $it['quantity'];
+                }
+                if (isset($it['gst_rate']) && !isset($it['tax_rate'])) {
+                    $items[$k]['tax_rate'] = $it['gst_rate'];
+                }
+            }
+            $request->merge(['items' => $items]);
+        }
 
         $validated = $request->validate([
             'customer_id' => ['required', 'exists:customers,id'],

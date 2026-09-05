@@ -20,27 +20,29 @@ export const AppLayout: React.FC = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen w-full bg-[#121216] text-foreground font-sans flex">
+    <div className="min-h-screen w-full bg-[#121216] text-foreground font-sans flex flex-col">
       {/* Offline network status banner */}
       <NetworkStatusBanner />
 
-      {/* Proper Sidebar Navigation */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex min-w-0 relative">
+        {/* Proper Sidebar Navigation */}
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main Website Content View */}
-      <div className="flex-1 flex flex-col md:pl-64 min-w-0 min-h-screen">
-        {/* Sticky Header with Breadcrumbs, Search, Live Socket & User Menu */}
-        <Header
-          onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
-          onSearchClick={() => setSearchOpen(true)}
-        />
+        {/* Main Website Content View */}
+        <div className="flex-1 flex flex-col md:pl-64 min-w-0 min-h-screen">
+          {/* Sticky Header with Breadcrumbs, Search, Live Socket & User Menu */}
+          <Header
+            onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+            onSearchClick={() => setSearchOpen(true)}
+          />
 
-        {/* Dynamic page content */}
-        <main ref={mainRef} className="flex-1 w-full px-4 sm:px-6 md:px-8 lg:px-10 py-6 overflow-y-auto">
-          <ErrorBoundary componentName={`Route (${location.pathname})`}>
-            <Outlet />
-          </ErrorBoundary>
-        </main>
+          {/* Dynamic page content */}
+          <main ref={mainRef} className="flex-1 w-full px-4 sm:px-6 md:px-8 lg:px-10 py-6 overflow-y-auto">
+            <ErrorBoundary componentName={`Route (${location.pathname})`}>
+              <Outlet />
+            </ErrorBoundary>
+          </main>
+        </div>
       </div>
 
       {/* Global Command Palette / Search Modal */}

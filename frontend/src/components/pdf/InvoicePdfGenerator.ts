@@ -8,7 +8,22 @@ const formatCurrency = (val: number = 0): string => {
   });
 };
 
-export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
+export const formatDate = (dateStr?: string): string => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+export const buildInvoicePdfDoc = (invoice: InvoicePdfData): jsPDF => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -129,8 +144,8 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
   };
 
   drawField('Invoice Number:', invoice.invoice_number || 'INV-2026-0001', 28);
-  drawField('Invoice Date:', invoice.invoice_date || new Date().toISOString().slice(0, 10), 40);
-  drawField('Due Date:', invoice.due_date || 'Within 30 days', 52);
+  drawField('Invoice Date:', formatDate(invoice.invoice_date), 40);
+  drawField('Due Date:', formatDate(invoice.due_date), 52);
   drawField('Payment Status:', (invoice.status || 'PAID').toUpperCase(), 64);
 
   y += 88;
@@ -156,9 +171,9 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
   doc.text('ITEM DESCRIPTION', colX.desc, y + 14);
   doc.text('HSN / SAC', colX.hsn, y + 14);
   doc.text('QTY', colX.qty, y + 14, { align: 'right' });
-  doc.text('RATE (₹)', colX.rate, y + 14, { align: 'right' });
+  doc.text('RATE (Rs.)', colX.rate, y + 14, { align: 'right' });
   doc.text('TAX (GST)', colX.tax, y + 14, { align: 'right' });
-  doc.text('AMOUNT (₹)', colX.total, y + 14, { align: 'right' });
+  doc.text('AMOUNT (Rs.)', colX.total, y + 14, { align: 'right' });
   y += 24;
 
   // Line Items
@@ -204,14 +219,14 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
     const unitPrice = Number(item.unit_price) || 0;
     doc.text(formatCurrency(unitPrice), colX.rate, y + 3, { align: 'right' });
 
-    const taxAmount = Number(item.cgst_amount || 0) + Number(item.sgst_amount || 0) + Number(item.igst_amount || 0);
+    const taxAmount = Number(item.tax_amount || 0) || (Number(item.cgst_amount || 0) + Number(item.sgst_amount || 0) + Number(item.igst_amount || 0));
     doc.setTextColor(100, 116, 139);
-    doc.text(taxAmount > 0 ? `₹${formatCurrency(taxAmount)}` : '18% GST', colX.tax, y + 3, { align: 'right' });
+    doc.text(taxAmount > 0 ? `Rs. ${formatCurrency(taxAmount)}` : (invoice.is_interstate ? '18% IGST' : '18% GST'), colX.tax, y + 3, { align: 'right' });
 
-    const lineTotal = Number(item.total_amount || item.line_total || qty * unitPrice) || 0;
+    const lineTotal = Number(item.line_total || item.total_amount || (qty * unitPrice + taxAmount)) || 0;
     doc.setTextColor(30, 41, 59);
     doc.setFont('helvetica', 'bold');
-    doc.text(`₹${formatCurrency(lineTotal)}`, colX.total, y + 3, { align: 'right' });
+    doc.text(`Rs. ${formatCurrency(lineTotal)}`, colX.total, y + 3, { align: 'right' });
     doc.setFont('helvetica', 'normal');
 
     y += 18;
@@ -235,7 +250,7 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
       doc.setFontSize(9);
       doc.setTextColor(79, 70, 229);
       doc.text(lbl, totalsX + 6, y + 5);
-      doc.text(`₹${formatCurrency(val)}`, pageWidth - 46, y + 5, { align: 'right' });
+      doc.text(`Rs. ${formatCurrency(val)}`, pageWidth - 46, y + 5, { align: 'right' });
       y += 22;
     } else {
       doc.setFont('helvetica', 'normal');
@@ -244,18 +259,20 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
       doc.text(lbl, totalsX + 6, y);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(30, 41, 59);
-      doc.text(`₹${formatCurrency(val)}`, pageWidth - 46, y, { align: 'right' });
+      doc.text(`Rs. ${formatCurrency(val)}`, pageWidth - 46, y, { align: 'right' });
       y += 15;
     }
   };
 
   const subtotal = Number(invoice.subtotal) || 0;
-  const cgst = Number(invoice.cgst_amount) || 0;
-  const sgst = Number(invoice.sgst_amount) || 0;
-  const igst = Number(invoice.igst_amount) || 0;
-  const total = Number(invoice.total_amount) || (subtotal + cgst + sgst + igst);
+  const isInterstate = Boolean(invoice.is_interstate);
+  const taxAmount = Number(invoice.tax_amount) || 0;
+  const cgst = Number(invoice.cgst_amount) || (!isInterstate ? taxAmount / 2 : 0);
+  const sgst = Number(invoice.sgst_amount) || (!isInterstate ? taxAmount / 2 : 0);
+  const igst = Number(invoice.igst_amount) || (isInterstate ? taxAmount : 0);
+  const total = Number(invoice.total_amount) || (subtotal + taxAmount);
   const paid = Number(invoice.amount_paid) || 0;
-  const balance = Number(invoice.balance_due) ?? (total - paid);
+  const balance = Number(invoice.balance_due ?? (total - paid));
 
   // Left Bank & Remittance info block
   const bankBlockY = y;
@@ -327,6 +344,11 @@ export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
   doc.text('This is a Computer Generated Tax Invoice. No physical signature required.', 40, pageHeight - 14);
   doc.text('Urban Furniture ERP', pageWidth - 40, pageHeight - 14, { align: 'right' });
 
+  return doc;
+};
+
+export const generateVectorInvoicePdf = (invoice: InvoicePdfData) => {
+  const doc = buildInvoicePdfDoc(invoice);
   doc.save(`${invoice.invoice_number || 'Tax_Invoice'}.pdf`);
 };
 

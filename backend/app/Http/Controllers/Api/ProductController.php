@@ -49,6 +49,16 @@ class ProductController extends Controller
     {
         Gate::authorize('create', Product::class);
 
+        if ($request->has('price') && ! $request->has('unit_price')) {
+            $request->merge(['unit_price' => $request->input('price')]);
+        }
+        if ($request->has('min_stock_alert') && ! $request->has('minimum_stock')) {
+            $request->merge(['minimum_stock' => $request->input('min_stock_alert')]);
+        }
+        if ($request->has('initial_stock') && ! $request->has('current_stock')) {
+            $request->merge(['current_stock' => $request->input('initial_stock')]);
+        }
+
         $validated = $request->validate([
             'sku' => ['required', 'string', 'max:50', 'unique:products,sku'],
             'name' => ['required', 'string', 'max:255'],
@@ -119,6 +129,13 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): JsonResponse
     {
         Gate::authorize('update', $product);
+
+        if ($request->has('price') && ! $request->has('unit_price')) {
+            $request->merge(['unit_price' => $request->input('price')]);
+        }
+        if ($request->has('min_stock_alert') && ! $request->has('minimum_stock')) {
+            $request->merge(['minimum_stock' => $request->input('min_stock_alert')]);
+        }
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],

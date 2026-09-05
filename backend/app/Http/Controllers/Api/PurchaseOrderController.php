@@ -23,7 +23,7 @@ class PurchaseOrderController extends Controller
     {
         Gate::authorize('viewAny', PurchaseOrder::class);
 
-        $query = PurchaseOrder::with(['vendor', 'creator', 'approver'])->latest();
+        $query = PurchaseOrder::with(['vendor', 'items.product', 'creator', 'approver'])->latest();
 
         // Standard user sees only own created orders unless having view_any permission
         if (!$request->user()->isAdmin() && !$request->user()->isManager()) {
@@ -55,6 +55,19 @@ class PurchaseOrderController extends Controller
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('create', PurchaseOrder::class);
+
+        $items = $request->input('items', []);
+        if (is_array($items)) {
+            foreach ($items as $k => $it) {
+                if (isset($it['quantity']) && !isset($it['quantity_ordered'])) {
+                    $items[$k]['quantity_ordered'] = $it['quantity'];
+                }
+                if (isset($it['gst_rate']) && !isset($it['tax_rate'])) {
+                    $items[$k]['tax_rate'] = $it['gst_rate'];
+                }
+            }
+            $request->merge(['items' => $items]);
+        }
 
         $validated = $request->validate([
             'vendor_id' => ['required', 'exists:vendors,id'],

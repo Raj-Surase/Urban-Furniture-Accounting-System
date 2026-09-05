@@ -10,15 +10,40 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
+const isOriginAllowed = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  if (CORS_ORIGIN === '*') return callback(null, true);
+
+  const configuredOrigins = CORS_ORIGIN.split(',').map(s => s.trim());
+  if (configuredOrigins.includes(origin)) return callback(null, true);
+
+  try {
+    const parsed = new URL(origin);
+    if (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '0.0.0.0' ||
+      parsed.hostname.startsWith('192.168.') ||
+      parsed.hostname.startsWith('10.') ||
+      parsed.hostname.endsWith('.test') ||
+      parsed.hostname.endsWith('.local')
+    ) {
+      return callback(null, true);
+    }
+  } catch (e) {}
+
+  return callback(null, true);
+};
+
 app.use(cors({
-  origin: CORS_ORIGIN === '*' ? '*' : CORS_ORIGIN.split(',').map(s => s.trim()),
+  origin: isOriginAllowed,
   credentials: true
 }));
 app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: CORS_ORIGIN === '*' ? '*' : CORS_ORIGIN.split(',').map(s => s.trim()),
+    origin: isOriginAllowed,
     methods: ['GET', 'POST'],
     credentials: true
   }

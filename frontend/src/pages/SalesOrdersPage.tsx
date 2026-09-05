@@ -53,6 +53,20 @@ export const SalesOrdersPage: React.FC = () => {
   // Detail Modal State
   const [detailOrder, setDetailOrder] = useState<any>(null);
 
+  const handleOpenDetail = async (so: any) => {
+    setDetailOrder(so);
+    try {
+      const res = await salesOrdersApi.get(so.id);
+      if (res?.data) {
+        setDetailOrder(res.data);
+      } else if (res) {
+        setDetailOrder(res);
+      }
+    } catch (err) {
+      console.error('Failed to fetch sales order details:', err);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -114,7 +128,11 @@ export const SalesOrdersPage: React.FC = () => {
         order_date: orderDate,
         delivery_date: expectedDate,
         notes,
-        items: valid,
+        items: valid.map((it) => ({
+          ...it,
+          quantity_ordered: it.quantity,
+          tax_rate: it.gst_rate,
+        })),
       });
       addToast({ type: 'success', title: 'SO Created', message: 'Draft sales order created.' });
       setIsCreateOpen(false);
@@ -274,7 +292,7 @@ export const SalesOrdersPage: React.FC = () => {
                   return (
                     <tr
                       key={so.id}
-                      onClick={() => setDetailOrder(so)}
+                      onClick={() => handleOpenDetail(so)}
                       className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
                     >
                       <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">
@@ -285,8 +303,8 @@ export const SalesOrdersPage: React.FC = () => {
                         <div className="text-[10px] text-neutral-500 font-mono">{so.customer?.gstin || 'Unregistered'}</div>
                       </td>
                       <td className="py-3 px-4 text-neutral-400">
-                        <div>Date: {so.order_date}</div>
-                        <div className="text-[10px] text-neutral-500">Delivery: {so.delivery_date || 'N/A'}</div>
+                        <div>Date: {so.order_date ? so.order_date.split('T')[0] : 'N/A'}</div>
+                        <div className="text-[10px] text-neutral-500">Delivery: {so.delivery_date ? so.delivery_date.split('T')[0] : (so.expected_delivery_date ? so.expected_delivery_date.split('T')[0] : 'N/A')}</div>
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-neutral-300">
                         ₹{Number(so.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -445,10 +463,11 @@ export const SalesOrdersPage: React.FC = () => {
                       type="number"
                       min="1"
                       placeholder="Qty"
-                      value={it.quantity}
+                      value={it.quantity === 0 ? '' : it.quantity}
                       onChange={(e) => {
                         const updated = [...items];
-                        updated[idx].quantity = Number(e.target.value);
+                        const val = e.target.value;
+                        updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
                         setItems(updated);
                       }}
                       className="w-20 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right"
@@ -457,11 +476,13 @@ export const SalesOrdersPage: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       placeholder="Price"
-                      value={it.unit_price}
+                      value={it.unit_price === 0 ? '' : it.unit_price}
                       onChange={(e) => {
                         const updated = [...items];
-                        updated[idx].unit_price = Number(e.target.value);
+                        const val = e.target.value;
+                        updated[idx].unit_price = val === '' ? 0 : Number(val);
                         setItems(updated);
                       }}
                       className="w-24 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right font-mono"
@@ -510,52 +531,54 @@ export const SalesOrdersPage: React.FC = () => {
         zIndex="z-[70]"
         containerClassName="max-w-md"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
-          <h3 className="text-base font-bold">Deliver Goods (COGS Auto-Post)</h3>
-          <p className="text-xs text-neutral-400">
-            Delivery records fulfillment, automatically relieves finished inventory (Cr Inventory 1130) and posts Cost of Goods Sold (Dr COGS 5010).
-          </p>
+        {selectedOrder && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
+            <h3 className="text-base font-bold">Deliver Goods (COGS Auto-Post)</h3>
+            <p className="text-xs text-neutral-400">
+              Delivery records fulfillment, automatically relieves finished inventory (Cr Inventory 1130) and posts Cost of Goods Sold (Dr COGS 5010).
+            </p>
 
-          <div className="space-y-3">
-            {(selectedOrder?.items || []).map((item: any) => (
-              <div key={item.id} className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs flex justify-between items-center">
-                <div>
-                  <div className="font-semibold text-white">{item.product?.name || item.description}</div>
-                  <div className="text-[10px] text-neutral-500">Ordered: {item.quantity} | Previously Delivered: {item.quantity_delivered || 0}</div>
+            <div className="space-y-3">
+              {(selectedOrder?.items || []).map((item: any) => (
+                <div key={item.id} className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs flex justify-between items-center">
+                  <div>
+                    <div className="font-semibold text-white">{item.product?.name || item.description}</div>
+                    <div className="text-[10px] text-neutral-500">Ordered: {item.quantity} | Previously Delivered: {item.quantity_delivered || 0}</div>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max={item.quantity - (item.quantity_delivered || 0)}
+                    value={deliverQtys[item.id] ?? (item.quantity - (item.quantity_delivered || 0))}
+                    onChange={(e) =>
+                      setDeliverQtys({ ...deliverQtys, [item.id]: Number(e.target.value) })
+                    }
+                    className="w-20 px-2 py-1 bg-[#1a1a22] border border-neutral-700 rounded text-right text-xs font-mono font-bold text-emerald-400"
+                  />
                 </div>
-                <input
-                  type="number"
-                  min="1"
-                  max={item.quantity - (item.quantity_delivered || 0)}
-                  value={deliverQtys[item.id] ?? (item.quantity - (item.quantity_delivered || 0))}
-                  onChange={(e) =>
-                    setDeliverQtys({ ...deliverQtys, [item.id]: Number(e.target.value) })
-                  }
-                  className="w-20 px-2 py-1 bg-[#1a1a22] border border-neutral-700 rounded text-right text-xs font-mono font-bold text-emerald-400"
-                />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDeliverOpen(false)}
-              className="border-neutral-700 bg-neutral-800 text-neutral-300"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              disabled={isDelivering}
-              onClick={handleDeliverConfirm}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-            >
-              {isDelivering ? 'Processing...' : 'Confirm Delivery & Post COGS'}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDeliverOpen(false)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={isDelivering}
+                onClick={handleDeliverConfirm}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+              >
+                {isDelivering ? 'Processing...' : 'Confirm Delivery & Post COGS'}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </PortalModal>
 
       {/* Sales Order Detail Modal */}
@@ -605,11 +628,15 @@ export const SalesOrdersPage: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Order Date</div>
-                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.order_date}</div>
+                <div className="font-mono font-bold text-white mt-0.5">
+                  {detailOrder.order_date ? detailOrder.order_date.split('T')[0] : 'N/A'}
+                </div>
               </div>
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Delivery Date</div>
-                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.delivery_date || 'N/A'}</div>
+                <div className="font-mono font-bold text-white mt-0.5">
+                  {detailOrder.delivery_date ? detailOrder.delivery_date.split('T')[0] : (detailOrder.expected_delivery_date ? detailOrder.expected_delivery_date.split('T')[0] : 'N/A')}
+                </div>
               </div>
               <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                 <div className="text-[10px] uppercase font-semibold text-neutral-400">Tax Amount</div>
@@ -641,27 +668,47 @@ export const SalesOrdersPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {(detailOrder.items || []).map((item: any) => (
-                      <tr key={item.id} className="hover:bg-white/[0.01]">
-                        <td className="py-2.5 px-3">
-                          <div className="font-semibold text-white">{item.product?.name || item.description || 'Custom Item'}</div>
-                          {item.product?.sku && (
-                            <div className="text-[10px] font-mono text-amber-400">SKU: {item.product.sku}</div>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">{item.quantity}</td>
-                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
-                          {item.quantity_delivered || 0} / {item.quantity}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
-                          ₹{Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        </td>
-                        <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{item.gst_rate || 18}%</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
-                          ₹{Number(item.total_amount || (item.quantity * item.unit_price * (1 + (item.gst_rate || 18) / 100))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    {(detailOrder.items || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-neutral-400">
+                          No line items found for this sales order.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      (detailOrder.items || []).map((item: any) => {
+                        const qty = Number(item.quantity ?? item.quantity_ordered ?? 0);
+                        const delivered = Number(item.quantity_delivered ?? 0);
+                        const rate = Number(item.unit_price ?? 0);
+                        const gst = Number(item.tax_rate ?? item.gst_rate ?? 18);
+                        const total = Number(
+                          item.line_total ??
+                          item.total_amount ??
+                          (qty * rate * (1 + gst / 100))
+                        );
+
+                        return (
+                          <tr key={item.id} className="hover:bg-white/[0.01]">
+                            <td className="py-2.5 px-3">
+                              <div className="font-semibold text-white">{item.product?.name || item.description || 'Custom Item'}</div>
+                              {item.product?.sku && (
+                                <div className="text-[10px] font-mono text-amber-400">SKU: {item.product.sku}</div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white">{qty}</td>
+                            <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
+                              {delivered} / {qty}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
+                              ₹{rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{gst}%</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
+                              ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>

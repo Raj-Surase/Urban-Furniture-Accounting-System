@@ -2,7 +2,26 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { useToast } from './ToastContext';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const resolveSocketUrl = (): string => {
+  const envUrl = import.meta.env.VITE_SOCKET_URL;
+  if (!envUrl) {
+    return typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:3001`
+      : 'http://localhost:3001';
+  }
+  try {
+    const parsed = new URL(envUrl);
+    if ((parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && typeof window !== 'undefined') {
+      parsed.hostname = window.location.hostname;
+      return parsed.origin;
+    }
+  } catch {
+    // ignore
+  }
+  return envUrl;
+};
+
+const SOCKET_URL = resolveSocketUrl();
 
 interface SocketContextType {
   socket: Socket | null;
@@ -22,8 +41,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     const s = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
     s.on('connect', () => {
@@ -35,9 +57,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     });
 
+    s.on('reconnect', (attemptNumber) => {
+      setIsConnected(true);
+      console.log('[Socket] Reconnected after', attemptNumber, 'attempts');
+      activeChannels.current.forEach((channel) => {
+        s.emit('subscribe', channel);
+      });
+    });
+
     s.on('disconnect', (reason) => {
       setIsConnected(false);
       console.log('[Socket] Disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        s.connect();
+      }
     });
 
     s.on('connect_error', (err) => {

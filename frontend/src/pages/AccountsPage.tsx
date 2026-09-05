@@ -44,9 +44,15 @@ export const AccountsPage: React.FC = () => {
     try {
       setLoading(true);
       const res = await accountsApi.list();
-      setAccounts(res.data || res || []);
+      const accountList = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
+      setAccounts(accountList);
     } catch (err) {
       console.error(err);
+      setAccounts([]);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load chart of accounts.' });
     } finally {
       setLoading(false);
@@ -65,13 +71,23 @@ export const AccountsPage: React.FC = () => {
 
   const handleOpenLedger = async (acc: any) => {
     setLedgerAccount(acc);
+    setLedgerLines([]);
     setIsLedgerOpen(true);
     try {
       setLedgerLoading(true);
       const res = await accountsApi.getLedger(acc.id);
-      setLedgerLines(res.ledger || res.data || []);
+      const raw =
+        res?.ledger?.data ??
+        res?.ledger ??
+        res?.data ??
+        res?.lines ??
+        res ??
+        [];
+      const lines = Array.isArray(raw) ? raw : [];
+      setLedgerLines(lines);
     } catch (err) {
       console.error(err);
+      setLedgerLines([]);
       addToast({ type: 'error', title: 'Error', message: 'Could not fetch account ledger.' });
     } finally {
       setLedgerLoading(false);
@@ -101,7 +117,7 @@ export const AccountsPage: React.FC = () => {
     }
   };
 
-  const filteredAccounts = accounts.filter((acc) => {
+  const filteredAccounts = (Array.isArray(accounts) ? accounts : []).filter((acc) => {
     const matchesSearch =
       acc.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       acc.code?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -270,7 +286,7 @@ export const AccountsPage: React.FC = () => {
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               {ledgerLoading ? (
                 <div className="py-12 text-center text-neutral-400">Loading ledger lines...</div>
-              ) : ledgerLines.length === 0 ? (
+              ) : !Array.isArray(ledgerLines) || ledgerLines.length === 0 ? (
                 <div className="py-12 text-center text-neutral-500 italic">No transactions posted to this account yet.</div>
               ) : (
                 <table className="w-full text-left text-xs">
@@ -286,10 +302,18 @@ export const AccountsPage: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-neutral-800/60">
                     {ledgerLines.map((line, idx) => (
-                      <tr key={idx} className="hover:bg-white/[0.01]">
-                        <td className="py-2 px-2 text-neutral-400">{line.entry_date || line.journal_entry?.entry_date}</td>
-                        <td className="py-2 px-2 font-mono text-purple-300">{line.journal_entry?.entry_number}</td>
-                        <td className="py-2 px-2 text-neutral-300">{line.description || line.journal_entry?.description}</td>
+                      <tr key={line.id || idx} className="hover:bg-white/[0.01]">
+                        <td className="py-2 px-2 text-neutral-400 font-mono text-[11px]">
+                          {line.journal_entry?.posting_date
+                            ? String(line.journal_entry.posting_date).slice(0, 10)
+                            : line.entry_date || (line.created_at ? String(line.created_at).slice(0, 10) : '-')}
+                        </td>
+                        <td className="py-2 px-2 font-mono text-purple-300">
+                          {line.journal_entry?.entry_number || line.reference || '-'}
+                        </td>
+                        <td className="py-2 px-2 text-neutral-300">
+                          {line.description || line.journal_entry?.description || '-'}
+                        </td>
                         <td className="py-2 px-2 text-right font-mono text-neutral-200">
                           {Number(line.debit) > 0 ? `₹${Number(line.debit).toLocaleString('en-IN')}` : '-'}
                         </td>

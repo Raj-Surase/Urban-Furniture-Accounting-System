@@ -53,6 +53,20 @@ export const PurchaseOrdersPage: React.FC = () => {
   // Detail Modal State
   const [detailOrder, setDetailOrder] = useState<any>(null);
 
+  const handleOpenDetail = async (po: any) => {
+    setDetailOrder(po);
+    try {
+      const res = await purchaseOrdersApi.get(po.id);
+      if (res?.data) {
+        setDetailOrder(res.data);
+      } else if (res) {
+        setDetailOrder(res);
+      }
+    } catch (err) {
+      console.error('Failed to fetch purchase order details:', err);
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -114,7 +128,11 @@ export const PurchaseOrdersPage: React.FC = () => {
         order_date: orderDate,
         expected_delivery_date: expectedDate,
         notes,
-        items: valid,
+        items: valid.map((it) => ({
+          ...it,
+          quantity_ordered: it.quantity,
+          tax_rate: it.gst_rate,
+        })),
       });
       addToast({ type: 'success', title: 'PO Created', message: 'Draft purchase order created.' });
       setIsCreateOpen(false);
@@ -275,7 +293,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                   return (
                     <tr
                       key={po.id}
-                      onClick={() => setDetailOrder(po)}
+                      onClick={() => handleOpenDetail(po)}
                       className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
                     >
                       <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-indigo-400 group-hover:underline">
@@ -286,8 +304,8 @@ export const PurchaseOrdersPage: React.FC = () => {
                         <div className="text-[10px] text-neutral-500 font-mono">{po.vendor?.gstin || 'Unregistered'}</div>
                       </td>
                       <td className="py-3 px-4 text-neutral-400">
-                        <div>Date: {po.order_date}</div>
-                        <div className="text-[10px] text-neutral-500">Exp: {po.expected_delivery_date || 'N/A'}</div>
+                        <div>Date: {po.order_date ? po.order_date.split('T')[0] : 'N/A'}</div>
+                        <div className="text-[10px] text-neutral-500">Exp: {po.expected_delivery_date ? po.expected_delivery_date.split('T')[0] : 'N/A'}</div>
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-neutral-300">
                         ₹{Number(po.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -446,10 +464,11 @@ export const PurchaseOrdersPage: React.FC = () => {
                       type="number"
                       min="1"
                       placeholder="Qty"
-                      value={it.quantity}
+                      value={it.quantity === 0 ? '' : it.quantity}
                       onChange={(e) => {
                         const updated = [...items];
-                        updated[idx].quantity = Number(e.target.value);
+                        const val = e.target.value;
+                        updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
                         setItems(updated);
                       }}
                       className="w-20 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right"
@@ -458,11 +477,13 @@ export const PurchaseOrdersPage: React.FC = () => {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       placeholder="Price"
-                      value={it.unit_price}
+                      value={it.unit_price === 0 ? '' : it.unit_price}
                       onChange={(e) => {
                         const updated = [...items];
-                        updated[idx].unit_price = Number(e.target.value);
+                        const val = e.target.value;
+                        updated[idx].unit_price = val === '' ? 0 : Number(val);
                         setItems(updated);
                       }}
                       className="w-24 px-2 py-1.5 bg-[#1a1a22] border border-neutral-700 rounded text-xs text-white text-right font-mono"
@@ -511,14 +532,15 @@ export const PurchaseOrdersPage: React.FC = () => {
         zIndex="z-[70]"
         containerClassName="max-w-md"
       >
-        <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
+        {selectedOrder && (
+          <div className="relative w-full bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white space-y-4">
             <h3 className="text-base font-bold">Receive Goods (GRNI Auto-Post)</h3>
             <p className="text-xs text-neutral-400">
               Receiving will automatically increase warehouse stock and debit Raw Materials / Inventory with a credit to GRNI clearing account.
             </p>
 
             <div className="space-y-3">
-              {(selectedOrder.items || []).map((item: any) => (
+              {(selectedOrder?.items || []).map((item: any) => (
                 <div key={item.id} className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs flex justify-between items-center">
                   <div>
                     <div className="font-semibold text-white">{item.product?.name || item.description}</div>
@@ -557,6 +579,7 @@ export const PurchaseOrdersPage: React.FC = () => {
               </Button>
             </div>
           </div>
+        )}
       </PortalModal>
 
       {/* Purchase Order Detail Modal */}

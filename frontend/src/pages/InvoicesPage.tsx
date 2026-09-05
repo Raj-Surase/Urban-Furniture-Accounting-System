@@ -15,11 +15,13 @@ import {
   Filter,
   CreditCard,
   Percent,
+  AlertCircle,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { formatApiError } from '../lib/errorHandler';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -55,10 +57,12 @@ export const InvoicesPage: React.FC = () => {
   const [createType, setCreateType] = useState<'customer' | 'vendor'>('customer');
   const [selectedPartyId, setSelectedPartyId] = useState<number | ''>('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  );
-  const [notes, setNotes] = useState('Urban Furniture Tax Invoice. Payment due within 30 days. E-way bill applicable.');
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [notes, setNotes] = useState('');
   const [lineItems, setLineItems] = useState<
     Array<{
       product_id: number | '';
@@ -69,14 +73,18 @@ export const InvoicesPage: React.FC = () => {
       gst_rate: number;
     }>
   >([{ product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 }]);
+  const [createFieldErrors, setCreateFieldErrors] = useState<Record<string, string>>({});
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Quick Payment Modal State
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payInvoice, setPayInvoice] = useState<any>(null);
-  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payAmount, setPayAmount] = useState<string>('');
   const [payMethod, setPayMethod] = useState('bank_transfer');
   const [payReference, setPayReference] = useState('');
+  const [payFieldErrors, setPayFieldErrors] = useState<Record<string, string>>({});
+  const [payFormError, setPayFormError] = useState<string | null>(null);
   const [isPaying, setIsPaying] = useState(false);
 
   const fetchData = async () => {
@@ -201,14 +209,21 @@ export const InvoicesPage: React.FC = () => {
 
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreateFormError(null);
+    const errors: Record<string, string> = {};
+
     if (!selectedPartyId) {
-      addToast({ type: 'warning', title: 'Validation', message: 'Please select a customer or vendor.' });
-      return;
+      errors.party_id = `Please select a ${createType === 'customer' ? 'customer' : 'vendor'}.`;
     }
 
     const validItems = lineItems.filter((item) => item.product_id && item.quantity > 0);
     if (validItems.length === 0) {
-      addToast({ type: 'warning', title: 'Validation', message: 'Add at least one valid product line.' });
+      errors.items = 'Please add at least one product line with valid quantity.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCreateFieldErrors(errors);
+      addToast({ type: 'warning', title: 'Validation Error', message: 'Please correct the form fields before saving.' });
       return;
     }
 
@@ -220,7 +235,7 @@ export const InvoicesPage: React.FC = () => {
         party_id: Number(selectedPartyId),
         invoice_date: invoiceDate,
         due_date: dueDate,
-        notes,
+        notes: notes.trim() || null,
         items: validItems.map((item) => ({
           product_id: item.product_id,
           description: item.description,
@@ -238,15 +253,21 @@ export const InvoicesPage: React.FC = () => {
         message: `${res.invoice_number || 'Invoice'} created in Draft status.`,
       });
       setIsCreateModalOpen(false);
+      setCreateFieldErrors({});
+      setCreateFormError(null);
       // Reset form
       setLineItems([{ product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 }]);
       fetchData();
     } catch (err: any) {
-      console.error('Failed to create invoice:', err);
+      const formatted = formatApiError(err);
+      setCreateFormError(formatted.message);
+      if (formatted.fieldErrors && Object.keys(formatted.fieldErrors).length > 0) {
+        setCreateFieldErrors(formatted.fieldErrors);
+      }
       addToast({
         type: 'error',
-        title: 'Creation Failed',
-        message: err.response?.data?.message || 'Failed to save invoice.',
+        title: formatted.isValidationError ? 'Validation Failed' : 'Creation Failed',
+        message: formatted.message,
       });
     } finally {
       setIsSubmitting(false);
@@ -264,10 +285,11 @@ export const InvoicesPage: React.FC = () => {
       });
       fetchData();
     } catch (err: any) {
+      const formatted = formatApiError(err);
       addToast({
         type: 'error',
         title: 'Approval Failed',
-        message: err.response?.data?.message || 'Could not approve invoice.',
+        message: formatted.message,
       });
     }
   };
@@ -286,10 +308,11 @@ export const InvoicesPage: React.FC = () => {
       });
       fetchData();
     } catch (err: any) {
+      const formatted = formatApiError(err);
       addToast({
         type: 'error',
         title: 'Void Failed',
-        message: err.response?.data?.message || 'Could not void invoice.',
+        message: formatted.message,
       });
     }
   };
@@ -297,7 +320,19 @@ export const InvoicesPage: React.FC = () => {
   // Record Payment
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!payInvoice || payAmount <= 0) return;
+    setPayFormError(null);
+    setPayFieldErrors({});
+
+    if (!payInvoice) return;
+
+    const trimmed = payAmount.trim();
+    const numAmount = parseFloat(trimmed);
+    if (!trimmed || isNaN(numAmount) || numAmount <= 0) {
+      setPayFieldErrors({ amount: 'Please enter a valid payment amount greater than 0.' });
+      addToast({ type: 'warning', title: 'Validation', message: 'Payment amount must be greater than 0.' });
+      return;
+    }
+
     try {
       setIsPaying(true);
       const isCust = payInvoice.type === 'receivable' || payInvoice.party_type === 'customer' || payInvoice.type === 'customer';
@@ -310,26 +345,34 @@ export const InvoicesPage: React.FC = () => {
         payment_type: isCust ? 'customer_receipt' : 'vendor_payment',
         customer_id: isCust ? Number(resolvedPartyId) : null,
         vendor_id: !isCust ? Number(resolvedPartyId) : null,
-        amount: payAmount,
+        amount: numAmount,
         payment_date: new Date().toISOString().split('T')[0],
         payment_method: payMethod,
-        reference_number: payReference || `TXN-${Date.now()}`,
+        reference_number: payReference.trim() || `TXN-${Date.now()}`,
         status: 'reconciled', // Reconcile to trigger auto journal posting
       });
 
       addToast({
         type: 'success',
         title: 'Payment Reconciled',
-        message: `Recorded ₹${payAmount.toLocaleString('en-IN')} payment and posted journal entry.`,
+        message: `Recorded ₹${numAmount.toLocaleString('en-IN')} payment and posted journal entry.`,
       });
       setIsPayModalOpen(false);
       setPayInvoice(null);
+      setPayAmount('');
+      setPayFieldErrors({});
+      setPayFormError(null);
       fetchData();
     } catch (err: any) {
+      const formatted = formatApiError(err);
+      setPayFormError(formatted.message);
+      if (formatted.fieldErrors && Object.keys(formatted.fieldErrors).length > 0) {
+        setPayFieldErrors(formatted.fieldErrors);
+      }
       addToast({
         type: 'error',
-        title: 'Payment Failed',
-        message: err.response?.data?.message || 'Could not record payment.',
+        title: formatted.isValidationError ? 'Validation Failed' : 'Payment Failed',
+        message: formatted.message,
       });
     } finally {
       setIsPaying(false);
@@ -390,6 +433,8 @@ export const InvoicesPage: React.FC = () => {
             onClick={() => {
               setCreateType('customer');
               setSelectedPartyId('');
+              setCreateFieldErrors({});
+              setCreateFormError(null);
               setIsCreateModalOpen(true);
             }}
             className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
@@ -403,6 +448,8 @@ export const InvoicesPage: React.FC = () => {
             onClick={() => {
               setCreateType('vendor');
               setSelectedPartyId('');
+              setCreateFieldErrors({});
+              setCreateFormError(null);
               setIsCreateModalOpen(true);
             }}
             className="border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 gap-2 text-xs font-semibold"
@@ -674,7 +721,9 @@ export const InvoicesPage: React.FC = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setPayInvoice(inv);
-                                setPayAmount(Number(inv.balance_due ?? inv.total_amount));
+                                setPayAmount(String(inv.balance_due ?? inv.total_amount ?? ''));
+                                setPayFieldErrors({});
+                                setPayFormError(null);
                                 setIsPayModalOpen(true);
                               }}
                               className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
@@ -742,17 +791,37 @@ export const InvoicesPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateInvoice} className="p-6 space-y-6">
+              {createFormError && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{createFormError}</span>
+                </div>
+              )}
+
               {/* Party selection & Dates */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-neutral-300 block mb-1">
-                    {createType === 'customer' ? 'Customer (Buyer)' : 'Vendor (Supplier)'}
+                    {createType === 'customer' ? 'Customer (Buyer)' : 'Vendor (Supplier)'} <span className="text-rose-400">*</span>
                   </label>
                   <select
                     value={selectedPartyId}
-                    onChange={(e) => setSelectedPartyId(Number(e.target.value))}
+                    onChange={(e) => {
+                      setSelectedPartyId(Number(e.target.value));
+                      if (createFieldErrors.party_id) {
+                        setCreateFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.party_id;
+                          return next;
+                        });
+                      }
+                    }}
                     required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                      createFieldErrors.party_id
+                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                        : 'border-neutral-700 focus:border-purple-500'
+                    }`}
                   >
                     <option value="">Select party...</option>
                     {(createType === 'customer' ? customers : vendors).map((p) => (
@@ -761,6 +830,9 @@ export const InvoicesPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  {createFieldErrors.party_id && (
+                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.party_id}</span>
+                  )}
                   {selectedParty && (
                     <div className="text-[10px] text-neutral-400 mt-1">
                       GSTIN: {selectedParty.gstin || 'Unregistered'} · Supply: {selectedParty.state || 'MH'} (
@@ -770,25 +842,61 @@ export const InvoicesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Invoice Date</label>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Invoice Date <span className="text-rose-400">*</span>
+                  </label>
                   <input
                     type="date"
                     value={invoiceDate}
-                    onChange={(e) => setInvoiceDate(e.target.value)}
+                    onChange={(e) => {
+                      setInvoiceDate(e.target.value);
+                      if (createFieldErrors.invoice_date) {
+                        setCreateFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.invoice_date;
+                          return next;
+                        });
+                      }
+                    }}
                     required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                      createFieldErrors.invoice_date
+                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                        : 'border-neutral-700 focus:border-purple-500'
+                    }`}
                   />
+                  {createFieldErrors.invoice_date && (
+                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.invoice_date}</span>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Due Date</label>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Due Date <span className="text-rose-400">*</span>
+                  </label>
                   <input
                     type="date"
                     value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
+                    onChange={(e) => {
+                      setDueDate(e.target.value);
+                      if (createFieldErrors.due_date) {
+                        setCreateFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.due_date;
+                          return next;
+                        });
+                      }
+                    }}
                     required
-                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                    className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none ${
+                      createFieldErrors.due_date
+                        ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                        : 'border-neutral-700 focus:border-purple-500'
+                    }`}
                   />
+                  {createFieldErrors.due_date && (
+                    <span className="text-[11px] text-rose-400 mt-1 block">{createFieldErrors.due_date}</span>
+                  )}
                 </div>
               </div>
 
@@ -796,7 +904,7 @@ export const InvoicesPage: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                    Line Items & GST Breakdown
+                    Line Items & GST Breakdown <span className="text-rose-400">*</span>
                   </span>
                   <button
                     type="button"
@@ -806,6 +914,12 @@ export const InvoicesPage: React.FC = () => {
                     + Add Item
                   </button>
                 </div>
+                {createFieldErrors.items && (
+                  <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{createFieldErrors.items}</span>
+                  </div>
+                )}
 
                 <div className="border border-neutral-800 rounded-xl overflow-hidden bg-[#181820]">
                   <table className="w-full text-left text-xs">
@@ -861,10 +975,12 @@ export const InvoicesPage: React.FC = () => {
                               <input
                                 type="number"
                                 min="1"
-                                value={line.quantity}
+                                placeholder="1"
+                                value={line.quantity === 0 ? '' : line.quantity}
                                 onChange={(e) => {
                                   const updated = [...lineItems];
-                                  updated[idx].quantity = Number(e.target.value);
+                                  const val = e.target.value;
+                                  updated[idx].quantity = val === '' ? 0 : Math.max(0, parseInt(val, 10) || 0);
                                   setLineItems(updated);
                                 }}
                                 className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right"
@@ -875,10 +991,13 @@ export const InvoicesPage: React.FC = () => {
                               <input
                                 type="number"
                                 step="0.01"
-                                value={line.unit_price}
+                                min="0"
+                                placeholder="0.00"
+                                value={line.unit_price === 0 ? '' : line.unit_price}
                                 onChange={(e) => {
                                   const updated = [...lineItems];
-                                  updated[idx].unit_price = Number(e.target.value);
+                                  const val = e.target.value;
+                                  updated[idx].unit_price = val === '' ? 0 : Number(val);
                                   setLineItems(updated);
                                 }}
                                 className="w-full px-2 py-1.5 bg-[#141418] border border-neutral-700 rounded text-xs text-white text-right font-mono"
@@ -1023,6 +1142,13 @@ export const InvoicesPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
+              {payFormError && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{payFormError}</span>
+                </div>
+              )}
+
               <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-800 text-xs space-y-1">
                 <div className="text-neutral-400">
                   Invoice No: <span className="font-mono font-bold text-white">{payInvoice?.invoice_number}</span>
@@ -1036,15 +1162,35 @@ export const InvoicesPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Payment Amount (₹)</label>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Payment Amount (₹) <span className="text-rose-400">*</span>
+                </label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
                   value={payAmount}
-                  onChange={(e) => setPayAmount(Number(e.target.value))}
+                  onChange={(e) => {
+                    setPayAmount(e.target.value);
+                    if (payFieldErrors.amount) {
+                      setPayFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.amount;
+                        return next;
+                      });
+                    }
+                  }}
                   required
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none font-mono font-bold"
+                  className={`w-full px-3 py-2 bg-[#1a1a22] border rounded-lg text-xs text-white focus:outline-none font-mono font-bold ${
+                    payFieldErrors.amount
+                      ? 'border-rose-500 focus:border-rose-500 ring-1 ring-rose-500'
+                      : 'border-neutral-700 focus:border-emerald-500'
+                  }`}
                 />
+                {payFieldErrors.amount && (
+                  <span className="text-[11px] text-rose-400 mt-1 block">{payFieldErrors.amount}</span>
+                )}
               </div>
 
               <div>
@@ -1270,7 +1416,9 @@ export const InvoicesPage: React.FC = () => {
                   <button
                     onClick={() => {
                       setPayInvoice(detailInvoice);
-                      setPayAmount(Number(detailInvoice.balance_due ?? detailInvoice.total_amount));
+                      setPayAmount(String(detailInvoice.balance_due ?? detailInvoice.total_amount ?? ''));
+                      setPayFieldErrors({});
+                      setPayFormError(null);
                       setIsPayModalOpen(true);
                     }}
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"

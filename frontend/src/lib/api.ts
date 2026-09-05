@@ -1,7 +1,26 @@
 import axios from 'axios';
 import { formatApiError } from './errorHandler';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const resolveApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) {
+    return typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:8000/api`
+      : 'http://localhost:8000/api';
+  }
+  try {
+    const parsed = new URL(envUrl);
+    if ((parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') && typeof window !== 'undefined') {
+      parsed.hostname = window.location.hostname;
+      return parsed.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // ignore
+  }
+  return envUrl;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,7 +28,7 @@ export const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000,
 });
 
 // Request Interceptor: Attach Bearer token
@@ -29,6 +48,8 @@ api.interceptors.request.use(
 // Response Interceptor: Global error categorization & handling
 api.interceptors.response.use(
   (response) => {
+    // Dispatch success to clear any lingering network error banners
+    window.dispatchEvent(new Event('api:network-success'));
     return response;
   },
   (error) => {

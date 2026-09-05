@@ -7,6 +7,7 @@ use App\Models\Account;
 use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 
 class AccountController extends Controller
@@ -132,14 +133,46 @@ class AccountController extends Controller
     {
         Gate::authorize('view', $account);
 
-        $lines = $account->journalLines()
+        $perPage = (int) $request->query('per_page', 50);
+
+        // Fetch chronological lines to compute accurate running balance
+        $allLines = $account->journalLines()
             ->with(['journalEntry'])
-            ->orderBy('id', 'desc')
-            ->paginate($request->query('per_page', 25));
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $running = (float) ($account->opening_balance ?? 0);
+        $isCreditNormal = in_array(strtolower($account->normal_balance ?? ($account->type === 'asset' || $account->type === 'expense' ? 'debit' : 'credit')), ['credit']);
+
+        foreach ($allLines as $line) {
+            $debit = (float) ($line->debit ?? 0);
+            $credit = (float) ($line->credit ?? 0);
+            if ($isCreditNormal) {
+                $running += ($credit - $debit);
+            } else {
+                $running += ($debit - $credit);
+            }
+            $line->running_balance = round($running, 2);
+        }
+
+        // Show newest first for ledger view
+        $reversed = $allLines->reverse()->values();
+
+        $page = (int) ($request->query('page') ?: LengthAwarePaginator::resolveCurrentPage());
+        $total = $reversed->count();
+        $items = $reversed->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $paginated = new LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return response()->json([
             'account' => $account,
-            'ledger' => $lines,
+            'ledger' => $paginated,
         ]);
     }
 }

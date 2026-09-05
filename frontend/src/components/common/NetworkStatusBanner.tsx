@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { WifiOff, AlertCircle, RefreshCw, X } from 'lucide-react';
 import { Button } from '@heroui/react';
 import { useSocket } from '../../context/SocketContext';
+import { api } from '../../lib/api';
 
 export const NetworkStatusBanner: React.FC = () => {
   const [isBrowserOnline, setIsBrowserOnline] = useState<boolean>(navigator.onLine);
   const [apiErrorDismissed, setApiErrorDismissed] = useState<boolean>(false);
   const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
 
   const { isConnected, socket } = useSocket();
 
@@ -21,28 +23,45 @@ export const NetworkStatusBanner: React.FC = () => {
       setApiErrorDismissed(false);
     };
 
+    const handleApiSuccess = () => {
+      setApiErrorMessage(null);
+      setApiErrorDismissed(false);
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('api:network-error', handleApiError);
+    window.addEventListener('api:network-success', handleApiSuccess);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('api:network-error', handleApiError);
+      window.removeEventListener('api:network-success', handleApiSuccess);
     };
   }, []);
 
-  const handleManualReconnect = () => {
-    if (socket && !socket.connected) {
-      socket.connect();
+  const handleManualReconnect = async () => {
+    setIsRetrying(true);
+    try {
+      if (socket && !socket.connected) {
+        socket.connect();
+      }
+      try {
+        await api.get('/health', { timeout: 5000 });
+        setApiErrorMessage(null);
+        setApiErrorDismissed(false);
+      } catch {
+        // still unreachable, will remain displayed
+      }
+    } finally {
+      setTimeout(() => setIsRetrying(false), 500);
     }
-    setApiErrorMessage(null);
-    setApiErrorDismissed(false);
   };
 
   const showOffline = !isBrowserOnline;
   const showSocketDown = isBrowserOnline && !isConnected;
-  const showApiError = isBrowserOnline && apiErrorMessage && !apiErrorDismissed;
+  const showApiError = isBrowserOnline && Boolean(apiErrorMessage) && !apiErrorDismissed;
 
   if (!showOffline && !showSocketDown && !showApiError) {
     return null;
@@ -66,10 +85,16 @@ export const NetworkStatusBanner: React.FC = () => {
                   Please check your internet connection.
                 </span>
               </>
+            ) : showApiError && showSocketDown ? (
+              <>
+                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="font-semibold">Backend & Realtime Disconnected:</span>
+                <span className="truncate">{apiErrorMessage}</span>
+              </>
             ) : showApiError ? (
               <>
                 <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="font-semibold">Backend Unreachable:</span>
+                <span className="font-semibold">Backend API Notice:</span>
                 <span className="truncate">{apiErrorMessage}</span>
               </>
             ) : (
@@ -88,8 +113,9 @@ export const NetworkStatusBanner: React.FC = () => {
               size="sm"
               variant="flat"
               color="warning"
+              isLoading={isRetrying}
               className="h-7 text-xs font-semibold px-2.5"
-              startContent={<RefreshCw className="w-3 h-3" />}
+              startContent={!isRetrying && <RefreshCw className="w-3 h-3" />}
               onPress={handleManualReconnect}
             >
               Retry
