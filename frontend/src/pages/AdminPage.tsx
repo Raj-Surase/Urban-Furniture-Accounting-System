@@ -41,6 +41,7 @@ export const AdminPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+  const [selectedUserDetail, setSelectedUserDetail] = useState<any>(null);
 
   // Manager Onboarding State
   const [isOnboardModalOpen, setIsOnboardModalOpen] = useState(false);
@@ -323,7 +324,11 @@ export const AdminPage: React.FC = () => {
                             const isUpdating = updatingUserId === u.id;
 
                             return (
-                              <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                              <tr
+                                key={u.id}
+                                onClick={() => setSelectedUserDetail(u)}
+                                className="hover:bg-white/[0.04] transition-colors cursor-pointer"
+                              >
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
                                     <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#7042f4] to-[#c084fc] flex items-center justify-center text-white font-bold text-xs uppercase shrink-0">
@@ -361,7 +366,7 @@ export const AdminPage: React.FC = () => {
                                 <td className="py-3.5 px-4 font-mono text-[#a0a0b0]">
                                   {u.items_count ?? 0} items
                                 </td>
-                                <td className="py-3.5 px-4 text-right">
+                                <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                                   {isSoleAdmin ? (
                                     <span className="text-[10px] text-amber-400/80 font-mono bg-amber-400/10 px-2.5 py-1 rounded-md border border-amber-400/20">
                                       Sole Admin (Locked)
@@ -374,7 +379,10 @@ export const AdminPage: React.FC = () => {
                                           <button
                                             key={r}
                                             disabled={isUpdating || isActive}
-                                            onClick={() => handleRoleChange(u.id, r)}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleRoleChange(u.id, r);
+                                            }}
                                             className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
                                               isActive
                                                 ? r === 'admin'
@@ -698,6 +706,111 @@ export const AdminPage: React.FC = () => {
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* User Detail Modal */}
+        {selectedUserDetail && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+            <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-5">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#7042f4] to-[#c084fc] flex items-center justify-center text-white font-bold text-base uppercase">
+                    {selectedUserDetail.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      {selectedUserDetail.name}
+                      {currentUser?.id === selectedUserDetail.id && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 font-semibold">
+                          Current Session
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs font-mono text-[#8e8e9f]">{selectedUserDetail.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUserDetail(null)}
+                  className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-[#1a1a22] border border-white/[0.06] text-xs">
+                <div>
+                  <span className="text-[#8e8e9f] block text-[11px]">Clearance Role</span>
+                  <span className="font-bold text-white capitalize mt-0.5 inline-flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-[#c084fc]" />
+                    {selectedUserDetail.role}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8e8e9f] block text-[11px]">Authored Items</span>
+                  <span className="font-mono font-bold text-white mt-0.5 block">
+                    {selectedUserDetail.items_count ?? 0} records
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#8e8e9f] block text-[11px]">Account ID</span>
+                  <span className="font-mono text-neutral-300 mt-0.5 block">#{selectedUserDetail.id}</span>
+                </div>
+                <div>
+                  <span className="text-[#8e8e9f] block text-[11px]">System Status</span>
+                  <span className="text-emerald-400 font-semibold mt-0.5 inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Active & Guarded
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#8e8e9f] font-mono">
+                  Clearance Level Details
+                </span>
+                <p className="text-xs text-neutral-300 leading-relaxed bg-[#18181f] p-3 rounded-xl border border-white/[0.04]">
+                  {selectedUserDetail.role === 'admin'
+                    ? 'Tier 3 Superuser clearance. Complete authority across General Ledger, transaction voiding, role assignments, and server telemetry.'
+                    : selectedUserDetail.role === 'manager'
+                    ? 'Tier 2 Management clearance. Operational authority to post invoices, issue orders, adjust inventory, and review financial statements.'
+                    : 'Tier 1 Standard clearance. Standard contact access to view personal invoices/bills and settle outstanding dues.'}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-neutral-400">Clearance:</span>
+                  {(['admin', 'manager', 'user'] as const).map((r) => {
+                    const isActive = selectedUserDetail.role === r;
+                    const isSoleAdmin = selectedUserDetail.role === 'admin' && adminUsersCount <= 1;
+                    return (
+                      <button
+                        key={r}
+                        disabled={isSoleAdmin || isActive || updatingUserId === selectedUserDetail.id}
+                        onClick={async () => {
+                          await handleRoleChange(selectedUserDetail.id, r);
+                          setSelectedUserDetail((prev: any) => ({ ...prev, role: r }));
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-[#7042f4] text-white shadow-xs'
+                            : 'text-[#8e8e9f] hover:text-white hover:bg-white/[0.05] disabled:opacity-40'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setSelectedUserDetail(null)}
+                  className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

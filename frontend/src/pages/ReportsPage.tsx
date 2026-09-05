@@ -65,6 +65,12 @@ export const ReportsPage: React.FC = () => {
 
   useEffect(() => {
     fetchReport();
+
+    const handleRoleUpdated = () => {
+      fetchReport();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, [activeTab]);
 
   const formatCurrency = (val: number = 0) => {

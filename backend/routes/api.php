@@ -53,10 +53,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Legacy Items Resource
     Route::apiResource('items', ItemController::class);
 
-    // User Governance & Onboarding
+    // User Governance, Onboarding & Administrative Telemetry
     Route::get('/users', [UserController::class, 'index']);
     Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
     Route::post('/admin/onboard-manager', [UserController::class, 'onboardManager']);
+    Route::get('/admin/stats', [UserController::class, 'stats']);
 
     // Chart of Accounts & General Ledger
     Route::get('/accounts/{account}/ledger', [AccountController::class, 'ledger']);

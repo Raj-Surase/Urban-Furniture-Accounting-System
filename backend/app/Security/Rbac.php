@@ -178,6 +178,151 @@ class Rbac
                 'category' => 'System Operations',
                 'description' => 'Broadcast real-time operational events to connected clients.',
             ],
+            // Accounts & Reports
+            self::PERMISSION_ACCOUNTS_VIEW_ANY => [
+                'label' => 'View Chart of Accounts',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Inspect chart of accounts and general ledger balances.',
+            ],
+            self::PERMISSION_ACCOUNTS_CREATE => [
+                'label' => 'Create Accounts',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Provision new chart of accounts codes and classifications.',
+            ],
+            self::PERMISSION_ACCOUNTS_UPDATE => [
+                'label' => 'Update Accounts',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Modify account details and classifications.',
+            ],
+            self::PERMISSION_ACCOUNTS_DELETE => [
+                'label' => 'Delete Accounts',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Archive or remove inactive accounts with zero transactions.',
+            ],
+            self::PERMISSION_REPORTS_VIEW_FINANCIAL => [
+                'label' => 'View Financial Statements',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Generate and review Trial Balance, P&L, Balance Sheet, Aging & GST reports.',
+            ],
+            // Invoices & Billing
+            self::PERMISSION_INVOICES_VIEW_ANY => [
+                'label' => 'View All Invoices & Bills',
+                'category' => 'Invoices & Billing',
+                'description' => 'Inspect all customer tax invoices and vendor bills.',
+            ],
+            self::PERMISSION_INVOICES_VIEW_OWN => [
+                'label' => 'View Own Invoices & Bills',
+                'category' => 'Invoices & Billing',
+                'description' => 'Inspect invoices and bills authored or addressed to the authenticated user.',
+            ],
+            self::PERMISSION_INVOICES_CREATE => [
+                'label' => 'Create Invoices & Bills',
+                'category' => 'Invoices & Billing',
+                'description' => 'Draft customer invoices and vendor bills with GST line item calculations.',
+            ],
+            self::PERMISSION_INVOICES_APPROVE => [
+                'label' => 'Approve & Post Invoices',
+                'category' => 'Invoices & Billing',
+                'description' => 'Authorize invoices and trigger auto-posting to the General Ledger.',
+            ],
+            self::PERMISSION_INVOICES_VOID => [
+                'label' => 'Void Invoices',
+                'category' => 'Invoices & Billing',
+                'description' => 'Void approved invoices and post contra reversing journal entries.',
+            ],
+            // Products & Inventory
+            self::PERMISSION_PRODUCTS_VIEW_ANY => [
+                'label' => 'View Products Catalog',
+                'category' => 'Products & Inventory',
+                'description' => 'Browse products, SKUs, inventory counts and valuations.',
+            ],
+            self::PERMISSION_PRODUCTS_CREATE => [
+                'label' => 'Create Product SKU',
+                'category' => 'Products & Inventory',
+                'description' => 'Add new furniture products, pricing, and HSN codes.',
+            ],
+            self::PERMISSION_PRODUCTS_UPDATE => [
+                'label' => 'Update Product SKU',
+                'category' => 'Products & Inventory',
+                'description' => 'Modify product pricing, details, and classifications.',
+            ],
+            self::PERMISSION_INVENTORY_ADJUST => [
+                'label' => 'Adjust Inventory Stock',
+                'category' => 'Products & Inventory',
+                'description' => 'Perform manual inventory reconciliations with audit reason tracking.',
+            ],
+            // Sales & Purchase Orders
+            self::PERMISSION_SALES_ORDERS_VIEW_ANY => [
+                'label' => 'View All Sales Orders',
+                'category' => 'Sales Orders',
+                'description' => 'Inspect all customer sales orders and fulfillment stages.',
+            ],
+            self::PERMISSION_SALES_ORDERS_CREATE => [
+                'label' => 'Create Sales Order',
+                'category' => 'Sales Orders',
+                'description' => 'Issue new sales orders for furniture delivery.',
+            ],
+            self::PERMISSION_SALES_ORDERS_APPROVE => [
+                'label' => 'Approve Sales Order',
+                'category' => 'Sales Orders',
+                'description' => 'Approve confirmed sales orders for warehouse dispatch.',
+            ],
+            self::PERMISSION_SALES_ORDERS_DELIVER => [
+                'label' => 'Deliver Sales Order',
+                'category' => 'Sales Orders',
+                'description' => 'Mark line items as fulfilled and delivered.',
+            ],
+            self::PERMISSION_PURCHASE_ORDERS_VIEW_ANY => [
+                'label' => 'View All Purchase Orders',
+                'category' => 'Procurement',
+                'description' => 'Inspect procurement orders and supplier fulfillment.',
+            ],
+            self::PERMISSION_PURCHASE_ORDERS_CREATE => [
+                'label' => 'Create Purchase Order',
+                'category' => 'Procurement',
+                'description' => 'Create purchase orders for raw materials and furniture supplies.',
+            ],
+            self::PERMISSION_PURCHASE_ORDERS_APPROVE => [
+                'label' => 'Approve Purchase Order',
+                'category' => 'Procurement',
+                'description' => 'Authorize submitted purchase orders for procurement.',
+            ],
+            self::PERMISSION_PURCHASE_ORDERS_RECEIVE => [
+                'label' => 'Receive Goods from PO',
+                'category' => 'Procurement',
+                'description' => 'Accept warehouse stock from supplier shipments.',
+            ],
+            // Payments & Journal
+            self::PERMISSION_PAYMENTS_VIEW_ANY => [
+                'label' => 'View Treasury Payments',
+                'category' => 'Treasury & Payments',
+                'description' => 'Inspect customer receipts and vendor payments.',
+            ],
+            self::PERMISSION_PAYMENTS_CREATE => [
+                'label' => 'Record Payment',
+                'category' => 'Treasury & Payments',
+                'description' => 'Register cash or bank payment against invoice or account.',
+            ],
+            self::PERMISSION_PAYMENTS_RECONCILE => [
+                'label' => 'Reconcile Payments',
+                'category' => 'Treasury & Payments',
+                'description' => 'Reconcile settlement and auto-post double-entry journal records.',
+            ],
+            self::PERMISSION_JOURNAL_VIEW_ANY => [
+                'label' => 'View General Ledger Journal',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Inspect balanced double-entry journal entries.',
+            ],
+            self::PERMISSION_JOURNAL_POST => [
+                'label' => 'Post Manual Journal Entry',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Post manual debits and credits to the General Ledger.',
+            ],
+            self::PERMISSION_JOURNAL_REVERSE => [
+                'label' => 'Reverse Journal Entry',
+                'category' => 'Accounting & General Ledger',
+                'description' => 'Issue contra reversal entries to offset posted transactions.',
+            ],
         ];
     }
 

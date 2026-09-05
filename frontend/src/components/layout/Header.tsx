@@ -29,6 +29,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
       await login({ email: targetEmail, password: 'password' });
       toast.success(`Active session switched to ${roleName}!`);
       window.dispatchEvent(new CustomEvent('auth:role-updated'));
+
+      const targetRole = targetEmail.includes('admin') ? 'admin' : targetEmail.includes('manager') ? 'manager' : 'user';
+      if (targetRole === 'user' && ['/admin', '/accounts', '/journal', '/reports'].includes(location.pathname)) {
+        navigate('/invoices');
+      } else if (targetRole === 'manager' && location.pathname === '/admin') {
+        navigate('/');
+      }
     } catch {
       toast.error(`Failed to switch to ${roleName}`);
     }

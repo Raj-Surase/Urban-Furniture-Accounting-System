@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
+use App\Models\Item;
+use App\Models\Product;
+use App\Models\PurchaseOrder;
+use App\Models\SalesOrder;
 use App\Models\User;
 use App\Security\Rbac;
 use App\Services\RealtimeService;
@@ -153,6 +158,49 @@ class UserController extends Controller
     public function matrix(Request $request): JsonResponse
     {
         return response()->json(Rbac::getMatrix());
+    }
+
+    /**
+     * Return administrative telemetry, user counts, and domain resource stats.
+     * Guarded by UserPolicy::viewTelemetry (Admins only).
+     */
+    public function stats(Request $request): JsonResponse
+    {
+        Gate::authorize('viewTelemetry', User::class);
+
+        $totalUsers = User::count();
+        $adminCount = User::where('role', User::ROLE_ADMIN)->count();
+        $managerCount = User::where('role', User::ROLE_MANAGER)->count();
+        $userCount = User::where('role', User::ROLE_USER)->count();
+        $totalItems = Item::count();
+        $totalProducts = Product::count();
+        $totalInvoices = Invoice::count();
+        $totalSalesOrders = SalesOrder::count();
+        $totalPurchaseOrders = PurchaseOrder::count();
+
+        $defaultConn = config('database.default');
+
+        return response()->json([
+            'total_users' => $totalUsers,
+            'admin_count' => $adminCount,
+            'manager_count' => $managerCount,
+            'user_count' => $userCount,
+            'total_items' => $totalItems,
+            'total_products' => $totalProducts,
+            'total_invoices' => $totalInvoices,
+            'total_sales_orders' => $totalSalesOrders,
+            'total_purchase_orders' => $totalPurchaseOrders,
+            'system_time' => now()->toIso8601String(),
+            'database' => [
+                'connection' => $defaultConn,
+                'host' => config("database.connections.{$defaultConn}.host", '127.0.0.1'),
+                'port' => config("database.connections.{$defaultConn}.port", 3306),
+                'database' => config("database.connections.{$defaultConn}.database", 'urban_furniture_accounting'),
+                'status' => 'connected',
+            ],
+            'framework' => 'Laravel ' . app()->version(),
+            'environment' => config('app.env'),
+        ]);
     }
 }
 

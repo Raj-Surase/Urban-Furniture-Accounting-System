@@ -48,6 +48,9 @@ export const ProductsPage: React.FC = () => {
   const [newInitialStock, setNewInitialStock] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
 
+  // Detail Product Modal
+  const [detailProduct, setDetailProduct] = useState<any>(null);
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -63,6 +66,12 @@ export const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+
+    const handleRoleUpdated = () => {
+      fetchProducts();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleAdjustSubmit = async (e: React.FormEvent) => {
@@ -241,8 +250,12 @@ export const ProductsPage: React.FC = () => {
                 filteredProducts.map((prod) => {
                   const isLow = Number(prod.current_stock) <= Number(prod.min_stock_alert || 5);
                   return (
-                    <tr key={prod.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-amber-400">{prod.sku}</td>
+                    <tr
+                      key={prod.id}
+                      onClick={() => setDetailProduct(prod)}
+                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3 px-4 font-mono font-bold text-amber-400 group-hover:underline">{prod.sku}</td>
                       <td className="py-3 px-4 font-semibold text-white">{prod.name}</td>
                       <td className="py-3 px-4 text-center">
                         <span
@@ -277,7 +290,7 @@ export const ProductsPage: React.FC = () => {
                           {prod.current_stock}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         {(isAdmin || isManager) && (
                           <button
                             onClick={() => {
@@ -528,6 +541,143 @@ export const ProductsPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product Detail Modal */}
+      {detailProduct && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    {detailProduct.sku}
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${
+                      detailProduct.type === 'service'
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        : detailProduct.type === 'combo'
+                        ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    }`}
+                  >
+                    {detailProduct.type || 'Goods'}
+                  </span>
+                </div>
+                <h2 className="text-xl font-bold text-white mt-1.5">{detailProduct.name}</h2>
+                <p className="text-xs text-neutral-400">Category: {detailProduct.category || 'General Furniture'}</p>
+              </div>
+              <button
+                onClick={() => setDetailProduct(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Current Stock</div>
+                <div className="text-lg font-mono font-bold text-white mt-0.5">
+                  {detailProduct.current_stock}
+                </div>
+                <div className="text-[10px] text-neutral-500">Threshold: {detailProduct.min_stock_alert || 5} units</div>
+              </div>
+
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Selling Price</div>
+                <div className="text-lg font-mono font-bold text-amber-400 mt-0.5">
+                  ₹{Number(detailProduct.price).toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-neutral-500">GST Rate: {detailProduct.gst_rate || 18}%</div>
+              </div>
+
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Inventory Valuation</div>
+                <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
+                  ₹{(Number(detailProduct.current_stock) * Number(detailProduct.cost_price || 0)).toLocaleString('en-IN')}
+                </div>
+                <div className="text-[10px] text-neutral-500">Unit Cost: ₹{Number(detailProduct.cost_price || 0).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+
+            {/* Specifications & Classification */}
+            <div className="space-y-2 text-xs bg-white/[0.01] border border-white/[0.04] p-4 rounded-xl">
+              <h4 className="font-semibold text-neutral-300 text-xs uppercase tracking-wider mb-2">Statutory & Specs</h4>
+              <div className="grid grid-cols-2 gap-y-2 text-neutral-300">
+                <div>
+                  <span className="text-neutral-500">HSN Code:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailProduct.hsn_code || '9403'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">GST Slab:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailProduct.gst_rate || 18}% GST</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Gross Margin:</span>{' '}
+                  <span className="font-mono font-bold text-emerald-400">
+                    {detailProduct.price && detailProduct.cost_price
+                      ? `${Math.round(((detailProduct.price - detailProduct.cost_price) / detailProduct.price) * 100)}%`
+                      : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Status:</span>{' '}
+                  <span
+                    className={`font-semibold ${
+                      Number(detailProduct.current_stock) <= Number(detailProduct.min_stock_alert || 5)
+                        ? 'text-rose-400'
+                        : 'text-emerald-400'
+                    }`}
+                  >
+                    {Number(detailProduct.current_stock) <= Number(detailProduct.min_stock_alert || 5)
+                      ? 'Low Stock Reorder Alert'
+                      : 'Optimal Stock Level'}
+                  </span>
+                </div>
+              </div>
+              {detailProduct.description && (
+                <div className="pt-2 border-t border-white/[0.06] text-neutral-400 text-xs">
+                  {detailProduct.description}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                ID: #{detailProduct.id} • SKU: {detailProduct.sku}
+              </div>
+              <div className="flex items-center gap-2">
+                {(isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSelectedProduct(detailProduct);
+                      setAdjustmentDelta(0);
+                      setIsAdjustOpen(true);
+                    }}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs gap-1.5"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                    Adjust Stock
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailProduct(null)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

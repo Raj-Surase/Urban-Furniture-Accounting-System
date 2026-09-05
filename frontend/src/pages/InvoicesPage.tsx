@@ -43,6 +43,9 @@ export const InvoicesPage: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<InvoicePdfData | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
+  // Row Tap Invoice Detail Modal State
+  const [detailInvoice, setDetailInvoice] = useState<any>(null);
+
   // Create Invoice Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createType, setCreateType] = useState<'customer' | 'vendor'>('customer');
@@ -99,7 +102,13 @@ export const InvoicesPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    const handleRoleUpdated = () => {
+      fetchData();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
+  }, [user?.id, user?.role]);
 
   // Determine place of supply and interstate
   const selectedParty =
@@ -183,9 +192,9 @@ export const InvoicesPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       const payload = {
-        type: createType,
-        customer_id: createType === 'customer' ? selectedPartyId : null,
-        vendor_id: createType === 'vendor' ? selectedPartyId : null,
+        type: createType === 'customer' ? 'receivable' : 'payable',
+        party_type: createType,
+        party_id: Number(selectedPartyId),
         invoice_date: invoiceDate,
         due_date: dueDate,
         notes,
@@ -195,7 +204,7 @@ export const InvoicesPage: React.FC = () => {
           hsn_code: item.hsn_code,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          gst_rate: item.gst_rate,
+          tax_rate: item.gst_rate,
         })),
       };
 
@@ -301,12 +310,14 @@ export const InvoicesPage: React.FC = () => {
   };
 
   const filteredInvoices = invoices.filter((inv) => {
+    const isCust = inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer';
     const matchesTab =
       activeTab === 'all' ||
-      (activeTab === 'customer' && inv.type === 'customer') ||
-      (activeTab === 'vendor' && inv.type === 'vendor');
+      (activeTab === 'customer' && isCust) ||
+      (activeTab === 'vendor' && !isCust);
 
-    const partyName = inv.customer?.name || inv.vendor?.name || '';
+    const party = isCust ? inv.customer : inv.vendor;
+    const partyName = party?.company_name || party?.name || inv.party?.name || '';
     const matchesQuery =
       inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       partyName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -318,11 +329,11 @@ export const InvoicesPage: React.FC = () => {
 
   // Calculate high level metrics
   const totalReceivables = invoices
-    .filter((inv) => inv.type === 'customer' && (inv.status === 'approved' || inv.status === 'draft'))
+    .filter((inv) => (inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer') && (inv.status === 'approved' || inv.status === 'draft'))
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
   const totalPayables = invoices
-    .filter((inv) => inv.type === 'vendor' && (inv.status === 'approved' || inv.status === 'draft'))
+    .filter((inv) => (inv.type === 'payable' || inv.party_type === 'vendor' || inv.type === 'vendor') && (inv.status === 'approved' || inv.status === 'draft'))
     .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
   const totalGst = invoices
@@ -522,12 +533,16 @@ export const InvoicesPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredInvoices.map((inv) => {
-                  const isCust = inv.type === 'customer';
+                  const isCust = inv.type === 'receivable' || inv.party_type === 'customer' || inv.type === 'customer';
                   const party = isCust ? inv.customer : inv.vendor;
-                  const partyName = party?.company_name || party?.name || (isCust ? 'Customer' : 'Vendor');
+                  const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
 
                   return (
-                    <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr
+                      key={inv.id}
+                      onClick={() => setDetailInvoice(inv)}
+                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                    >
                       <td className="py-3 px-4 font-mono font-bold text-white flex items-center gap-2">
                         <span>{inv.invoice_number}</span>
                       </td>
@@ -592,15 +607,16 @@ export const InvoicesPage: React.FC = () => {
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           {/* pdfcn PDF Preview Button */}
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedInvoice(inv);
                               setIsPdfModalOpen(true);
                             }}
-                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 transition-colors"
+                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 transition-colors cursor-pointer"
                             title="Generate & View PDF (pdfcn)"
                           >
                             <Eye className="w-4 h-4" />
@@ -609,8 +625,11 @@ export const InvoicesPage: React.FC = () => {
                           {/* Approve & Auto-Post Button */}
                           {inv.status === 'draft' && (isAdmin || isManager) && (
                             <button
-                              onClick={() => handleApprove(inv.id)}
-                              className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleApprove(inv.id);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
                               title="Approve and Auto-Post to General Ledger"
                             >
                               Approve & Post
@@ -620,12 +639,13 @@ export const InvoicesPage: React.FC = () => {
                           {/* Record Payment Button */}
                           {inv.status === 'approved' && (inv.balance_due === undefined || inv.balance_due > 0) && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setPayInvoice(inv);
                                 setPayAmount(Number(inv.balance_due ?? inv.total_amount));
                                 setIsPayModalOpen(true);
                               }}
-                              className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors"
+                              className="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors cursor-pointer"
                               title="Record Payment & Reconcile"
                             >
                               Pay
@@ -635,8 +655,11 @@ export const InvoicesPage: React.FC = () => {
                           {/* Void Button */}
                           {inv.status === 'approved' && (isAdmin || isManager) && (
                             <button
-                              onClick={() => handleVoid(inv.id)}
-                              className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-600 hover:text-white text-neutral-400 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleVoid(inv.id);
+                              }}
+                              className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-rose-600 hover:text-white text-neutral-400 transition-colors cursor-pointer"
                               title="Void Invoice (Auto Contra-Reversal)"
                             >
                               <XCircle className="w-4 h-4" />
@@ -1029,6 +1052,210 @@ export const InvoicesPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Detail Modal on Tap Row */}
+      {detailInvoice && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-3xl bg-[#141418] border border-neutral-800 rounded-2xl p-6 text-white my-auto space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-white/[0.06] pb-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-lg font-bold text-white font-mono">{detailInvoice.invoice_number}</h3>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                      detailInvoice.status === 'paid'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : detailInvoice.status === 'approved'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                        : detailInvoice.status === 'void'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                    }`}
+                  >
+                    {detailInvoice.status}
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      detailInvoice.type === 'receivable' || detailInvoice.party_type === 'customer'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                    }`}
+                  >
+                    {detailInvoice.type === 'receivable' || detailInvoice.party_type === 'customer' ? 'Tax Invoice (AR)' : 'Vendor Bill (AP)'}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Issued to {detailInvoice.customer?.company_name || detailInvoice.customer?.name || detailInvoice.vendor?.company_name || detailInvoice.vendor?.name || detailInvoice.party?.name || 'Party'}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setDetailInvoice(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metadata Summary Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-[#1a1a22] border border-white/[0.06] text-xs">
+              <div>
+                <span className="text-[#8e8e9f] block text-[11px]">Invoice Date</span>
+                <span className="font-mono font-semibold text-white mt-0.5 block">{detailInvoice.invoice_date}</span>
+              </div>
+              <div>
+                <span className="text-[#8e8e9f] block text-[11px]">Payment Due Date</span>
+                <span className="font-mono font-semibold text-white mt-0.5 block">{detailInvoice.due_date}</span>
+              </div>
+              <div>
+                <span className="text-[#8e8e9f] block text-[11px]">GSTIN</span>
+                <span className="font-mono text-purple-300 mt-0.5 block">
+                  {detailInvoice.customer?.gstin || detailInvoice.vendor?.gstin || detailInvoice.gstin || 'Unregistered'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#8e8e9f] block text-[11px]">Place of Supply</span>
+                <span className="text-neutral-300 mt-0.5 block">{detailInvoice.place_of_supply || 'Maharashtra (27)'}</span>
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#8e8e9f] font-mono">
+                Itemized GST Line Items
+              </span>
+              <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-[#1a1a22]">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#20202a] text-[#8e8e9f] text-[10.5px] uppercase font-mono border-b border-white/[0.06]">
+                    <tr>
+                      <th className="py-2.5 px-3">Item / Description</th>
+                      <th className="py-2.5 px-3 text-center">HSN</th>
+                      <th className="py-2.5 px-3 text-center">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Unit Price</th>
+                      <th className="py-2.5 px-3 text-right">Taxable</th>
+                      <th className="py-2.5 px-3 text-right">GST (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Line Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {(detailInvoice.items || []).map((item: any, idx: number) => {
+                      const qty = Number(item.quantity || 1);
+                      const unitPrice = Number(item.unit_price || 0);
+                      const taxable = qty * unitPrice;
+                      const taxAmt = Number(item.tax_amount || 0);
+                      const total = Number(item.line_total || (taxable + taxAmt));
+                      return (
+                        <tr key={idx} className="hover:bg-white/[0.02]">
+                          <td className="py-2.5 px-3 font-medium text-white">{item.description || item.product?.name || 'Item'}</td>
+                          <td className="py-2.5 px-3 text-center font-mono text-neutral-400">{item.hsn_code || '9403'}</td>
+                          <td className="py-2.5 px-3 text-center font-mono">{qty}</td>
+                          <td className="py-2.5 px-3 text-right font-mono">₹{unitPrice.toLocaleString('en-IN')}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-neutral-300">₹{taxable.toLocaleString('en-IN')}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-purple-300">₹{taxAmt.toLocaleString('en-IN')}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-white">₹{total.toLocaleString('en-IN')}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Financial Totals Breakdown */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 rounded-xl bg-[#1a1a22] border border-white/[0.06] gap-4">
+              <div className="text-xs text-neutral-400 space-y-1">
+                {detailInvoice.notes && <p><strong>Notes:</strong> {detailInvoice.notes}</p>}
+                <p className="text-[11px] text-[#8e8e9f]">General Ledger sync: Double-entry balanced posting with auto reverse on void.</p>
+              </div>
+              <div className="w-full sm:w-64 space-y-1.5 text-xs font-mono">
+                <div className="flex justify-between text-neutral-400">
+                  <span>Subtotal:</span>
+                  <span>₹{Number(detailInvoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-purple-300">
+                  <span>GST ({detailInvoice.is_interstate ? 'IGST' : 'CGST+SGST'}):</span>
+                  <span>₹{Number(detailInvoice.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-bold text-white border-t border-white/10 pt-1 text-sm">
+                  <span>Total Amount:</span>
+                  <span>₹{Number(detailInvoice.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-emerald-400 text-xs">
+                  <span>Amount Paid:</span>
+                  <span>₹{Number(detailInvoice.amount_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-bold text-amber-400 text-xs">
+                  <span>Balance Due:</span>
+                  <span>₹{Number(detailInvoice.balance_due ?? detailInvoice.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedInvoice(detailInvoice);
+                    setIsPdfModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  View & Print PDF (pdfcn)
+                </button>
+
+                {detailInvoice.status === 'draft' && (isAdmin || isManager) && (
+                  <button
+                    onClick={async () => {
+                      await handleApprove(detailInvoice.id);
+                      setDetailInvoice(null);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Approve & Auto-Post
+                  </button>
+                )}
+
+                {detailInvoice.status === 'approved' && (detailInvoice.balance_due === undefined || detailInvoice.balance_due > 0) && (
+                  <button
+                    onClick={() => {
+                      setPayInvoice(detailInvoice);
+                      setPayAmount(Number(detailInvoice.balance_due ?? detailInvoice.total_amount));
+                      setIsPayModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    Record Payment
+                  </button>
+                )}
+
+                {detailInvoice.status === 'approved' && (isAdmin || isManager) && (
+                  <button
+                    onClick={async () => {
+                      await handleVoid(detailInvoice.id);
+                      setDetailInvoice(null);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    Void Invoice
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setDetailInvoice(null)}
+                className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

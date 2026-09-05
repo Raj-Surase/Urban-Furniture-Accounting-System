@@ -58,6 +58,11 @@ class InvoiceController extends Controller
         // Attach party metadata
         $invoices->getCollection()->transform(function ($inv) {
             $inv->party = $inv->party;
+            if ($inv->party_type === 'customer') {
+                $inv->customer = $inv->party;
+            } elseif ($inv->party_type === 'vendor') {
+                $inv->vendor = $inv->party;
+            }
             return $inv;
         });
 
@@ -229,6 +234,11 @@ class InvoiceController extends Controller
 
         $invoice->load(['items.product', 'items.account', 'payments', 'creator', 'approver']);
         $invoice->party = $invoice->party;
+        if ($invoice->party_type === 'customer') {
+            $invoice->customer = $invoice->party;
+        } elseif ($invoice->party_type === 'vendor') {
+            $invoice->vendor = $invoice->party;
+        }
 
         return response()->json([
             'data' => $invoice,

@@ -40,5 +40,13 @@ class UserPolicy
         // Cannot delete oneself
         return $user->id !== $targetUser->id;
     }
+
+    /**
+     * Determine whether the user can access system telemetry & stats.
+     */
+    public function viewTelemetry(User $user): bool
+    {
+        return $user->hasPermission(Rbac::PERMISSION_SYSTEM_TELEMETRY);
+    }
 }
 

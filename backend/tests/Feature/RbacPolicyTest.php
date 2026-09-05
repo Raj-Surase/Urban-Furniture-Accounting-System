@@ -181,4 +181,38 @@ class RbacPolicyTest extends TestCase
             ->assertJsonPath('data.can_edit', false)
             ->assertJsonPath('data.can_delete', false);
     }
+
+    public function test_admin_stats_access_control(): void
+    {
+        // Unauthenticated -> 401
+        $guestResponse = $this->getJson('/api/admin/stats');
+        $guestResponse->assertStatus(401);
+
+        // Standard user -> 403 Forbidden
+        $userResponse = $this->actingAs($this->standardUser)->getJson('/api/admin/stats');
+        $userResponse->assertStatus(403);
+
+        // Manager -> 403 Forbidden
+        $managerResponse = $this->actingAs($this->manager)->getJson('/api/admin/stats');
+        $managerResponse->assertStatus(403);
+
+        // Admin -> 200 OK with telemetry payload
+        $adminResponse = $this->actingAs($this->admin)->getJson('/api/admin/stats');
+        $adminResponse->assertStatus(200)
+            ->assertJsonStructure([
+                'total_users',
+                'admin_count',
+                'manager_count',
+                'user_count',
+                'total_items',
+                'total_products',
+                'total_invoices',
+                'total_sales_orders',
+                'total_purchase_orders',
+                'system_time',
+                'database' => ['connection', 'host', 'port', 'database', 'status'],
+                'framework',
+                'environment',
+            ]);
+    }
 }

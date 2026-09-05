@@ -33,12 +33,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
 
+  const isAccountantOrAdmin = isAdmin || user?.role === 'manager';
+
   const menuGroups = [
     {
       category: 'Overview',
       items: [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Financial & GST Reports', path: '/reports', icon: FileSpreadsheet },
+        ...(isAccountantOrAdmin ? [{ name: 'Financial & GST Reports', path: '/reports', icon: FileSpreadsheet }] : []),
       ],
     },
     {
@@ -46,8 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       items: [
         { name: 'Invoices & Bills (GST)', path: '/invoices', icon: FileText },
         { name: 'Payments & Treasury', path: '/payments', icon: CreditCard },
-        { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
-        { name: 'General Ledger Journal', path: '/journal', icon: Layers },
+        ...(isAccountantOrAdmin ? [{ name: 'Chart of Accounts', path: '/accounts', icon: BookOpen }] : []),
+        ...(isAccountantOrAdmin ? [{ name: 'General Ledger Journal', path: '/journal', icon: Layers }] : []),
       ],
     },
     {

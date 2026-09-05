@@ -156,6 +156,7 @@ export const reportsApi = {
 
 export const usersApi = {
   list: () => api.get('/users').then(res => res.data),
+  getStats: () => api.get('/admin/stats').then(res => res.data),
   updateRole: (userId: number, role: string) => api.patch(`/users/${userId}/role`, { role }).then(res => res.data),
   onboardManager: (data: { name: string; email: string; phone?: string }) =>
     api.post('/admin/onboard-manager', data).then(res => res.data),

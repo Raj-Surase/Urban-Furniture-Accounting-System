@@ -52,6 +52,12 @@ export const AccountsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
+
+    const handleRoleUpdated = () => {
+      fetchAccounts();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleOpenLedger = async (acc: any) => {
@@ -180,8 +186,12 @@ export const AccountsPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredAccounts.map((acc) => (
-                  <tr key={acc.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-purple-400">{acc.code}</td>
+                  <tr
+                    key={acc.id}
+                    onClick={() => handleOpenLedger(acc)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
+                    <td className="py-3 px-4 font-mono font-bold text-purple-400 group-hover:underline">{acc.code}</td>
                     <td className="py-3 px-4 font-semibold text-white">
                       {acc.name}
                       {acc.description && (
@@ -213,7 +223,7 @@ export const AccountsPage: React.FC = () => {
                     <td className="py-3 px-4 text-right font-mono font-bold text-white">
                       ₹{Number(acc.current_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleOpenLedger(acc)}
                         className="px-2 py-1 rounded bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"

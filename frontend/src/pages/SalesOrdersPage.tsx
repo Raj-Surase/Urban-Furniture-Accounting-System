@@ -47,6 +47,9 @@ export const SalesOrdersPage: React.FC = () => {
   const [deliverQtys, setDeliverQtys] = useState<Record<number, number>>({});
   const [isDelivering, setIsDelivering] = useState(false);
 
+  // Detail Modal State
+  const [detailOrder, setDetailOrder] = useState<any>(null);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -68,6 +71,12 @@ export const SalesOrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+
+    const handleRoleUpdated = () => {
+      fetchData();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleProductChange = (index: number, productId: number) => {
@@ -254,82 +263,90 @@ export const SalesOrdersPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((so) => (
-                  <tr key={so.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-white">{so.so_number}</td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-neutral-200">{so.customer?.name}</div>
-                      <div className="text-[10px] text-neutral-500 font-mono">{so.customer?.gstin || 'Unregistered'}</div>
-                    </td>
-                    <td className="py-3 px-4 text-neutral-400">
-                      <div>Date: {so.order_date}</div>
-                      <div className="text-[10px] text-neutral-500">Delivery: {so.delivery_date || 'N/A'}</div>
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono text-neutral-300">
-                      ₹{Number(so.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono text-neutral-400">
-                      ₹{Number(so.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                      ₹{Number(so.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span
-                        className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          so.status === 'delivered'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : so.status === 'approved'
-                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                            : so.status === 'confirmed'
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}
-                      >
-                        {so.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {so.status === 'draft' && (
-                          <button
-                            onClick={() => handleConfirm(so.id)}
-                            className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
-                          >
-                            Confirm
-                          </button>
-                        )}
+                filteredOrders.map((so) => {
+                  return (
+                    <tr
+                      key={so.id}
+                      onClick={() => setDetailOrder(so)}
+                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">
+                        {so.so_number}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-neutral-200">{so.customer?.name}</div>
+                        <div className="text-[10px] text-neutral-500 font-mono">{so.customer?.gstin || 'Unregistered'}</div>
+                      </td>
+                      <td className="py-3 px-4 text-neutral-400">
+                        <div>Date: {so.order_date}</div>
+                        <div className="text-[10px] text-neutral-500">Delivery: {so.delivery_date || 'N/A'}</div>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                        ₹{Number(so.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                        ₹{Number(so.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                        ₹{Number(so.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                            so.status === 'delivered'
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : so.status === 'approved'
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              : so.status === 'confirmed'
+                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}
+                        >
+                          {so.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {so.status === 'draft' && (
+                            <button
+                              onClick={() => handleConfirm(so.id)}
+                              className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
+                            >
+                              Confirm
+                            </button>
+                          )}
 
-                        {so.status === 'confirmed' && (isAdmin || isManager) && (
-                          <button
-                            onClick={() => handleApprove(so.id)}
-                            className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
-                          >
-                            Approve
-                          </button>
-                        )}
+                          {so.status === 'confirmed' && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => handleApprove(so.id)}
+                              className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                            >
+                              Approve
+                            </button>
+                          )}
 
-                        {(so.status === 'approved' || so.status === 'partially_delivered') && (
-                          <button
-                            onClick={() => {
-                              setSelectedOrder(so);
-                              const initQtys: Record<number, number> = {};
-                              (so.items || []).forEach((item: any) => {
-                                initQtys[item.id] = item.quantity - (item.quantity_delivered || 0);
-                              });
-                              setDeliverQtys(initQtys);
-                              setIsDeliverOpen(true);
-                            }}
-                            className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                          >
-                            <PackageCheck className="w-3.5 h-3.5" />
-                            Deliver
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {(so.status === 'approved' || so.status === 'partially_delivered') && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => {
+                                setSelectedOrder(so);
+                                const initQtys: Record<number, number> = {};
+                                (so.items || []).forEach((item: any) => {
+                                  initQtys[item.id] = item.quantity - (item.quantity_delivered || 0);
+                                });
+                                setDeliverQtys(initQtys);
+                                setIsDeliverOpen(true);
+                              }}
+                              className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                            >
+                              <PackageCheck className="w-3.5 h-3.5" />
+                              Deliver
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -523,6 +540,184 @@ export const SalesOrdersPage: React.FC = () => {
               >
                 {isDelivering ? 'Processing...' : 'Confirm Delivery & Post COGS'}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sales Order Detail Modal */}
+      {detailOrder && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-white">{detailOrder.so_number}</span>
+                  <span
+                    className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      detailOrder.status === 'delivered'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : detailOrder.status === 'approved'
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        : detailOrder.status === 'confirmed'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {detailOrder.status}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white mt-1">
+                  {detailOrder.customer?.name || 'Customer Order'}
+                </h3>
+                <p className="text-xs text-neutral-400 font-mono">
+                  GSTIN: {detailOrder.customer?.gstin || 'Unregistered'} • State: {detailOrder.customer?.state || 'MH'}
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailOrder(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Order Info Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Order Date</div>
+                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.order_date}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Delivery Date</div>
+                <div className="font-mono font-bold text-white mt-0.5">{detailOrder.delivery_date || 'N/A'}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Tax Amount</div>
+                <div className="font-mono font-bold text-neutral-300 mt-0.5">
+                  ₹{Number(detailOrder.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Total Value</div>
+                <div className="font-mono font-bold text-emerald-400 mt-0.5">
+                  ₹{Number(detailOrder.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div>
+              <h4 className="text-xs font-semibold text-neutral-300 uppercase tracking-wider mb-2">Order Line Items</h4>
+              <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-bold text-neutral-400 uppercase">
+                      <th className="py-2.5 px-3">Item / Description</th>
+                      <th className="py-2.5 px-3 text-right">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Delivered</th>
+                      <th className="py-2.5 px-3 text-right">Rate</th>
+                      <th className="py-2.5 px-3 text-right">GST %</th>
+                      <th className="py-2.5 px-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {(detailOrder.items || []).map((item: any) => (
+                      <tr key={item.id} className="hover:bg-white/[0.01]">
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-white">{item.product?.name || item.description || 'Custom Item'}</div>
+                          {item.product?.sku && (
+                            <div className="text-[10px] font-mono text-amber-400">SKU: {item.product.sku}</div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">{item.quantity}</td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400">
+                          {item.quantity_delivered || 0} / {item.quantity}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-neutral-300">
+                          ₹{Number(item.unit_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-neutral-400">{item.gst_rate || 18}%</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
+                          ₹{Number(item.total_amount || (item.quantity * item.unit_price * (1 + (item.gst_rate || 18) / 100))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Notes */}
+            {detailOrder.notes && (
+              <div className="p-3 bg-white/[0.01] border border-white/[0.06] rounded-xl text-xs text-neutral-400">
+                <span className="font-semibold text-neutral-300">Terms / Notes:</span> {detailOrder.notes}
+              </div>
+            )}
+
+            {/* Actions Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                Order ID #{detailOrder.id}
+              </div>
+              <div className="flex items-center gap-2">
+                {detailOrder.status === 'draft' && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await handleConfirm(detailOrder.id);
+                      setDetailOrder(null);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                  >
+                    Confirm Order
+                  </Button>
+                )}
+
+                {detailOrder.status === 'confirmed' && (isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await handleApprove(detailOrder.id);
+                      setDetailOrder(null);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+                  >
+                    Approve Order
+                  </Button>
+                )}
+
+                {(detailOrder.status === 'approved' || detailOrder.status === 'partially_delivered') && (isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const so = detailOrder;
+                      setSelectedOrder(so);
+                      const initQtys: Record<number, number> = {};
+                      (so.items || []).forEach((item: any) => {
+                        initQtys[item.id] = item.quantity - (item.quantity_delivered || 0);
+                      });
+                      setDeliverQtys(initQtys);
+                      setDetailOrder(null);
+                      setIsDeliverOpen(true);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1"
+                  >
+                    <PackageCheck className="w-3.5 h-3.5" />
+                    Deliver Goods
+                  </Button>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailOrder(null)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+                >
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

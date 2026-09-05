@@ -148,6 +148,12 @@ export const ItemsPage: React.FC = () => {
 
   useEffect(() => {
     fetchItems();
+
+    const handleRoleUpdated = () => {
+      fetchItems();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, [fetchItems]);
 
   // Realtime Socket.io integration

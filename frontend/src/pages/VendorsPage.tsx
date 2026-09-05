@@ -35,6 +35,9 @@ export const VendorsPage: React.FC = () => {
   const [address, setAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Vendor Detail Modal State
+  const [detailVendor, setDetailVendor] = useState<any>(null);
+
   const fetchVendors = async () => {
     try {
       setLoading(true);
@@ -50,6 +53,12 @@ export const VendorsPage: React.FC = () => {
 
   useEffect(() => {
     fetchVendors();
+
+    const handleRoleUpdated = () => {
+      fetchVendors();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -150,9 +159,13 @@ export const VendorsPage: React.FC = () => {
                 </tr>
               ) : (
                 filtered.map((v) => (
-                  <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr
+                    key={v.id}
+                    onClick={() => setDetailVendor(v)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white">{v.name}</div>
+                      <div className="font-semibold text-white group-hover:text-indigo-400 group-hover:underline transition-colors">{v.name}</div>
                       <div className="text-[10.5px] text-neutral-400">{v.company_name}</div>
                     </td>
                     <td className="py-3 px-4 font-mono">
@@ -299,6 +312,95 @@ export const VendorsPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Vendor Detail Modal */}
+      {detailVendor && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Vendor #{detailVendor.id}
+                  </span>
+                  <span className="font-mono text-[11px] text-neutral-400">
+                    {detailVendor.state || 'Maharashtra'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-white mt-1.5">{detailVendor.name}</h3>
+                <p className="text-xs text-neutral-400 font-medium">{detailVendor.company_name}</p>
+              </div>
+              <button
+                onClick={() => setDetailVendor(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Outstanding Balance Banner */}
+            <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wider">
+                  Outstanding Accounts Payable
+                </div>
+                <div className="text-2xl font-mono font-bold text-rose-400 mt-0.5">
+                  ₹{Number(detailVendor.outstanding_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="text-[11px] text-rose-300/80 font-mono">
+                {detailVendor.gstin ? 'GST Registered Supplier' : 'Unregistered Vendor'}
+              </div>
+            </div>
+
+            {/* Statutory & Tax Info */}
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl text-xs space-y-2.5">
+              <h4 className="font-semibold text-neutral-300 uppercase tracking-wider text-[11px]">Supplier Details & Location</h4>
+              <div className="grid grid-cols-2 gap-y-2">
+                <div>
+                  <span className="text-neutral-500">GSTIN:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailVendor.gstin || 'Unregistered'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">PAN:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailVendor.pan || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Email:</span>{' '}
+                  <span className="text-white">{detailVendor.email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Phone:</span>{' '}
+                  <span className="text-white">{detailVendor.phone || 'N/A'}</span>
+                </div>
+              </div>
+
+              {detailVendor.address && (
+                <div className="pt-2 border-t border-white/[0.06]">
+                  <span className="text-neutral-500">Dispatch / Billing Address:</span>
+                  <div className="text-neutral-200 mt-0.5">{detailVendor.address}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                Supplier Directory Record
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailVendor(null)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

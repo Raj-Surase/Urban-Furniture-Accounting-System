@@ -38,6 +38,9 @@ export const JournalPage: React.FC = () => {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Detail Entry Modal
+  const [detailEntry, setDetailEntry] = useState<any>(null);
+
   const fetchEntries = async () => {
     try {
       setLoading(true);
@@ -54,6 +57,12 @@ export const JournalPage: React.FC = () => {
 
   useEffect(() => {
     fetchEntries();
+
+    const handleRoleUpdated = () => {
+      fetchEntries();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const toggleExpand = (id: number) => {
@@ -105,6 +114,7 @@ export const JournalPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       await journalApi.create({
+        posting_date: entryDate,
         entry_date: entryDate,
         reference_number: reference,
         description,
@@ -219,14 +229,22 @@ export const JournalPage: React.FC = () => {
                   return (
                     <React.Fragment key={je.id}>
                       <tr
-                        onClick={() => toggleExpand(je.id)}
-                        className="hover:bg-white/[0.02] cursor-pointer transition-colors"
+                        onClick={() => setDetailEntry(je)}
+                        className="hover:bg-white/[0.04] cursor-pointer transition-colors group"
                       >
-                        <td className="py-3 px-4 text-neutral-500">
+                        <td
+                          className="py-3 px-4 text-neutral-500 hover:text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(je.id);
+                          }}
+                        >
                           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                         </td>
-                        <td className="py-3 px-4 font-mono font-bold text-white">{je.entry_number}</td>
-                        <td className="py-3 px-4 text-neutral-400">{je.entry_date}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-indigo-400 group-hover:underline">
+                          {je.entry_number}
+                        </td>
+                        <td className="py-3 px-4 text-neutral-400">{je.posting_date || je.entry_date}</td>
                         <td className="py-3 px-4 text-neutral-200">
                           <div>{je.description}</div>
                           {je.reference_number && (
@@ -518,6 +536,134 @@ export const JournalPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Journal Entry Detail Modal */}
+      {detailEntry && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-2xl bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-white">{detailEntry.entry_number}</span>
+                  <span
+                    className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      detailEntry.is_reversed
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                  >
+                    {detailEntry.is_reversed ? 'Reversed' : 'Posted'}
+                  </span>
+                  <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-neutral-300 border border-white/10 uppercase">
+                    {detailEntry.source || 'manual'}
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mt-1.5">{detailEntry.description}</h3>
+                {detailEntry.reference_number && (
+                  <p className="text-xs text-neutral-400 font-mono">Reference: {detailEntry.reference_number}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setDetailEntry(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Posting Info */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Posting Date</div>
+                <div className="font-mono font-bold text-white mt-0.5">{detailEntry.posting_date || detailEntry.entry_date}</div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Total Debits</div>
+                <div className="font-mono font-bold text-emerald-400 mt-0.5">
+                  ₹{(detailEntry.lines || []).reduce((s: number, l: any) => s + Number(l.debit || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                <div className="text-[10px] uppercase font-semibold text-neutral-400">Total Credits</div>
+                <div className="font-mono font-bold text-indigo-400 mt-0.5">
+                  ₹{(detailEntry.lines || []).reduce((s: number, l: any) => s + Number(l.credit || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
+
+            {/* Double Entry Lines Table */}
+            <div>
+              <h4 className="text-xs font-semibold text-neutral-300 uppercase tracking-wider mb-2">Double-Entry Postings</h4>
+              <div className="border border-white/[0.08] rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/[0.08] bg-white/[0.02] text-[10px] font-bold text-neutral-400 uppercase">
+                      <th className="py-2.5 px-3">Account</th>
+                      <th className="py-2.5 px-3">Narration</th>
+                      <th className="py-2.5 px-3 text-right">Debit (₹)</th>
+                      <th className="py-2.5 px-3 text-right">Credit (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {(detailEntry.lines || []).map((line: any) => (
+                      <tr key={line.id} className="hover:bg-white/[0.01]">
+                        <td className="py-2.5 px-3">
+                          <span className="font-mono text-purple-400 mr-2">{line.account?.code || '—'}</span>
+                          <span className="font-semibold text-white">{line.account?.name || 'Account'}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-neutral-400 text-[11px]">
+                          {line.description || detailEntry.description}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">
+                          {Number(line.debit) > 0
+                            ? `₹${Number(line.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono text-indigo-400 font-semibold">
+                          {Number(line.credit) > 0
+                            ? `₹${Number(line.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Actions Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                Entry ID #{detailEntry.id}
+              </div>
+              <div className="flex items-center gap-2">
+                {!detailEntry.is_reversed && (isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await handleReverse(detailEntry.id);
+                      setDetailEntry(null);
+                    }}
+                    className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reverse Journal Entry
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailEntry(null)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

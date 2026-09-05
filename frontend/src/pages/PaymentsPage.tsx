@@ -55,8 +55,17 @@ export const PaymentsPage: React.FC = () => {
     }
   };
 
+  // Detail Payment Modal State
+  const [detailPayment, setDetailPayment] = useState<any>(null);
+
   useEffect(() => {
     fetchPayments();
+
+    const handleRoleUpdated = () => {
+      fetchPayments();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -204,8 +213,12 @@ export const PaymentsPage: React.FC = () => {
                   const partyName = isInflow ? p.customer?.name : p.vendor?.name;
 
                   return (
-                    <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-white">{p.payment_number}</td>
+                    <tr
+                      key={p.id}
+                      onClick={() => setDetailPayment(p)}
+                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">{p.payment_number}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
@@ -252,7 +265,7 @@ export const PaymentsPage: React.FC = () => {
                           {p.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         {p.status === 'draft' && (isAdmin || isManager) && (
                           <button
                             onClick={() => handleReconcile(p.id)}
@@ -396,6 +409,125 @@ export const PaymentsPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Voucher Detail Modal */}
+      {detailPayment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-white">{detailPayment.payment_number}</span>
+                  <span
+                    className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      detailPayment.status === 'reconciled'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {detailPayment.status}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-white mt-1">
+                  {detailPayment.payment_type === 'customer_receipt' ? 'Customer Collection Receipt' : 'Vendor Disbursement Voucher'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setDetailPayment(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Amount Banner */}
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${
+              detailPayment.payment_type === 'customer_receipt'
+                ? 'bg-emerald-500/10 border-emerald-500/20'
+                : 'bg-rose-500/10 border-rose-500/20'
+            }`}>
+              <div>
+                <div className="text-xs text-neutral-400 font-semibold uppercase tracking-wider">
+                  {detailPayment.payment_type === 'customer_receipt' ? 'Receipt Inflow' : 'Disbursement Outflow'}
+                </div>
+                <div className="text-2xl font-mono font-bold text-white mt-0.5">
+                  {detailPayment.payment_type === 'customer_receipt' ? '+' : '-'}₹
+                  {Number(detailPayment.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase ${
+                detailPayment.payment_type === 'customer_receipt'
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-rose-500/20 text-rose-300'
+              }`}>
+                {detailPayment.payment_type?.replace('_', ' ')}
+              </span>
+            </div>
+
+            {/* Detail Attributes */}
+            <div className="space-y-3 bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl text-xs">
+              <div className="grid grid-cols-2 gap-y-2">
+                <div>
+                  <span className="text-neutral-500">Party Account:</span>
+                  <div className="font-semibold text-white mt-0.5">
+                    {detailPayment.customer?.name || detailPayment.vendor?.name || 'General / Direct'}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Date Processed:</span>
+                  <div className="font-mono text-neutral-200 mt-0.5">{detailPayment.payment_date}</div>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Payment Channel:</span>
+                  <div className="font-mono uppercase text-neutral-200 mt-0.5">
+                    {detailPayment.payment_method?.replace('_', ' ')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Bank Reference / UTR:</span>
+                  <div className="font-mono text-emerald-400 mt-0.5">{detailPayment.reference_number || 'N/A'}</div>
+                </div>
+              </div>
+
+              {detailPayment.notes && (
+                <div className="pt-2 border-t border-white/[0.06] text-neutral-400">
+                  <span className="text-neutral-500 font-semibold">Ledger Narration:</span> {detailPayment.notes}
+                </div>
+              )}
+            </div>
+
+            {/* Actions Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                Voucher #{detailPayment.id}
+              </div>
+              <div className="flex items-center gap-2">
+                {detailPayment.status === 'draft' && (isAdmin || isManager) && (
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      await handleReconcile(detailPayment.id);
+                      setDetailPayment(null);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                  >
+                    Reconcile & Post
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailPayment(null)}
+                  className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

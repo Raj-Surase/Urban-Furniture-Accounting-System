@@ -34,6 +34,9 @@ export const CustomersPage: React.FC = () => {
   const [address, setAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Customer Detail Modal State
+  const [detailCustomer, setDetailCustomer] = useState<any>(null);
+
   const fetchCustomers = async () => {
     try {
       setLoading(true);
@@ -49,6 +52,12 @@ export const CustomersPage: React.FC = () => {
 
   useEffect(() => {
     fetchCustomers();
+
+    const handleRoleUpdated = () => {
+      fetchCustomers();
+    };
+    window.addEventListener('auth:role-updated', handleRoleUpdated);
+    return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -149,9 +158,13 @@ export const CustomersPage: React.FC = () => {
                 </tr>
               ) : (
                 filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr
+                    key={c.id}
+                    onClick={() => setDetailCustomer(c)}
+                    className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                  >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white">{c.name}</div>
+                      <div className="font-semibold text-white group-hover:text-emerald-400 group-hover:underline transition-colors">{c.name}</div>
                       <div className="text-[10.5px] text-neutral-400">{c.company_name}</div>
                     </td>
                     <td className="py-3 px-4 font-mono">
@@ -298,6 +311,95 @@ export const CustomersPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Detail Modal */}
+      {detailCustomer && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex justify-center p-4">
+          <div className="relative w-full max-w-lg bg-[#141418] border border-neutral-800 rounded-2xl shadow-2xl p-6 text-white my-auto space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Customer #{detailCustomer.id}
+                  </span>
+                  <span className="font-mono text-[11px] text-neutral-400">
+                    {detailCustomer.state || 'Maharashtra'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-white mt-1.5">{detailCustomer.name}</h3>
+                <p className="text-xs text-neutral-400 font-medium">{detailCustomer.company_name}</p>
+              </div>
+              <button
+                onClick={() => setDetailCustomer(null)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Outstanding Balance Banner */}
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase font-semibold text-neutral-400 tracking-wider">
+                  Outstanding Accounts Receivable
+                </div>
+                <div className="text-2xl font-mono font-bold text-emerald-400 mt-0.5">
+                  ₹{Number(detailCustomer.outstanding_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+              <div className="text-[11px] text-emerald-300/80 font-mono">
+                {detailCustomer.gstin ? 'B2B Registered' : 'B2C Consumer'}
+              </div>
+            </div>
+
+            {/* Statutory & Tax Info */}
+            <div className="bg-white/[0.02] border border-white/[0.06] p-4 rounded-xl text-xs space-y-2.5">
+              <h4 className="font-semibold text-neutral-300 uppercase tracking-wider text-[11px]">Tax & Identity</h4>
+              <div className="grid grid-cols-2 gap-y-2">
+                <div>
+                  <span className="text-neutral-500">GSTIN:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailCustomer.gstin || 'Unregistered'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">PAN:</span>{' '}
+                  <span className="font-mono font-bold text-white">{detailCustomer.pan || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Email:</span>{' '}
+                  <span className="text-white">{detailCustomer.email || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Phone:</span>{' '}
+                  <span className="text-white">{detailCustomer.phone || 'N/A'}</span>
+                </div>
+              </div>
+
+              {detailCustomer.billing_address && (
+                <div className="pt-2 border-t border-white/[0.06]">
+                  <span className="text-neutral-500">Billing Address:</span>
+                  <div className="text-neutral-200 mt-0.5">{detailCustomer.billing_address}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
+              <div className="text-[11px] text-neutral-500 font-mono">
+                Client Directory Record
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailCustomer(null)}
+                className="border-neutral-700 bg-neutral-800 text-neutral-300 text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
