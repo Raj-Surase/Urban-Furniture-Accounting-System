@@ -38,6 +38,7 @@ export const ProductsPage: React.FC = () => {
   const [isNewOpen, setIsNewOpen] = useState(false);
   const [newSku, setNewSku] = useState('');
   const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('goods');
   const [newCategory, setNewCategory] = useState('Chairs');
   const [newHsn, setNewHsn] = useState('9403');
   const [newPrice, setNewPrice] = useState<number>(0);
@@ -97,6 +98,7 @@ export const ProductsPage: React.FC = () => {
       await productsApi.create({
         sku: newSku,
         name: newName,
+        type: newType,
         category: newCategory,
         hsn_code: newHsn,
         price: newPrice,
@@ -110,6 +112,7 @@ export const ProductsPage: React.FC = () => {
       // Reset
       setNewSku('');
       setNewName('');
+      setNewType('goods');
       setNewPrice(0);
       setNewCostPrice(0);
       fetchProducts();

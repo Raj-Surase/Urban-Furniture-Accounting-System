@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Compass, Home, Database, Shield, ArrowLeft } from 'lucide-react';
+import { Compass, Home, FileText, Package, Shield, ArrowLeft } from 'lucide-react';
 import { Button, Card } from '@heroui/react';
 import { PageTransition } from '../components/layout/PageTransition';
 
@@ -51,14 +51,24 @@ export const NotFoundPage: React.FC = () => {
                       Dashboard
                     </Button>
                   </Link>
-                  <Link to="/items">
+                  <Link to="/invoices">
                     <Button
                       size="sm"
                       variant="flat"
                       className="font-semibold rounded-full bg-white/[0.05] text-white/80 border border-white/[0.08] hover:bg-white/[0.1] hover:text-white active:scale-95 transition-all text-xs"
-                      startContent={<Database className="w-3.5 h-3.5 text-cyan-400" />}
+                      startContent={<FileText className="w-3.5 h-3.5 text-cyan-400" />}
                     >
-                      Items Directory
+                      Invoices & Billing
+                    </Button>
+                  </Link>
+                  <Link to="/products">
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      className="font-semibold rounded-full bg-white/[0.05] text-white/80 border border-white/[0.08] hover:bg-white/[0.1] hover:text-white active:scale-95 transition-all text-xs"
+                      startContent={<Package className="w-3.5 h-3.5 text-emerald-400" />}
+                    >
+                      Products Catalog
                     </Button>
                   </Link>
                   <Link to="/admin">
@@ -86,7 +96,7 @@ export const NotFoundPage: React.FC = () => {
                 </Button>
                 <Link to="/">
                   <Button className="font-bold rounded-full bg-white text-black hover:bg-white/90 shadow-md active:scale-[0.98] transition-all px-6">
-                    Return to Safety
+                    Return to Dashboard
                   </Button>
                 </Link>
               </div>

@@ -257,7 +257,7 @@ export const ItemsPage: React.FC = () => {
         priority: formPriority,
       });
 
-      toast.success('Item created in PostgreSQL!');
+      toast.success('Item record created successfully!');
       createModal.onClose();
       resetForm();
 
@@ -412,11 +412,11 @@ export const ItemsPage: React.FC = () => {
                 Items Management
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-[#7042f4]/20 text-[#c084fc] border border-[#7042f4]/30">
-                PostgreSQL CRUD
+                Master Operations & Telemetry
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#8e8e9f] mt-1 font-sans">
-              Create, inspect, filter, and modify records in PostgreSQL with instantaneous multi-client Socket.io updates.
+              Create, inspect, filter, and modify inventory & work items with instantaneous multi-client Socket.io updates.
             </p>
           </div>
 
@@ -1055,13 +1055,13 @@ export const ItemsPage: React.FC = () => {
                 <ModalHeader className="flex flex-col gap-1.5 pt-6 sm:pt-8 px-6 sm:px-8 pb-2">
                   <span className="text-xl font-bold text-foreground font-sans">Create New Item</span>
                   <span className="text-xs sm:text-sm font-normal text-muted-foreground font-sans">
-                    Persisted into PostgreSQL database and broadcast across all Socket.io clients.
+                    Persisted into database and synchronized live across accounting clients.
                   </span>
                 </ModalHeader>
                 <ModalBody className="space-y-4 px-6 sm:px-8 py-5">
                   <Input
                     label="Title"
-                    placeholder="e.g. Implement Odoo API Adapter"
+                    placeholder="e.g. Manufacture Office Chairs - Batch #42"
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     variant="bordered"
@@ -1074,7 +1074,7 @@ export const ItemsPage: React.FC = () => {
 
                   <Textarea
                     label="Description"
-                    placeholder="Details, task scope, or requirements..."
+                    placeholder="e.g. Teakwood framing and ergonomic cushion assembly for corporate client."
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     variant="bordered"
@@ -1323,7 +1323,7 @@ export const ItemsPage: React.FC = () => {
                     <strong className="text-foreground font-bold">{activeItem?.title}</strong>?
                   </p>
                   <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    This item will be deleted from PostgreSQL and an <code>item:deleted</code> broadcast will be emitted to all connected clients.
+                    This item will be permanently deleted and an <code>item:deleted</code> broadcast will be emitted to all connected clients.
                   </p>
                 </ModalBody>
                 <ModalFooter className="px-6 sm:px-8 pb-6 sm:pb-8 pt-4">

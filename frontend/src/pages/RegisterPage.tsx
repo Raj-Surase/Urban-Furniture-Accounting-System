@@ -78,10 +78,10 @@ export const RegisterPage: React.FC = () => {
               <Logo className="justify-center mb-1" />
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight font-sans">
-                  Create Account
+                  Join Urban Furniture
                 </h2>
                 <p className="text-xs sm:text-sm text-[#8e8e9f] mt-1 font-sans">
-                  Register a new account with role clearance
+                  Register customer or vendor portal access
                 </p>
               </div>
             </CardHeader>
@@ -180,8 +180,8 @@ export const RegisterPage: React.FC = () => {
                 <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center gap-3">
                   <Shield className="w-5 h-5 text-primary shrink-0" />
                   <div className="text-left">
-                    <p className="text-xs font-semibold text-white">Standard User Clearance</p>
-                    <p className="text-[11px] text-zinc-400">All public accounts are registered with Standard Staff permissions. Manager & Admin access is provisioned by organization administrators.</p>
+                    <p className="text-xs font-semibold text-white">Contact Portal Clearance</p>
+                    <p className="text-[11px] text-zinc-400">Public accounts are registered with Customer/Vendor Contact permissions to inspect own invoices and submit payments. Accountant & Admin access is provisioned by business owners.</p>
                   </div>
                 </div>
 

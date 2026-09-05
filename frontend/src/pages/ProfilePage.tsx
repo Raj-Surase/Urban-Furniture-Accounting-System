@@ -80,7 +80,7 @@ export const ProfilePage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-[#8e8e9f] mt-1 font-sans">
-                {user?.email || 'Authenticated user account • PostgreSQL Sanctum session'}
+                {user?.email || 'Authenticated user account • Urban Furniture Sanctum session'}
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export const ProfilePage: React.FC = () => {
                 </div>
                 <div className="p-3.5 rounded-2xl bg-[#202029] border border-white/[0.04]">
                   <span className="text-[#8e8e9f] text-[10px] uppercase font-bold block">Database</span>
-                  <span className="font-bold text-white mt-1 block">PostgreSQL</span>
+                  <span className="font-bold text-white mt-1 block">MySQL 8.0</span>
                 </div>
                 <div className="p-3.5 rounded-2xl bg-[#202029] border border-white/[0.04]">
                   <span className="text-[#8e8e9f] text-[10px] uppercase font-bold block">Realtime</span>

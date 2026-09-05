@@ -129,56 +129,56 @@ export const AdminPage: React.FC = () => {
 
   const rolesMatrix = [
     {
-      role: 'Administrator',
+      role: 'Admin (Business Owner)',
       key: 'admin',
       badge: 'Level 3 Clearance',
       color: 'primary',
-      description: 'Full administrative access across all endpoints, database operations, user role governance, and system telemetry.',
+      description: 'Full business owner access across financial master data, transaction approvals, tax governance, and user role clearance.',
       permissions: [
-        'Manage all Items CRUD (View, Create, Edit Any, Delete Any)',
-        'Access /admin Telemetry & PostgreSQL Diagnostics',
-        'Override & Emit Broadcast Channels',
-        'Assign & Modify User Roles',
+        'Full Master Data & Transaction Controls',
+        'Approve Sales Orders, Purchase Orders & Invoices',
+        'Manage Chart of Accounts, Journal Entries & Tax Policies',
+        'Assign & Modify User Roles (Accountant / Contact)',
       ],
     },
     {
-      role: 'Operations Manager',
+      role: 'Invoicing User (Accountant)',
       key: 'manager',
       badge: 'Level 2 Clearance',
       color: 'warning',
-      description: 'Departmental operations access for supervising team tasks and auditing user directories.',
+      description: 'Accountant access for recording orders, creating invoices & bills, posting ledger adjustments, and generating financial reports.',
       permissions: [
-        'Create and Edit Any Item (Team Operations)',
-        'View User Accounts Directory (Read-Only)',
-        'Emit Realtime Channel Broadcasts',
-        'Protected from Deleting Items (Admin Only)',
+        'Create & Manage Invoices, Bills & Receipts',
+        'Issue Sales Orders & Purchase Orders',
+        'View Chart of Accounts, Ledgers & Balance Sheet',
+        'Protected from User Role Reassignments',
       ],
     },
     {
-      role: 'Standard User',
+      role: 'Contact (Customer / Vendor)',
       key: 'user',
       badge: 'Level 1 Clearance',
       color: 'default',
-      description: 'Standard authenticated access for individual workspace tasks and real-time socket events.',
+      description: 'Portal access for buyers and vendors to view their own tax invoices/bills and record payments.',
       permissions: [
-        'Create Items & Edit Own Personal Items',
-        'Receive Live Socket.io Event Broadcasts',
-        'Manage Personal Profile & Clearance View',
-        'Strictly Restricted from /admin & User Governance (403)',
+        'View Own Invoices & Billing History',
+        'Settle Outstanding Balances via Bank/Card',
+        'Track Delivery & Dispatch Status',
+        'Strictly Restricted from Core General Ledger & Master Data',
       ],
     },
   ];
 
   const permissionsMatrixTable = [
-    { name: 'View Items Catalog', key: 'items:view_any', admin: true, manager: true, user: true },
-    { name: 'Create New Items', key: 'items:create', admin: true, manager: true, user: true },
-    { name: 'Update Own Items', key: 'items:update_own', admin: true, manager: true, user: true },
-    { name: 'Update Any Item (Team Override)', key: 'items:update_any', admin: true, manager: true, user: false },
-    { name: 'Delete Items (Strict Access)', key: 'items:delete_any', admin: true, manager: false, user: false },
-    { name: 'View User Directory', key: 'users:view_any', admin: true, manager: true, user: false },
-    { name: 'Assign User Roles (RBAC Governance)', key: 'users:manage_roles', admin: true, manager: false, user: false },
-    { name: 'Access /admin Telemetry', key: 'system:telemetry', admin: true, manager: false, user: false },
-    { name: 'Emit Socket.io Broadcasts', key: 'system:broadcast', admin: true, manager: true, user: false },
+    { name: 'Invoices & Billing (AR / AP)', key: 'invoices:manage', admin: true, manager: true, user: false },
+    { name: 'View Own Portal Invoices & Pay', key: 'portal:invoices', admin: true, manager: true, user: true },
+    { name: 'Products & Inventory Catalog', key: 'products:manage', admin: true, manager: true, user: false },
+    { name: 'Sales Orders & Procurement POs', key: 'orders:manage', admin: true, manager: true, user: false },
+    { name: 'Chart of Accounts & General Ledger', key: 'gl:accounts', admin: true, manager: true, user: false },
+    { name: 'Financial Statements (P&L, Balance Sheet)', key: 'reports:financial', admin: true, manager: true, user: false },
+    { name: 'Manual Journal Entry Posting', key: 'journal:post', admin: true, manager: true, user: false },
+    { name: 'User Role Governance (RBAC)', key: 'users:manage_roles', admin: true, manager: false, user: false },
+    { name: 'System Telemetry & Database Health', key: 'system:telemetry', admin: true, manager: false, user: false },
   ];
 
   if (loading) {
@@ -216,7 +216,7 @@ export const AdminPage: React.FC = () => {
               className="bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-full px-5 py-2 active:scale-95 text-xs flex items-center gap-1.5 transition-all shadow-md select-none cursor-pointer"
             >
               <UserCheck className="w-3.5 h-3.5" />
-              Onboard Manager
+              Onboard Accountant
             </button>
 
             <button
@@ -587,7 +587,7 @@ export const AdminPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-purple-400" />
-                  <h3 className="text-base font-bold">Onboard Operations Manager</h3>
+                  <h3 className="text-base font-bold">Onboard Accountant (Invoicing User)</h3>
                 </div>
                 <button
                   onClick={() => {
@@ -604,7 +604,7 @@ export const AdminPage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
                     <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4" /> Manager Account Initialized
+                      <CheckCircle2 className="w-4 h-4" /> Accountant Account Initialized
                     </div>
                     <p className="text-xs text-neutral-300">
                       Email with credentials has been queued and logged for: <strong className="text-white">{generatedCredentials.email}</strong>.
@@ -642,7 +642,7 @@ export const AdminPage: React.FC = () => {
               ) : (
                 <form onSubmit={handleOnboardManager} className="space-y-4">
                   <p className="text-xs text-neutral-400">
-                    Public registration is restricted to standard users. Use this admin form to provision Managers with auto-generated secure credentials.
+                    Public registration is restricted to contact users. Use this admin form to provision Invoicing Users / Accountants with auto-generated secure credentials.
                   </p>
 
                   <div>
@@ -662,7 +662,7 @@ export const AdminPage: React.FC = () => {
                     <input
                       type="email"
                       required
-                      placeholder="e.g. manager@urbanfurniture.in"
+                      placeholder="e.g. accountant@urbanfurniture.in"
                       value={managerEmail}
                       onChange={(e) => setManagerEmail(e.target.value)}
                       className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
@@ -693,7 +693,7 @@ export const AdminPage: React.FC = () => {
                       disabled={isOnboarding}
                       className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
                     >
-                      {isOnboarding ? 'Provisioning...' : 'Provision Manager'}
+                      {isOnboarding ? 'Provisioning...' : 'Provision Accountant'}
                     </button>
                   </div>
                 </form>

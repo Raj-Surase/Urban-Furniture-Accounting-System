@@ -375,4 +375,17 @@ export const DashboardPage: React.FC = () => {
 
                     <div className="text-[11px] text-[#6d6d7e] flex items-center justify-between pt-2 border-t border-white/[0.04]">
                       <span>MySQL &bull; Node.js Socket &bull; Urban Furniture Accounting</span>
-                      <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms l
+                      <span className="text-emerald-400 font-mono font-semibold">{apiLatency}ms latency</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </PageTransition>
+  );
+};
+
+export default DashboardPage;
