@@ -79,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Analytic Accounts & Budgets
     Route::apiResource('analytic-accounts', AnalyticAccountController::class);
+    Route::apiResource('analyticals', AnalyticAccountController::class);
     Route::post('/budgets/{budget}/confirm', [BudgetController::class, 'confirm']);
     Route::post('/budgets/{budget}/revise', [BudgetController::class, 'revise']);
     Route::post('/budgets/{budget}/cancel', [BudgetController::class, 'cancel']);
@@ -88,6 +89,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/journal/{journal_entry}/reverse', [JournalEntryController::class, 'reverse']);
     Route::apiResource('journal', JournalEntryController::class)->only(['index', 'store', 'show']);
+    Route::post('/journal-entries/{journal_entry}/reverse', [JournalEntryController::class, 'reverse']);
+    Route::apiResource('journal-entries', JournalEntryController::class)->only(['index', 'store', 'show']);
 
     // Products & Inventory
     Route::post('/products/{product}/adjust', [ProductController::class, 'adjust']);
@@ -115,6 +118,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void']);
     Route::apiResource('invoices', InvoiceController::class);
 
+    // Bills alias (AP)
+    Route::post('/bills/{invoice}/approve', [InvoiceController::class, 'approve']);
+    Route::post('/bills/{invoice}/void', [InvoiceController::class, 'void']);
+    Route::apiResource('bills', InvoiceController::class);
+
     // Payments & Treasury
     Route::post('/payments/{payment}/reconcile', [PaymentController::class, 'reconcile']);
     Route::apiResource('payments', PaymentController::class);
@@ -123,7 +131,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('reports')->group(function () {
         Route::get('/trial-balance', [ReportController::class, 'trialBalance']);
         Route::get('/income-statement', [ReportController::class, 'incomeStatement']);
+        Route::get('/profit-loss', [ReportController::class, 'incomeStatement']);
+        Route::get('/profit-and-loss', [ReportController::class, 'incomeStatement']);
+        Route::get('/pnl', [ReportController::class, 'incomeStatement']);
         Route::get('/balance-sheet', [ReportController::class, 'balanceSheet']);
+        Route::get('/balancesheet', [ReportController::class, 'balanceSheet']);
+        Route::get('/budget', [BudgetController::class, 'index']);
+        Route::get('/budget-report', [BudgetController::class, 'index']);
+        Route::get('/budget-analysis', [BudgetController::class, 'index']);
         Route::get('/ar-aging', [ReportController::class, 'arAging']);
         Route::get('/ap-aging', [ReportController::class, 'apAging']);
         Route::get('/gst-summary', [ReportController::class, 'gstSummary']);

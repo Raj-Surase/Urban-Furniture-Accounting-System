@@ -8,6 +8,10 @@ export interface User {
   email: string;
   login_id?: string;
   role: UserRole;
+  is_customer?: boolean;
+  is_vendor?: boolean;
+  company_name?: string;
+  phone?: string;
   permissions?: string[];
   is_admin?: boolean;
   created_at?: string;
@@ -21,6 +25,8 @@ interface AuthContextType {
   isManager: boolean;
   isAccountant: boolean;
   isStandardUser: boolean;
+  isCustomer: boolean;
+  isVendor: boolean;
   isLoading: boolean;
   hasRole: (roles: UserRole | string | (UserRole | string)[]) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -134,7 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = user?.role === UserRole.ADMIN || !!user?.is_admin;
   const isManager = user?.role === UserRole.MANAGER;
   const isAccountant = user?.role === UserRole.ACCOUNTANT || user?.role === UserRole.MANAGER || user?.role === UserRole.ADMIN;
-  const isStandardUser = user?.role === UserRole.USER;
+  const isStandardUser = user?.role === UserRole.USER || user?.role === UserRole.CUSTOMER || user?.role === UserRole.VENDOR;
+  const isCustomer = user?.role === UserRole.CUSTOMER || !!user?.is_customer;
+  const isVendor = user?.role === UserRole.VENDOR || !!user?.is_vendor;
 
   const hasRole = useCallback((roles: UserRole | string | (UserRole | string)[]) => {
     if (!user) return false;
@@ -160,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isManager,
         isAccountant,
         isStandardUser,
+        isCustomer,
+        isVendor,
         isLoading,
         hasRole,
         hasPermission,

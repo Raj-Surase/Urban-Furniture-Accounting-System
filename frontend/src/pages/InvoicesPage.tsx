@@ -33,6 +33,7 @@ import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfMod
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
@@ -661,6 +662,31 @@ export const InvoicesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ExcalidrawGuideBanner
+        module="Sales"
+        concept="Customer Tax Invoices (AR) & Dual Posting Workflow"
+        description="According to the Excalidraw blueprint, confirming a customer invoice triggers automated double-entry ledger posting to Accounts Receivable and Sales Revenue with GST breakdown. Invoices can be shared directly with buyers or paid online via the integrated Razorpay client portal."
+        accountingRules={[
+          {
+            type: 'Debit',
+            account: 'Accounts Receivable (Debtor / Customer A/c)',
+            amountDesc: 'Gross Total (Product Total + Taxes)',
+          },
+          {
+            type: 'Credit',
+            account: 'Furniture Sales Account (Operating Revenue)',
+            amountDesc: 'Net Taxable Goods Amount',
+          },
+          {
+            type: 'Credit',
+            account: 'Output GST Account (CGST + SGST or IGST)',
+            amountDesc: 'Applicable GST (5% / 12% / 18% / 28%)',
+          },
+        ]}
+        badges={['Sales Order -> Invoice', 'Auto Journal Posting', 'Razorpay Portal Link', 'Dual AR/AP Support']}
+        defaultOpen={false}
+      />
 
       {/* KPI Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

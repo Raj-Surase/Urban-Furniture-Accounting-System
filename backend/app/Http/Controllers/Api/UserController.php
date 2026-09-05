@@ -64,7 +64,14 @@ class UserController extends Controller
         Gate::authorize('updateRole', $user);
 
         $validated = $request->validate([
-            'role' => ['required', 'string', 'in:' . implode(',', [User::ROLE_ADMIN, User::ROLE_MANAGER, User::ROLE_USER])],
+            'role' => ['required', 'string', 'in:' . implode(',', [
+                User::ROLE_ADMIN,
+                User::ROLE_MANAGER,
+                User::ROLE_ACCOUNTANT,
+                User::ROLE_USER,
+                User::ROLE_CUSTOMER,
+                User::ROLE_VENDOR,
+            ])],
         ]);
 
         $newRole = $validated['role'];
@@ -184,7 +191,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'login_id' => ['required', 'string', 'min:6', 'max:12', 'unique:users,login_id'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', 'string', 'in:user,admin,accountant,manager'],
+            'role' => ['required', 'string', 'in:user,admin,accountant,manager,customer,vendor'],
             'password' => [
                 'required',
                 'string',
@@ -204,11 +211,17 @@ class UserController extends Controller
             're_enter_password.same' => 'Passwords do not match.',
         ]);
 
+        $role = $validated['role'];
+        $isCustomer = $role === User::ROLE_CUSTOMER || $request->boolean('is_customer', $role === User::ROLE_USER);
+        $isVendor = $role === User::ROLE_VENDOR || $request->boolean('is_vendor', $role === User::ROLE_USER);
+
         $user = User::create([
             'name' => $validated['name'],
             'login_id' => $validated['login_id'],
             'email' => $validated['email'],
-            'role' => $validated['role'],
+            'role' => $role,
+            'is_customer' => $isCustomer,
+            'is_vendor' => $isVendor,
             'password' => \Illuminate\Support\Facades\Hash::make($validated['password']),
         ]);
 

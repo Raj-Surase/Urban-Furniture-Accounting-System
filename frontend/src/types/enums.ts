@@ -13,6 +13,8 @@ export enum UserRole {
   MANAGER = 'manager',
   ACCOUNTANT = 'accountant',
   USER = 'user',
+  CUSTOMER = 'customer',
+  VENDOR = 'vendor',
 }
 
 /**

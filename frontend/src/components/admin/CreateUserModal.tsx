@@ -153,31 +153,33 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
               </div>
             </div>
 
-            {/* Role Selection matching wireframe: User, Administrator, Accountant */}
+            {/* Role Selection matching wireframe: User, Customer, Vendor, Administrator, Accountant */}
             <div>
               <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
                 Role *
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {([UserRole.USER, UserRole.ACCOUNTANT, UserRole.ADMIN] as const).map((r) => (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                {([UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR, UserRole.ACCOUNTANT, UserRole.ADMIN] as const).map((r) => (
                   <button
                     key={r}
                     type="button"
                     onClick={() => setRole(r)}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border capitalize transition-all ${
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border capitalize transition-all ${
                       role === r
                         ? 'bg-[#7042f4]/20 border-[#7042f4] text-white shadow-sm'
                         : 'bg-[#121216] border-white/[0.08] text-[#8a8a9a] hover:text-white'
                     }`}
                   >
-                    {r === UserRole.ADMIN ? 'Administrator' : r === UserRole.ACCOUNTANT ? 'Accountant' : 'User'}
+                    {r === UserRole.ADMIN ? 'Administrator' : r === UserRole.ACCOUNTANT ? 'Accountant' : r === UserRole.CUSTOMER ? 'Customer' : r === UserRole.VENDOR ? 'Vendor' : 'User'}
                   </button>
                 ))}
               </div>
               <div className="mt-2 p-2.5 rounded-xl bg-[#121216] border border-white/[0.04] text-[11px] text-[#8a8a9a]">
                 {role === UserRole.ADMIN && 'Admin: Full access rights across all modules.'}
                 {role === UserRole.ACCOUNTANT && 'Accountant: Master data, record transactions, journals, and reports.'}
-                {role === UserRole.USER && 'User (Portal): Restricted view to view paid/unpaid dues and pay directly.'}
+                {role === UserRole.CUSTOMER && 'Customer: Access customer portal, purchase orders, invoices, and customer directory.'}
+                {role === UserRole.VENDOR && 'Vendor: Access vendor bills, purchase orders, vendor payments, and vendor directory.'}
+                {role === UserRole.USER && 'User: Standard portal access to perform operations as customer and vendor.'}
               </div>
             </div>
 

@@ -9,6 +9,8 @@ class Rbac
     public const ROLE_MANAGER = 'manager';
     public const ROLE_ACCOUNTANT = 'accountant';
     public const ROLE_USER = 'user';
+    public const ROLE_CUSTOMER = 'customer';
+    public const ROLE_VENDOR = 'vendor';
 
     // Permissions: Items
     public const PERMISSION_ITEMS_VIEW_ANY = 'items:view_any';
@@ -129,8 +131,20 @@ class Rbac
             self::ROLE_USER => [
                 'name' => 'Standard User',
                 'tier' => 'Tier 1 Standard',
-                'description' => 'Standard authenticated access. Can create items and edit their own items, join channels, and view items.',
+                'description' => 'Standard authenticated access. Can operate as customer or vendor for sales/purchase orders, invoices, and payments.',
                 'color' => 'default',
+            ],
+            self::ROLE_CUSTOMER => [
+                'name' => 'Customer',
+                'tier' => 'Tier 1 Partner',
+                'description' => 'Customer partner access. Can view customer records, issue sales orders, inspect invoices, and execute dues payment.',
+                'color' => 'success',
+            ],
+            self::ROLE_VENDOR => [
+                'name' => 'Vendor',
+                'tier' => 'Tier 1 Partner',
+                'description' => 'Vendor partner access. Can view vendor records, issue purchase orders, review bills, and record payments.',
+                'color' => 'warning',
             ],
         ];
     }
@@ -506,14 +520,64 @@ class Rbac
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
-                // Standard user operations: strictly limited to catalog and own documents
+                // Products & Catalog
                 self::PERMISSION_PRODUCTS_VIEW_ANY,
+                // Customers & Vendors
+                self::PERMISSION_CUSTOMERS_VIEW_ANY,
+                self::PERMISSION_CUSTOMERS_CREATE,
+                self::PERMISSION_CUSTOMERS_UPDATE,
+                self::PERMISSION_VENDORS_VIEW_ANY,
+                self::PERMISSION_VENDORS_CREATE,
+                self::PERMISSION_VENDORS_UPDATE,
+                // Purchase Orders
                 self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
                 self::PERMISSION_PURCHASE_ORDERS_CREATE,
+                self::PERMISSION_PURCHASE_ORDERS_UPDATE_OWN,
+                // Sales Orders
                 self::PERMISSION_SALES_ORDERS_VIEW_OWN,
                 self::PERMISSION_SALES_ORDERS_CREATE,
+                self::PERMISSION_SALES_ORDERS_UPDATE_OWN,
+                // Invoices & Bills
                 self::PERMISSION_INVOICES_VIEW_OWN,
                 self::PERMISSION_INVOICES_CREATE,
+                self::PERMISSION_INVOICES_UPDATE_OWN,
+                // Payments
+                self::PERMISSION_PAYMENTS_VIEW_OWN,
+                self::PERMISSION_PAYMENTS_CREATE,
+            ],
+            self::ROLE_CUSTOMER => [
+                self::PERMISSION_ITEMS_VIEW_ANY,
+                self::PERMISSION_ITEMS_VIEW,
+                self::PERMISSION_ITEMS_CREATE,
+                self::PERMISSION_ITEMS_UPDATE_OWN,
+                self::PERMISSION_PRODUCTS_VIEW_ANY,
+                self::PERMISSION_CUSTOMERS_VIEW_ANY,
+                self::PERMISSION_CUSTOMERS_CREATE,
+                self::PERMISSION_CUSTOMERS_UPDATE,
+                self::PERMISSION_SALES_ORDERS_VIEW_OWN,
+                self::PERMISSION_SALES_ORDERS_CREATE,
+                self::PERMISSION_SALES_ORDERS_UPDATE_OWN,
+                self::PERMISSION_INVOICES_VIEW_OWN,
+                self::PERMISSION_INVOICES_CREATE,
+                self::PERMISSION_INVOICES_UPDATE_OWN,
+                self::PERMISSION_PAYMENTS_VIEW_OWN,
+                self::PERMISSION_PAYMENTS_CREATE,
+            ],
+            self::ROLE_VENDOR => [
+                self::PERMISSION_ITEMS_VIEW_ANY,
+                self::PERMISSION_ITEMS_VIEW,
+                self::PERMISSION_ITEMS_CREATE,
+                self::PERMISSION_ITEMS_UPDATE_OWN,
+                self::PERMISSION_PRODUCTS_VIEW_ANY,
+                self::PERMISSION_VENDORS_VIEW_ANY,
+                self::PERMISSION_VENDORS_CREATE,
+                self::PERMISSION_VENDORS_UPDATE,
+                self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
+                self::PERMISSION_PURCHASE_ORDERS_CREATE,
+                self::PERMISSION_PURCHASE_ORDERS_UPDATE_OWN,
+                self::PERMISSION_INVOICES_VIEW_OWN,
+                self::PERMISSION_INVOICES_CREATE,
+                self::PERMISSION_INVOICES_UPDATE_OWN,
                 self::PERMISSION_PAYMENTS_VIEW_OWN,
                 self::PERMISSION_PAYMENTS_CREATE,
             ],

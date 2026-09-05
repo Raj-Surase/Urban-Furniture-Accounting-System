@@ -20,6 +20,7 @@ import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi, budgetsApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
+import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
@@ -813,6 +814,31 @@ export const VendorBillsPage: React.FC = () => {
       ) : (
         /* LIST VIEW */
         <div className="space-y-4">
+          <ExcalidrawGuideBanner
+            module="Purchase"
+            concept="Vendor Bills (AP) & Cost Center Allocation"
+            description="Excalidraw purchase workflow: Purchase Orders convert into Vendor Bills upon material delivery. When confirmed, an automatic double-entry journal entry debits Purchase/Expense and credits Creditors (Accounts Payable). Lines linked to Analytic Accounts check real-time budget limits."
+            accountingRules={[
+              {
+                type: 'Debit',
+                account: 'Raw Material Purchase / Timber Expense A/c',
+                amountDesc: 'Net Material Cost (Taxable Value)',
+              },
+              {
+                type: 'Debit',
+                account: 'Input GST Tax Credit A/c (CGST + SGST or IGST)',
+                amountDesc: 'Input Tax Credit Eligible',
+              },
+              {
+                type: 'Credit',
+                account: 'Trade Creditor / Vendor Account (Liability)',
+                amountDesc: 'Gross Payable Amount Due',
+              },
+            ]}
+            badges={['PO -> Vendor Bill', 'Budget Overrun Detection', 'Analytic Cost Tagging', 'Payment Reversal']}
+            defaultOpen={false}
+          />
+
           <FieldFilterBar
             searchQuery={search}
             onSearchChange={setSearch}

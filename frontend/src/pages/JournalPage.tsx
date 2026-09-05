@@ -22,6 +22,7 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
@@ -407,6 +408,26 @@ export const JournalPage: React.FC = () => {
           </Button>
         )}
       </div>
+
+      <ExcalidrawGuideBanner
+        module="Account (Master Data)"
+        concept="General Ledger & Balanced Double-Entry Rule"
+        description="The heart of the Excalidraw accounting architecture: every financial transaction must satisfy the fundamental accounting equation (Total Debits == Total Credits). System journals (Sales, Purchase, Bank, Cash, General) automatically post immutable entries upon transaction confirmation."
+        accountingRules={[
+          {
+            type: 'Debit',
+            account: 'Asset Increase / Expense Incurred',
+            amountDesc: 'Sum of all debit lines',
+          },
+          {
+            type: 'Credit',
+            account: 'Liability Increase / Revenue Earned / Asset Decrease',
+            amountDesc: 'Sum of all credit lines (Must strictly equal Debit)',
+          },
+        ]}
+        badges={['Debit = Credit Rule', 'Multi-Currency / GST Ready', 'Auditable Reversal Workflow', 'Automated Posting']}
+        defaultOpen={false}
+      />
 
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
         <FieldFilterBar

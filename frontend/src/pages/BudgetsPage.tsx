@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
+import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
 import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
@@ -1069,6 +1070,26 @@ export const BudgetsPage: React.FC = () => {
       ) : (
         /* LIST VIEW */
         <div className="space-y-4">
+          <ExcalidrawGuideBanner
+            module="Account (Master Data)"
+            concept="Analytical Budgets & Multi-Stage Lifecycle"
+            description="Excalidraw budget management: Budgets track planned spending across Analytic Accounts (e.g., Luxury Sofas, Teak Tables). The lifecycle enforces controls: Draft -> Confirm -> Revise / Cancelled. Real-time progress is computed as (Achieved / Committed) * 100 with active purchase validation."
+            accountingRules={[
+              {
+                type: 'Debit',
+                account: 'Analytic Cost Center (Expense Tracking)',
+                amountDesc: 'Accumulates from Vendor Bills & Adjustments',
+              },
+              {
+                type: 'Credit',
+                account: 'Budget Committed Limit (Target Ceiling)',
+                amountDesc: 'Max planned expenditure for period',
+              },
+            ]}
+            badges={['Draft -> Confirm -> Revise', 'Real-time Limit Check', 'PO & Bill Blocking', 'Progress Formula']}
+            defaultOpen={false}
+          />
+
           <FieldFilterBar
             searchQuery={search}
             onSearchChange={setSearch}

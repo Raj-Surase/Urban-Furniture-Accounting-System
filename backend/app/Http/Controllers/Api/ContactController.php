@@ -16,7 +16,7 @@ class ContactController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || (! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_VIEW_ANY) && ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CUSTOMERS_VIEW_ANY))) {
+        if (! $user || ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_VIEW_ANY)) {
             abort(403, 'Unauthorized access to contacts directory.');
         }
 
@@ -111,7 +111,7 @@ class ContactController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || (! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_MANAGE) && ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CUSTOMERS_CREATE))) {
+        if (! $user || ! $user->hasPermission(\App\Security\Rbac::PERMISSION_CONTACTS_MANAGE)) {
             abort(403, 'Unauthorized. Contact management privileges required.');
         }
 

@@ -38,12 +38,28 @@ class AuthController extends Controller
             'password.min' => 'Password length should be more than 8 characters.',
         ]);
 
+        $isCustomer = $request->has('is_customer') ? $request->boolean('is_customer') : true;
+        $isVendor = $request->has('is_vendor') ? $request->boolean('is_vendor') : true;
+        $role = $request->input('role', User::ROLE_USER);
+        if (! in_array($role, [User::ROLE_USER, User::ROLE_CUSTOMER, User::ROLE_VENDOR], true)) {
+            $role = User::ROLE_USER;
+        }
+
         $user = User::create([
             'name' => $validated['name'] ?? $validated['login_id'],
             'login_id' => $validated['login_id'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role' => User::ROLE_USER,
+            'role' => $role,
+            'is_customer' => $isCustomer,
+            'is_vendor' => $isVendor,
+            'company_name' => $request->input('company_name'),
+            'phone' => $request->input('phone'),
+            'city' => $request->input('city'),
+            'state' => $request->input('state'),
+            'country' => $request->input('country', 'India'),
+            'gstin' => $request->input('gstin'),
+            'pan' => $request->input('pan'),
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -56,6 +72,11 @@ class AuthController extends Controller
                 'login_id' => $user->login_id,
                 'email' => $user->email,
                 'role' => $user->role,
+                'is_admin' => $user->isAdmin(),
+                'is_customer' => $user->isCustomer(),
+                'is_vendor' => $user->isVendor(),
+                'company_name' => $user->company_name,
+                'phone' => $user->phone,
                 'permissions' => $user->getPermissions(),
                 'created_at' => $user->created_at,
             ],
@@ -112,6 +133,11 @@ class AuthController extends Controller
                 'login_id' => $user->login_id,
                 'email' => $user->email,
                 'role' => $user->role,
+                'is_admin' => $user->isAdmin(),
+                'is_customer' => $user->isCustomer(),
+                'is_vendor' => $user->isVendor(),
+                'company_name' => $user->company_name,
+                'phone' => $user->phone,
                 'permissions' => $user->getPermissions(),
                 'created_at' => $user->created_at,
             ],
@@ -131,9 +157,14 @@ class AuthController extends Controller
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'login_id' => $user->login_id,
                 'email' => $user->email,
                 'role' => $user->role,
                 'is_admin' => $user->isAdmin(),
+                'is_customer' => $user->isCustomer(),
+                'is_vendor' => $user->isVendor(),
+                'company_name' => $user->company_name,
+                'phone' => $user->phone,
                 'permissions' => $user->getPermissions(),
                 'created_at' => $user->created_at,
             ]

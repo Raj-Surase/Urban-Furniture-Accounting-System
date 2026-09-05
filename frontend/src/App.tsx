@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
@@ -46,6 +46,7 @@ import { ProfitAndLossReportPage } from './pages/ProfitAndLossReportPage';
 import { BalanceSheetReportPage } from './pages/BalanceSheetReportPage';
 import { BudgetReportPage } from './pages/BudgetReportPage';
 import { CustomerPortalPage } from './pages/CustomerPortalPage';
+import { WorkshopPage } from './pages/WorkshopPage';
 
 /**
  * Root application component.
@@ -126,7 +127,7 @@ export const App: React.FC = () => {
                         path="bills"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR]}>
                               <VendorBillsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -239,7 +240,7 @@ export const App: React.FC = () => {
                         path="payments"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR]}>
                               <PaymentsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -249,7 +250,7 @@ export const App: React.FC = () => {
                         path="payments/new"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR]}>
                               <PaymentsPage openNew={true} />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -259,7 +260,7 @@ export const App: React.FC = () => {
                         path="customers"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR]}>
                               <CustomersPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -269,7 +270,7 @@ export const App: React.FC = () => {
                         path="vendors"
                         element={
                           <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT, UserRole.USER, UserRole.CUSTOMER, UserRole.VENDOR]}>
                               <VendorsPage />
                             </RoleRoute>
                           </ProtectedRoute>
@@ -316,6 +317,24 @@ export const App: React.FC = () => {
                           </ProtectedRoute>
                         }
                       />
+                      {/* 3D Workshop & Joinery Studio (Excalidraw Custom Furniture) */}
+                      <Route
+                        path="workshop"
+                        element={
+                          <ProtectedRoute>
+                            <WorkshopPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="studio"
+                        element={
+                          <ProtectedRoute>
+                            <WorkshopPage />
+                          </ProtectedRoute>
+                        }
+                      />
+
                       {/* Customer / User Portal */}
                       <Route
                         path="portal"
@@ -359,6 +378,95 @@ export const App: React.FC = () => {
                           </ProtectedRoute>
                         }
                       />
+
+                      {/* =========================================================================
+                          DOCUMENTATION & EXCALIDRAW ROUTE ALIASES (Prevents 404 Route Not Found)
+                          Maps different module naming conventions to canonical destinations
+                          ========================================================================= */}
+                      {/* Sales Aliases */}
+                      <Route path="sales-order" element={<Navigate to="/sales-orders" replace />} />
+                      <Route path="sales" element={<Navigate to="/sales-orders" replace />} />
+                      <Route path="so" element={<Navigate to="/sales-orders" replace />} />
+                      <Route path="sale-invoice" element={<Navigate to="/invoices" replace />} />
+                      <Route path="sale-invoices" element={<Navigate to="/invoices" replace />} />
+                      <Route path="sales-invoice" element={<Navigate to="/invoices" replace />} />
+                      <Route path="sales-invoices" element={<Navigate to="/invoices" replace />} />
+                      <Route path="customer-invoice" element={<Navigate to="/invoices" replace />} />
+                      <Route path="customer-invoices" element={<Navigate to="/invoices" replace />} />
+                      <Route path="receipt" element={<Navigate to="/payments?type=receive" replace />} />
+                      <Route path="receipts" element={<Navigate to="/payments?type=receive" replace />} />
+                      <Route path="customer-receipts" element={<Navigate to="/payments?type=receive" replace />} />
+
+                      {/* Purchase Aliases */}
+                      <Route path="purchase-order" element={<Navigate to="/purchase-orders" replace />} />
+                      <Route path="purchases" element={<Navigate to="/purchase-orders" replace />} />
+                      <Route path="po" element={<Navigate to="/purchase-orders" replace />} />
+                      <Route path="purchase-bill" element={<Navigate to="/bills" replace />} />
+                      <Route path="purchase-bills" element={<Navigate to="/bills" replace />} />
+                      <Route path="vendor-bill" element={<Navigate to="/bills" replace />} />
+                      <Route path="vendor-bills" element={<Navigate to="/bills" replace />} />
+                      <Route path="payment" element={<Navigate to="/payments?type=send" replace />} />
+                      <Route path="vendor-payments" element={<Navigate to="/payments?type=send" replace />} />
+
+                      {/* Account Master Data Aliases */}
+                      <Route path="contact" element={<Navigate to="/contacts" replace />} />
+                      <Route path="contact-master" element={<Navigate to="/contacts" replace />} />
+                      <Route path="contacts-master" element={<Navigate to="/contacts" replace />} />
+                      <Route path="partners" element={<Navigate to="/contacts" replace />} />
+                      <Route path="product" element={<Navigate to="/products" replace />} />
+                      <Route path="product-master" element={<Navigate to="/products" replace />} />
+                      <Route path="catalog" element={<Navigate to="/products" replace />} />
+                      <Route path="chart-of-accounts" element={<Navigate to="/accounts" replace />} />
+                      <Route path="chart-of-account" element={<Navigate to="/accounts" replace />} />
+                      <Route path="coa" element={<Navigate to="/accounts" replace />} />
+                      <Route path="account" element={<Navigate to="/accounts" replace />} />
+                      <Route path="accounts-chart" element={<Navigate to="/accounts" replace />} />
+                      <Route path="journal-master" element={<Navigate to="/journals" replace />} />
+                      <Route path="journals-master" element={<Navigate to="/journals" replace />} />
+                      <Route path="journal-entries" element={<Navigate to="/journal" replace />} />
+                      <Route path="journal-entry" element={<Navigate to="/journal" replace />} />
+                      <Route path="entries" element={<Navigate to="/journal" replace />} />
+                      <Route path="journals/entries" element={<Navigate to="/journal" replace />} />
+                      <Route path="analytic-accounts" element={<Navigate to="/analyticals" replace />} />
+                      <Route path="analytic-account" element={<Navigate to="/analyticals" replace />} />
+                      <Route path="analytics" element={<Navigate to="/analyticals" replace />} />
+                      <Route path="cost-centers" element={<Navigate to="/analyticals" replace />} />
+                      <Route path="budget" element={<Navigate to="/budgets" replace />} />
+                      <Route path="analytical-budget" element={<Navigate to="/budgets" replace />} />
+                      <Route path="analytical-budgets" element={<Navigate to="/budgets" replace />} />
+                      <Route
+                        path="budget/:id"
+                        element={
+                          <ProtectedRoute>
+                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
+                              <BudgetsPage />
+                            </RoleRoute>
+                          </ProtectedRoute>
+                        }
+                      />
+
+                      {/* Financial Reports Aliases */}
+                      <Route path="balancesheet" element={<Navigate to="/reports/balance-sheet" replace />} />
+                      <Route path="balance-sheet" element={<Navigate to="/reports/balance-sheet" replace />} />
+                      <Route path="reports/balancesheet" element={<Navigate to="/reports/balance-sheet" replace />} />
+                      <Route path="profit-loss" element={<Navigate to="/reports/profit-loss" replace />} />
+                      <Route path="profit-and-loss" element={<Navigate to="/reports/profit-loss" replace />} />
+                      <Route path="pnl" element={<Navigate to="/reports/profit-loss" replace />} />
+                      <Route path="reports/profit-and-loss" element={<Navigate to="/reports/profit-loss" replace />} />
+                      <Route path="reports/pnl" element={<Navigate to="/reports/profit-loss" replace />} />
+                      <Route path="budget-report" element={<Navigate to="/reports/budget" replace />} />
+                      <Route path="budget-reports" element={<Navigate to="/reports/budget" replace />} />
+                      <Route path="reports/budget-report" element={<Navigate to="/reports/budget" replace />} />
+                      <Route path="reports/budget-reports" element={<Navigate to="/reports/budget" replace />} />
+
+                      {/* Portal & Operations Aliases */}
+                      <Route path="customer-portal" element={<Navigate to="/portal" replace />} />
+                      <Route path="client-portal" element={<Navigate to="/portal" replace />} />
+                      <Route path="portal/invoices" element={<Navigate to="/portal" replace />} />
+                      <Route path="workshop-items" element={<Navigate to="/items" replace />} />
+                      <Route path="operations" element={<Navigate to="/items" replace />} />
+                      <Route path="operations-tracker" element={<Navigate to="/items" replace />} />
+
                       <Route path="*" element={<NotFoundPage />} />
                     </Route>
                   </Routes>
