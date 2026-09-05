@@ -11,6 +11,10 @@ import { RoleRoute } from './components/auth/RoleRoute';
 import { GuestRoute } from './components/auth/GuestRoute';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
+/**
+ * Page imports — all lazy-loadable candidates if bundle size grows.
+ * Split by domain: auth, core, accounting, purchasing, and reporting.
+ */
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -31,6 +35,18 @@ import { CustomersPage } from './pages/CustomersPage';
 import { VendorsPage } from './pages/VendorsPage';
 import { ReportsPage } from './pages/ReportsPage';
 
+/**
+ * Root application component.
+ *
+ * Provider nesting order (outer → inner):
+ *   ErrorBoundary → ThemeProvider → HeroUIProvider → ToastProvider
+ *   → AuthProvider → SocketProvider → BrowserRouter
+ *
+ * Routing strategy:
+ *  - GuestRoute:     redirects authenticated users away from /login, /register
+ *  - ProtectedRoute: redirects unauthenticated users to /login
+ *  - RoleRoute:      allows only specified roles (admin/manager); shows 403 otherwise
+ */
 export const App: React.FC = () => {
   return (
     <ErrorBoundary componentName="Application Root">
