@@ -7,6 +7,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Product Model
+ *
+ * Represents a furniture product in the catalog. Tracks stock levels,
+ * GST rate (HSN-based), and links to three GL accounts: inventory, COGS,
+ * and revenue. Used across purchase orders, sales orders, and invoices.
+ *
+ * @property int         $id
+ * @property string      $sku
+ * @property string      $name
+ * @property string      $hsn_code         HSN code for GST classification
+ * @property string|null $description
+ * @property string|null $category
+ * @property string      $type             goods|service
+ * @property float       $unit_price
+ * @property float       $cost_price
+ * @property float       $gst_rate         GST percentage (e.g., 18.00)
+ * @property string      $unit_of_measure  pcs|sqft|kg|mtr
+ * @property float       $current_stock
+ * @property float       $minimum_stock
+ * @property float       $reorder_point
+ * @property bool        $is_active
+ */
 class Product extends Model
 {
     use HasFactory;
