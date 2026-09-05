@@ -1,8 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  LineChart,
   Layers,
   Shield,
   UserCheck,
@@ -16,6 +15,20 @@ import {
   FileSpreadsheet,
   Users,
   Store,
+  Receipt,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Contact,
+  ScrollText,
+  FolderTree,
+  Calculator,
+  PieChart,
+  BarChart3,
+  TrendingUp,
+  Package,
+  Globe,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -27,111 +40,245 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+interface MenuItem {
+  name: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  badgeColor?: string;
+}
+
+interface MenuGroup {
+  id: string;
+  category: string;
+  badge?: string;
+  items: MenuItem[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, isAdmin, logout } = useAuth();
   const { isConnected } = useSocket();
   const location = useLocation();
   const navRef = useRef<HTMLElement>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   const isAccountantOrAdmin = isAdmin || user?.role === 'manager';
 
-  const menuGroups = [
+  const menuGroups: MenuGroup[] = [
     {
-      category: 'Overview',
+      id: 'overview',
+      category: 'Overview & Ops',
       items: [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        ...(isAccountantOrAdmin ? [{ name: 'Financial & GST Reports', path: '/reports', icon: FileSpreadsheet }] : []),
+        { name: 'Customer Portal', path: '/portal', icon: Globe, badge: 'Portal', badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+        { name: 'Workshop Items', path: '/items', icon: Package },
       ],
     },
     {
-      category: 'Accounting & Treasury',
+      id: 'sales',
+      category: 'Sales Module',
+      badge: 'Revenue',
       items: [
-        { name: 'Invoices & Bills (GST)', path: '/invoices', icon: FileText },
-        { name: 'Payments & Treasury', path: '/payments', icon: CreditCard },
-        ...(isAccountantOrAdmin ? [{ name: 'Chart of Accounts', path: '/accounts', icon: BookOpen }] : []),
-        ...(isAccountantOrAdmin ? [{ name: 'General Ledger Journal', path: '/journal', icon: Layers }] : []),
-      ],
-    },
-    {
-      category: 'Sales & Purchasing',
-      items: [
-        { name: 'Sales Orders', path: '/sales-orders', icon: Truck },
-        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
-        { name: 'Products & Inventory', path: '/products', icon: Store },
+        { name: 'Sales Orders', path: '/sales-orders', icon: Truck, badge: 'SO' },
+        { name: 'Customer Invoices', path: '/invoices', icon: FileText },
+        { name: 'Customer Receipts', path: '/payments?type=receive', icon: ArrowDownLeft, badge: 'Inflow', badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
         { name: 'Customer Directory', path: '/customers', icon: Users },
+      ],
+    },
+    {
+      id: 'purchase',
+      category: 'Purchase Module',
+      badge: 'Procure',
+      items: [
+        { name: 'Purchase Orders', path: '/purchase-orders', icon: ShoppingBag, badge: 'PO' },
+        { name: 'Vendor Bills', path: '/bills', icon: Receipt, badge: 'Bill' },
+        { name: 'Vendor Payments', path: '/payments?type=send', icon: ArrowUpRight, badge: 'Outflow', badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
         { name: 'Vendor Directory', path: '/vendors', icon: Truck },
       ],
     },
+    ...(isAccountantOrAdmin
+      ? [
+          {
+            id: 'master',
+            category: 'Master Data',
+            badge: 'Core',
+            items: [
+              { name: 'Contacts Master', path: '/contacts', icon: Contact, badge: 'Master', badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+              { name: 'Products & Services', path: '/products', icon: Store },
+              { name: 'Chart of Accounts', path: '/accounts', icon: BookOpen },
+              { name: 'Journals', path: '/journals', icon: ScrollText },
+              { name: 'Journal Entries', path: '/journal', icon: Layers },
+              { name: 'Analytic Accounts', path: '/analyticals', icon: FolderTree, badge: 'Cost' },
+              { name: 'Analytical Budgets', path: '/budgets', icon: Calculator },
+            ],
+          },
+          {
+            id: 'reports',
+            category: 'Financial Reports',
+            badge: 'Reports',
+            items: [
+              { name: 'Reports Hub', path: '/reports', icon: FileSpreadsheet },
+              { name: 'Profit & Loss', path: '/reports/profit-loss', icon: TrendingUp },
+              { name: 'Balance Sheet', path: '/reports/balance-sheet', icon: BarChart3 },
+              { name: 'Budget Performance', path: '/reports/budget', icon: PieChart, badge: 'Live', badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+            ],
+          },
+        ]
+      : []),
     {
-      category: 'System & Governance',
+      id: 'system',
+      category: 'System & Security',
       items: [
-        ...(isAdmin ? [{ name: 'Admin Console', path: '/admin', icon: Shield }] : []),
+        ...(isAdmin
+          ? [
+              {
+                name: 'Admin Console',
+                path: '/admin',
+                icon: Shield,
+                badge: 'Admin',
+                badgeColor: 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30',
+              },
+            ]
+          : []),
         { name: 'Profile & Clearance', path: '/profile', icon: UserCheck },
       ],
     },
   ];
 
   const isActive = (path: string) => {
+    if (path.includes('?')) {
+      const [base, query] = path.split('?');
+      const params = new URLSearchParams(query);
+      const locParams = new URLSearchParams(location.search);
+      if (location.pathname !== base) return false;
+      for (const [key, val] of params.entries()) {
+        if (locParams.get(key) !== val) return false;
+      }
+      return true;
+    }
     if (path === '/') {
-      return location.pathname === '/' && !location.hash;
+      return location.pathname === '/' && !location.hash && !location.search;
     }
-    if (path === '/#analytics') {
-      return location.pathname === '/' && location.hash === '#analytics';
+    // Prevent generic payments link from highlighting when sub-types are active
+    if (path === '/payments' && (location.search.includes('type=receive') || location.search.includes('type=send'))) {
+      return false;
     }
-    return location.pathname.startsWith(path);
+    // Prevent reports hub from staying active on deep sub-reports
+    if (path === '/reports') {
+      return location.pathname === '/reports';
+    }
+    return location.pathname === path || (location.pathname.startsWith(path + '/') && path !== '/');
+  };
+
+  const isGroupActive = (group: MenuGroup) => {
+    return group.items.some((item) => isActive(item.path));
+  };
+
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
   };
 
   const renderSidebarContent = () => (
     <div className="flex flex-col h-full text-white select-none bg-[#141418]">
       {/* Brand Header */}
-      <div className="flex items-center h-16 border-b border-white/[0.06] w-full shrink-0 px-6 bg-[#121216]">
-        <Link to="/" onClick={onClose} className="flex items-center w-full group">
+      <div className="flex items-center justify-between h-16 border-b border-white/[0.06] w-full shrink-0 px-6 bg-[#121216]">
+        <Link to="/" onClick={onClose} className="flex items-center group">
           <Logo className="transition-transform duration-200 group-hover:scale-[1.02]" />
         </Link>
+        <button
+          onClick={onClose}
+          className="p-1.5 -mr-1 rounded-lg text-[#808090] hover:text-white hover:bg-white/[0.06] md:hidden transition-colors"
+          aria-label="Close menu"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* Menu Navigation */}
-      <nav ref={navRef} className="flex-1 overflow-y-auto space-y-5 py-6 px-3.5 no-scrollbar">
-        {menuGroups.map((group, groupIdx) => (
-          <div key={groupIdx} className="space-y-1.5">
-            {group.category && (
-              <h3 className="px-3 text-[10.5px] font-bold tracking-widest text-[#808090] uppercase pb-1 font-sans">
-                {group.category}
-              </h3>
-            )}
-            {group.items.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path);
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={onClose}
-                  className={cn(
-                    'relative flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group text-xs font-medium',
-                    active
-                      ? 'bg-white text-black font-semibold shadow-sm'
-                      : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
-                  )}
-                >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <Icon
-                      className={cn(
-                        'h-4 w-4 shrink-0 transition-colors',
-                        active ? 'text-black' : 'text-[#808090] group-hover:text-white'
-                      )}
-                    />
-                    <span className="tracking-tight truncate">{item.name}</span>
-                  </div>
+      <nav ref={navRef} className="flex-1 overflow-y-auto space-y-4 py-4 px-3.5 no-scrollbar">
+        {menuGroups.map((group) => {
+          const groupActive = isGroupActive(group);
+          // If the group contains active route, keep it expanded
+          const isCollapsed = Boolean(collapsedGroups[group.id] && !groupActive);
 
-                  {active && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />
+          return (
+            <div key={group.id} className="space-y-1">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center justify-between px-2.5 py-1 rounded-lg text-[10.5px] font-bold tracking-wider text-[#808090] uppercase hover:text-white hover:bg-white/[0.03] transition-colors group/header font-sans"
+              >
+                <div className="flex items-center space-x-1.5 truncate">
+                  <span className="truncate">{group.category}</span>
+                  {group.badge && (
+                    <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-white/[0.06] text-[#a0a0b0] border border-white/10 normal-case tracking-normal">
+                      {group.badge}
+                    </span>
                   )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                </div>
+                <ChevronDown
+                  className={cn(
+                    'w-3.5 h-3.5 text-[#606070] transition-transform duration-200 group-hover/header:text-white shrink-0 ml-1',
+                    isCollapsed ? '-rotate-90' : 'rotate-0'
+                  )}
+                />
+              </button>
+
+              {!isCollapsed && (
+                <div className="space-y-0.5 pt-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={onClose}
+                        className={cn(
+                          'relative flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-200 group text-xs font-medium',
+                          active
+                            ? 'bg-white text-black font-semibold shadow-sm'
+                            : 'text-[#9090a0] hover:text-white hover:bg-white/[0.05]'
+                        )}
+                      >
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <Icon
+                            className={cn(
+                              'h-4 w-4 shrink-0 transition-colors',
+                              active ? 'text-black' : 'text-[#808090] group-hover:text-white'
+                            )}
+                          />
+                          <span className="tracking-tight truncate">{item.name}</span>
+                        </div>
+
+                        <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                          {item.badge && (
+                            <span
+                              className={cn(
+                                'text-[9px] font-bold px-1.5 py-0.5 rounded border',
+                                active
+                                  ? 'bg-black/10 text-black border-black/20'
+                                  : item.badgeColor || 'bg-white/[0.06] text-[#808090] border-white/10'
+                              )}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                          {active && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-black shrink-0" />
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer / Profile Card */}
