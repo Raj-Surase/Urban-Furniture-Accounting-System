@@ -19,6 +19,18 @@ class BudgetController extends Controller
             $query->where('status', $request->status);
         }
 
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($from = $request->query('from_date')) {
+            $query->where('start_date', '>=', $from);
+        }
+
+        if ($to = $request->query('to_date')) {
+            $query->where('end_date', '<=', $to);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where('name', 'like', "%{$search}%");

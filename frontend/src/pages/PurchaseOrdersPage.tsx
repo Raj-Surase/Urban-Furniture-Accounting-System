@@ -28,8 +28,57 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 import { PurchaseOrderStatus } from '../types';
+
+const poFilterConfigs: FieldFilterConfig[] = [
+  { key: 'po_number', label: 'PO Number', type: 'text', placeholder: 'e.g. PO-2026' },
+  { key: 'vendor.name', label: 'Vendor Name', type: 'text', placeholder: 'Vendor...' },
+  { key: 'vendor.gstin', label: 'Vendor GSTIN', type: 'text', placeholder: 'GSTIN...' },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Draft', value: PurchaseOrderStatus.DRAFT },
+      { label: 'Submitted', value: PurchaseOrderStatus.SUBMITTED },
+      { label: 'Approved', value: PurchaseOrderStatus.APPROVED },
+      { label: 'Received', value: PurchaseOrderStatus.RECEIVED },
+      { label: 'Cancelled', value: PurchaseOrderStatus.CANCELLED },
+    ],
+  },
+  { key: 'order_date', label: 'Order Date', type: 'date' },
+  { key: 'expected_delivery_date', label: 'Expected Date', type: 'date' },
+  { key: 'subtotal', label: 'Taxable Amount', type: 'number', placeholder: 'Min ₹...' },
+  { key: 'tax_amount', label: 'GST Amount', type: 'number', placeholder: 'Min ₹...' },
+  { key: 'total_amount', label: 'Total Amount', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const poColumnDefs: ColumnFilterDef[] = [
+  { key: 'po_number', filterType: 'text', placeholder: 'Filter PO #...' },
+  { key: 'vendor.name', filterType: 'text', placeholder: 'Filter vendor...' },
+  { key: 'order_date', filterType: 'date' },
+  { key: 'subtotal', filterType: 'number', placeholder: 'Min...' },
+  { key: 'tax_amount', filterType: 'number', placeholder: 'Min...' },
+  { key: 'total_amount', filterType: 'number', placeholder: 'Min...' },
+  {
+    key: 'status',
+    filterType: 'select',
+    options: [
+      { label: 'Draft', value: PurchaseOrderStatus.DRAFT },
+      { label: 'Submitted', value: PurchaseOrderStatus.SUBMITTED },
+      { label: 'Approved', value: PurchaseOrderStatus.APPROVED },
+      { label: 'Received', value: PurchaseOrderStatus.RECEIVED },
+      { label: 'Cancelled', value: PurchaseOrderStatus.CANCELLED },
+    ],
+  },
+  { key: 'actions', filterType: 'none' },
+];
 
 export const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -237,12 +286,49 @@ export const PurchaseOrdersPage: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter((po) => {
-    const matchesSearch =
-      po.po_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      po.vendor?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || po.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = poFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    return merged;
+  }, [activeFilters, columnFilters]);
+
+  const filteredOrders = React.useMemo(() => {
+    let result = orders.map((po) => ({
+      ...po,
+      po_number: po.po_number || po.order_number || '',
+    }));
+
+    if (statusFilter !== 'all') {
+      result = result.filter((po) => po.status === statusFilter);
+    }
+
+    return filterItems(result, searchQuery, ['po_number', 'vendor.name', 'vendor.gstin', 'notes'], allActiveFilters);
+  }, [orders, statusFilter, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleOrders,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredOrders,
+    pageSize: 15,
   });
 
   const selectedVendor = vendors.find((v) => v.id === vendorId);
@@ -296,33 +382,35 @@ export const PurchaseOrdersPage: React.FC = () => {
 
       {/* Main Table */}
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search PO or vendor..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-64"
-              />
-            </div>
-
-            <select
-      value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
-            >
-              <option value="all">All Statuses</option>
-              <option value={PurchaseOrderStatus.DRAFT}>Draft</option>
-              <option value={PurchaseOrderStatus.SUBMITTED}>Submitted</option>
-              <option value={PurchaseOrderStatus.APPROVED}>Approved</option>
-              <option value={PurchaseOrderStatus.RECEIVED}>Received</option>
-              <option value={PurchaseOrderStatus.CANCELLED}>Cancelled</option>
-            </select>
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search PO #, vendor, GSTIN, notes..."
+          filterConfigs={poFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+            setStatusFilter('all');
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+          presets={{
+            field: 'status',
+            currentValue: statusFilter,
+            onChange: setStatusFilter,
+            options: [
+              { label: 'All', value: 'all' },
+              { label: 'Draft', value: PurchaseOrderStatus.DRAFT },
+              { label: 'Submitted', value: PurchaseOrderStatus.SUBMITTED },
+              { label: 'Approved', value: PurchaseOrderStatus.APPROVED },
+              { label: 'Received', value: PurchaseOrderStatus.RECEIVED },
+            ],
+          }}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -337,11 +425,18 @@ export const PurchaseOrdersPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={poColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton rows={6} cols={8} />
-              ) : filteredOrders.length === 0 ? (
+              ) : visibleOrders.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBag}
                   colSpan={8}
@@ -349,14 +444,16 @@ export const PurchaseOrdersPage: React.FC = () => {
                   description="Try adjusting your filters or search query, or create a new purchase order."
                   actionLabel="New Purchase Order"
                   onAction={() => setIsCreateOpen(true)}
-                  secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  secondaryActionLabel={searchQuery || statusFilter !== 'all' || activeFilters.length > 0 ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');
                     setStatusFilter('all');
+                    setActiveFilters([]);
+                    setColumnFilters({});
                   }}
                 />
               ) : (
-                filteredOrders.map((po) => (
+                visibleOrders.map((po) => (
                   <tr
                     key={po.id}
                     onClick={() => handleOpenDetail(po)}
@@ -404,22 +501,24 @@ export const PurchaseOrdersPage: React.FC = () => {
                         {po.status === PurchaseOrderStatus.DRAFT && (
                           <button
                             onClick={() => handleSubmit(po.id)}
-                            className="px-2 py-1 rounded bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold transition-colors"
+                            className="px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                            title="Submit for Approval"
                           >
+                            <Send className="w-3.5 h-3.5" />
                             Submit
                           </button>
                         )}
-
                         {po.status === PurchaseOrderStatus.SUBMITTED && (isAdmin || isManager) && (
                           <button
                             onClick={() => handleApprove(po.id)}
-                            className="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-[11px] font-semibold transition-colors"
+                            className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                            title="Approve Order"
                           >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
                             Approve
                           </button>
                         )}
-
-                        {(po.status === PurchaseOrderStatus.APPROVED || po.status === PurchaseOrderStatus.PARTIALLY_RECEIVED || po.status === PurchaseOrderStatus.RECEIVED) && (isAdmin || isManager) && (
+                        {po.status === PurchaseOrderStatus.APPROVED && (
                           <>
                             <button
                               onClick={() =>
@@ -436,32 +535,41 @@ export const PurchaseOrdersPage: React.FC = () => {
                               Create Bill
                             </button>
                             {po.status !== PurchaseOrderStatus.RECEIVED && (
-                                <button
-                                  onClick={() => {
-                                    setSelectedOrder(po);
-                                    const initQtys: Record<number, number> = {};
-                                    (po.items || []).forEach((item: any) => {
-                                      initQtys[item.id] = item.quantity - (item.quantity_received || 0);
-                                    });
-                                    setReceiveQtys(initQtys);
-                                    setIsReceiveOpen(true);
-                                  }}
-                                  className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
-                                >
-                                  <PackageCheck className="w-3.5 h-3.5" />
-                                  Receive
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                              <button
+                                onClick={() => {
+                                  setSelectedOrder(po);
+                                  const initQtys: Record<number, number> = {};
+                                  (po.items || []).forEach((item: any) => {
+                                    initQtys[item.id] = item.quantity - (item.quantity_received || 0);
+                                  });
+                                  setReceiveQtys(initQtys);
+                                  setIsReceiveOpen(true);
+                                }}
+                                className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
+                              >
+                                <PackageCheck className="w-3.5 h-3.5" />
+                                Receive
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleOrders.length}
+          onLoadMore={loadMore}
+          entityName="purchase orders"
+        />
       </Card>
 
       {/* Create PO Modal */}

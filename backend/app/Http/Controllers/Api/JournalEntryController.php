@@ -41,17 +41,35 @@ class JournalEntryController extends Controller
             $query->where('posting_date', '<=', $to);
         }
 
+        if ($entryNum = $request->query('entry_number')) {
+            $query->where('entry_number', 'like', "%{$entryNum}%");
+        }
+
+        if ($refNum = $request->query('reference_number')) {
+            $query->where('reference_number', 'like', "%{$refNum}%");
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('entry_number', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('reference_number', 'like', "%{$search}%")
                   ->orWhereHas('journal', function ($jq) use ($search) {
                       $jq->where('name', 'like', "%{$search}%");
                   });
             });
         }
 
-        $entries = $query->paginate($request->query('per_page', 20));
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $entries = $query->get();
+            return response()->json([
+                'data' => $entries,
+                'total' => $entries->count(),
+            ]);
+        }
+
+        $entries = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         return response()->json($entries);
     }

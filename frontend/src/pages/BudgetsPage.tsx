@@ -20,7 +20,50 @@ import {
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { BudgetStatus, BudgetLineType, ContactType } from '../types';
+
+const budgetFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Budget Name', type: 'text', placeholder: 'Budget name...' },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Draft', value: BudgetStatus.DRAFT },
+      { label: 'Confirmed', value: BudgetStatus.CONFIRM },
+      { label: 'Revised', value: BudgetStatus.REVISED },
+      { label: 'Cancelled', value: BudgetStatus.CANCELLED },
+    ],
+  },
+  { key: 'start_date', label: 'Start Date', type: 'date' },
+  { key: 'end_date', label: 'End Date', type: 'date' },
+  { key: 'total_committed', label: 'Committed Amount', type: 'number', placeholder: 'Min committed ₹...' },
+  { key: 'total_achieved', label: 'Achieved Amount', type: 'number', placeholder: 'Min achieved ₹...' },
+];
+
+const budgetColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter budget...' },
+  { key: 'start_date', filterType: 'date' },
+  { key: 'end_date', filterType: 'date' },
+  {
+    key: 'status',
+    filterType: 'select',
+    options: [
+      { label: 'Draft', value: BudgetStatus.DRAFT },
+      { label: 'Confirmed', value: BudgetStatus.CONFIRM },
+      { label: 'Revised', value: BudgetStatus.REVISED },
+      { label: 'Cancelled', value: BudgetStatus.CANCELLED },
+    ],
+  },
+  { key: 'total_committed', filterType: 'number', placeholder: 'Min committed...' },
+  { key: 'total_achieved', filterType: 'number', placeholder: 'Min achieved...' },
+  { key: 'progress_percent', filterType: 'number', placeholder: 'Min %...' },
+];
 
 interface BudgetLineItem {
   id?: number;
@@ -66,6 +109,12 @@ export const BudgetsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
 
+  // Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
   // Form State
   const [activeBudget, setActiveBudget] = useState<BudgetRecord | null>(null);
   const [name, setName] = useState<string>('');
@@ -95,9 +144,9 @@ export const BudgetsPage: React.FC = () => {
     setLoading(true);
     try {
       const [bRes, aRes, cRes] = await Promise.all([
-        budgetsApi.list({ search: search || undefined }),
-        analyticAccountsApi.list(),
-        contactsApi.list(),
+        budgetsApi.list({ per_page: 'all' }),
+        analyticAccountsApi.list({ per_page: 'all' }),
+        contactsApi.list({ per_page: 'all' }),
       ]);
       setBudgets(bRes?.data || []);
       setAnalytics(aRes?.data || []);
@@ -111,7 +160,7 @@ export const BudgetsPage: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
-  }, [search]);
+  }, []);
 
   const handleOpenForm = async (budgetId?: number) => {
     setError(null);
@@ -404,6 +453,46 @@ export const BudgetsPage: React.FC = () => {
     }
   };
 
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = budgetFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (statusFilter !== 'all') {
+      merged.push({
+        id: 'quick-status',
+        field: 'status',
+        operator: 'equals',
+        value: statusFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, statusFilter]);
+
+  const filteredBudgets = React.useMemo(() => {
+    return filterItems(budgets, search, ['name'], allActiveFilters);
+  }, [budgets, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleBudgets,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredBudgets,
+    pageSize: 15,
+  });
+
   return (
     <MasterViewLayout
       title={viewMode === 'form' ? (activeBudget ? `Budget: ${activeBudget.name}` : 'New Budget') : 'Analytical Budgets'}
@@ -412,9 +501,6 @@ export const BudgetsPage: React.FC = () => {
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
       onBack={() => setViewMode('list')}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search budgets..."
     >
       {/* Notifications Banner across list/form */}
       <AnimatePresence>
@@ -950,75 +1036,124 @@ export const BudgetsPage: React.FC = () => {
         </div>
       ) : (
         /* LIST VIEW */
-        <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3.5 px-4">Budget</th>
-                  <th className="py-3.5 px-4">Start Date</th>
-                  <th className="py-3.5 px-4">End Date</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Committed</th>
-                  <th className="py-3.5 px-4 text-right">Achieved</th>
-                  <th className="py-3.5 px-4 text-center">Progress</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {budgets.map((b) => {
-                  const isOver = b.is_over_budget || b.has_exceeded_lines || (b.total_committed && b.total_achieved && b.total_achieved > b.total_committed);
-                  return (
-                    <tr
-                      key={b.id}
-                      onClick={() => handleOpenForm(b.id)}
-                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-bold text-white">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <PieChart className="w-4 h-4 text-[#7042f4] shrink-0" />
-                          <span>{b.name}</span>
-                          {isOver && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                              <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                              Limit Exceeded
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.start_date}</td>
-                    <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === BudgetStatus.CONFIRM
-                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : b.status === BudgetStatus.REVISED
-                          ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                          : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
-                      }`}>
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-white">
-                      ₹{(b.total_committed || 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-emerald-400 font-semibold">
-                      ₹{(b.total_achieved || 0).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="font-mono text-xs text-[#a0a0b0]">{b.progress_percent || 0}%</span>
-                    </td>
-                  </tr>
-                );
-              })}
-                {budgets.length === 0 && !loading && (
+        <div className="space-y-4">
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search budgets by name..."
+            filterConfigs={budgetFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setActiveFilters([]);
+              setColumnFilters({});
+              setSearch('');
+              setStatusFilter('all');
+            }}
+            presets={{
+              field: 'status',
+              currentValue: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { label: 'All Statuses', value: 'all' },
+                { label: 'Draft', value: BudgetStatus.DRAFT },
+                { label: 'Confirmed', value: BudgetStatus.CONFIRM },
+                { label: 'Revised', value: BudgetStatus.REVISED },
+                { label: 'Cancelled', value: BudgetStatus.CANCELLED },
+              ],
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+          />
+
+          <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-[#707080]">
-                      No budgets found. Click "+ New" to create a budget.
-                    </td>
+                    <th className="py-3.5 px-4">Budget</th>
+                    <th className="py-3.5 px-4">Start Date</th>
+                    <th className="py-3.5 px-4">End Date</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Committed</th>
+                    <th className="py-3.5 px-4 text-right">Achieved</th>
+                    <th className="py-3.5 px-4 text-center">Progress</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {showColumnFilters && (
+                    <ColumnFilterRow
+                      columns={budgetColumnDefs}
+                      values={columnFilters}
+                      onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  )}
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {visibleBudgets.map((b) => {
+                    const isOver = b.is_over_budget || b.has_exceeded_lines || (b.total_committed && b.total_achieved && b.total_achieved > b.total_committed);
+                    return (
+                      <tr
+                        key={b.id}
+                        onClick={() => handleOpenForm(b.id)}
+                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-bold text-white">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <PieChart className="w-4 h-4 text-[#7042f4] shrink-0" />
+                            <span>{b.name}</span>
+                            {isOver && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                Limit Exceeded
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.start_date}</td>
+                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
+                        <td className="py-3.5 px-4">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            b.status === BudgetStatus.CONFIRM
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : b.status === BudgetStatus.REVISED
+                              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                              : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
+                          }`}>
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-white">
+                          ₹{(b.total_committed || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono text-emerald-400 font-semibold">
+                          ₹{(b.total_achieved || 0).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="font-mono text-xs text-[#a0a0b0]">{b.progress_percent || 0}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {visibleBudgets.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-[#707080]">
+                        No budgets found matching the filters.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <ScrollSentinel
+              sentinelRef={sentinelRef}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              totalCount={totalCount}
+              visibleCount={visibleBudgets.length}
+              onLoadMore={loadMore}
+              entityName="budgets"
+            />
           </div>
         </div>
       )}

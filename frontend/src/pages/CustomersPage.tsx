@@ -23,6 +23,11 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   INDIAN_STATES,
   PAYMENT_TERMS_OPTIONS,
@@ -30,6 +35,25 @@ import {
   getStateFromGstin,
 } from '../constants/formOptions';
 import { AccountClassification } from '../types';
+
+const customerFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Customer Name', type: 'text', placeholder: 'Name...' },
+  { key: 'company_name', label: 'Corporate Entity', type: 'text', placeholder: 'Company...' },
+  { key: 'gstin', label: 'GSTIN', type: 'text', placeholder: 'GSTIN...' },
+  { key: 'pan', label: 'PAN', type: 'text', placeholder: 'PAN...' },
+  { key: 'state', label: 'State', type: 'text', placeholder: 'State...' },
+  { key: 'email', label: 'Email', type: 'text', placeholder: 'Email...' },
+  { key: 'phone', label: 'Phone', type: 'text', placeholder: 'Phone...' },
+  { key: 'outstanding_balance', label: 'Outstanding Balance', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const customerColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter customer...' },
+  { key: 'gstin', filterType: 'text', placeholder: 'Filter GSTIN...' },
+  { key: 'state', filterType: 'text', placeholder: 'Filter state...' },
+  { key: 'email', filterType: 'text', placeholder: 'Filter contact...' },
+  { key: 'outstanding_balance', filterType: 'number', placeholder: 'Min balance...' },
+];
 
 export const CustomersPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -182,12 +206,46 @@ export const CustomersPage: React.FC = () => {
     }
   };
 
-  const filtered = customers.filter(
-    (c) =>
-      c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.gstin?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = customerFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' ? 'gte' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    return merged;
+  }, [activeFilters, columnFilters]);
+
+  const filteredCustomers = React.useMemo(() => {
+    return filterItems(
+      Array.isArray(customers) ? customers : [],
+      searchQuery,
+      ['name', 'company_name', 'gstin', 'pan', 'state', 'email', 'phone'],
+      allActiveFilters
+    );
+  }, [customers, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleCustomers,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredCustomers,
+    pageSize: 15,
+  });
 
   return (
     <div className="space-y-6">
@@ -214,18 +272,22 @@ export const CustomersPage: React.FC = () => {
       </div>
 
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-            <input
-              type="text"
-              placeholder="Search customer, corporate entity or GSTIN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 w-72"
-            />
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search customer, corporate entity, GSTIN, city..."
+          filterConfigs={customerFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -237,25 +299,38 @@ export const CustomersPage: React.FC = () => {
                 <th className="py-3 px-4">Contact Details</th>
                 <th className="py-3 px-4 text-right">Outstanding Receivable</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={customerColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton columns={5} rows={6} />
-              ) : filtered.length === 0 ? (
+              ) : visibleCustomers.length === 0 ? (
                 <EmptyState
                   colSpan={5}
                   icon={Users}
                   title="No customer accounts found"
                   description={
-                    searchQuery
-                      ? 'No customers match your search criteria. Try a different query.'
+                    searchQuery || activeFilters.length > 0
+                      ? 'No customers match your search and filter criteria. Try adjusting your filters.'
                       : 'Add your first commercial or retail customer account to get started.'
                   }
                   actionLabel={isAdmin || isManager ? 'Add Customer Account' : undefined}
                   onAction={isAdmin || isManager ? () => setIsModalOpen(true) : undefined}
+                  secondaryActionLabel={searchQuery || activeFilters.length > 0 ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setActiveFilters([]);
+                    setColumnFilters({});
+                  }}
                 />
               ) : (
-                filtered.map((c) => (
+                visibleCustomers.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => setDetailCustomer(c)}
@@ -286,6 +361,15 @@ export const CustomersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleCustomers.length}
+          onLoadMore={loadMore}
+          entityName="customers"
+        />
       </Card>
 
       {/* Add Customer Modal */}

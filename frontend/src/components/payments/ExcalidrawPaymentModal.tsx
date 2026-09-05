@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText } from 'lucide-react';
-import { paymentsApi } from '../../lib/api';
+import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText, Zap } from 'lucide-react';
+import { paymentsApi, razorpayApi } from '../../lib/api';
+import { openRazorpayCheckout } from '../../lib/razorpay';
 import { ContactType, PaymentType, PaymentMethod, InvoiceType } from '../../types';
 
 export interface ExcalidrawPaymentModalProps {
@@ -25,10 +26,11 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
   amountDue,
   mode,
 }) => {
+  const isReceivable = mode !== InvoiceType.BILL;
   const [paymentType, setPaymentType] = useState<PaymentType.SEND | PaymentType.RECEIVE>(mode === InvoiceType.BILL ? PaymentType.SEND : PaymentType.RECEIVE);
   const [amount, setAmount] = useState<string>(amountDue > 0 ? amountDue.toString() : '0');
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [paymentVia, setPaymentVia] = useState<PaymentMethod.BANK | PaymentMethod.CASH>(PaymentMethod.BANK);
+  const [paymentVia, setPaymentVia] = useState<PaymentMethod>(isReceivable ? PaymentMethod.RAZORPAY : PaymentMethod.BANK);
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,50 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Please specify a valid payment amount.');
       setLoading(false);
+      return;
+    }
+
+    if (paymentVia === PaymentMethod.RAZORPAY) {
+      if (!invoiceId) {
+        setError('An invoice is required for Razorpay online settlement.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const orderRes = await razorpayApi.createOrder({
+          invoice_id: invoiceId,
+          amount: parsedAmount,
+        });
+
+        const { order, key_id, customer } = orderRes.data;
+
+        await openRazorpayCheckout({
+          key_id: key_id,
+          order_id: order.id,
+          amount: parsedAmount,
+          currency: 'INR',
+          name: 'Urban Furniture Platform',
+          description: `Settlement for ${partnerName}`,
+          customer: customer,
+          onSuccess: (verifiedRes) => {
+            onSuccess(verifiedRes);
+            onClose();
+          },
+          onError: (checkoutErr) => {
+            console.error('Razorpay checkout error:', checkoutErr);
+            setError(checkoutErr?.description || checkoutErr?.message || 'Razorpay payment was cancelled or failed.');
+            setLoading(false);
+          },
+          onDismiss: () => {
+            setLoading(false);
+          },
+        });
+      } catch (err: any) {
+        console.error('Razorpay order initiation failed:', err);
+        setError(err?.response?.data?.message || 'Failed to initiate Razorpay payment.');
+        setLoading(false);
+      }
       return;
     }
 
@@ -199,13 +245,35 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
             {/* Payment Via */}
             <div>
               <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
-                Payment Via
+                Payment Method
               </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+              <div className={`grid ${isReceivable ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'} gap-2.5`}>
+                {isReceivable && (
+                  <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                    paymentVia === PaymentMethod.RAZORPAY
+                      ? 'bg-gradient-to-r from-[#7042f4]/20 to-[#9333ea]/20 border-[#7042f4] text-white shadow-sm ring-1 ring-[#7042f4]/30'
+                      : 'bg-[#121216] border-white/[0.06] text-[#808090] hover:text-white'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="paymentVia"
+                      value={PaymentMethod.RAZORPAY}
+                      checked={paymentVia === PaymentMethod.RAZORPAY}
+                      onChange={() => setPaymentVia(PaymentMethod.RAZORPAY)}
+                      className="hidden"
+                    />
+                    <Zap className="w-4 h-4 text-[#a855f7] shrink-0" />
+                    <div>
+                      <div className="text-xs font-bold leading-none">Razorpay</div>
+                      <span className="text-[9.5px] text-[#8a8a9a]">UPI / Cards / Netbanking</span>
+                    </div>
+                  </label>
+                )}
+
+                <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                   paymentVia === PaymentMethod.BANK
                     ? 'bg-[#7042f4]/15 border-[#7042f4]/50 text-white'
-                    : 'bg-[#121216] border-white/[0.06] text-[#808090]'
+                    : 'bg-[#121216] border-white/[0.06] text-[#808090] hover:text-white'
                 }`}>
                   <input
                     type="radio"
@@ -215,14 +283,17 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
                     onChange={() => setPaymentVia(PaymentMethod.BANK)}
                     className="hidden"
                   />
-                  <CreditCard className="w-4 h-4 text-[#7042f4]" />
-                  <span className="text-xs font-semibold">Bank Account</span>
+                  <CreditCard className="w-4 h-4 text-[#7042f4] shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold leading-none">Bank Account</div>
+                    <span className="text-[9.5px] text-[#8a8a9a]">Direct transfer / NEFT</span>
+                  </div>
                 </label>
 
-                <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${
+                <label className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                   paymentVia === PaymentMethod.CASH
                     ? 'bg-[#7042f4]/15 border-[#7042f4]/50 text-white'
-                    : 'bg-[#121216] border-white/[0.06] text-[#808090]'
+                    : 'bg-[#121216] border-white/[0.06] text-[#808090] hover:text-white'
                 }`}>
                   <input
                     type="radio"
@@ -232,12 +303,17 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
                     onChange={() => setPaymentVia(PaymentMethod.CASH)}
                     className="hidden"
                   />
-                  <Building2 className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-semibold">Cash</span>
+                  <Building2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold leading-none">Cash</div>
+                    <span className="text-[9.5px] text-[#8a8a9a]">Counter voucher</span>
+                  </div>
                 </label>
               </div>
               <span className="text-[10px] text-[#606070] mt-1 block">
-                Default set to Bank, can be selected to Cash
+                {isReceivable
+                  ? 'Select Razorpay for instant online checkout via UPI, Cards, and Netbanking.'
+                  : 'Select disbursement account channel for vendor settlement.'}
               </span>
             </div>
 
@@ -271,12 +347,26 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-lg shadow-[#7042f4]/30 transition-all disabled:opacity-50"
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-xs font-semibold shadow-lg transition-all disabled:opacity-50 ${
+                  paymentVia === PaymentMethod.RAZORPAY
+                    ? 'bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] shadow-[#7042f4]/30'
+                    : 'bg-[#7042f4] hover:bg-[#5f32e6] shadow-[#7042f4]/30'
+                }`}
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{loading ? 'Processing...' : 'Confirm'}</span>
+                {paymentVia === PaymentMethod.RAZORPAY ? (
+                  <>
+                    <Zap className="w-4 h-4 text-amber-300" />
+                    <span>{loading ? 'Opening Checkout...' : `Pay ₹${Number(amount || 0).toLocaleString('en-IN')} with Razorpay`}</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{loading ? 'Processing...' : 'Confirm'}</span>
+                  </>
+                )}
               </button>
             </div>
+
           </form>
         </motion.div>
       </div>

@@ -50,11 +50,57 @@ class InvoiceController extends Controller
                   ->whereIn('status', ['approved', 'partially_paid']);
         }
 
-        if ($search = $request->query('search')) {
-            $query->where('invoice_number', 'like', "%{$search}%");
+        if ($invNumber = $request->query('invoice_number')) {
+            $query->where('invoice_number', 'like', "%{$invNumber}%");
         }
 
-        $invoices = $query->paginate($request->query('per_page', 20));
+        if ($partyId = $request->query('party_id')) {
+            $query->where('party_id', $partyId);
+        }
+
+        if ($from = $request->query('from_date')) {
+            $query->where('invoice_date', '>=', $from);
+        }
+
+        if ($to = $request->query('to_date')) {
+            $query->where('invoice_date', '<=', $to);
+        }
+
+        if ($minAmount = $request->query('min_amount')) {
+            $query->where('total_amount', '>=', $minAmount);
+        }
+
+        if ($maxAmount = $request->query('max_amount')) {
+            $query->where('total_amount', '<=', $maxAmount);
+        }
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhereHas('party', function ($pq) use ($search) {
+                      $pq->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $invoices = $query->get()->map(function ($inv) {
+                $inv->party = $inv->party;
+                if ($inv->party_type === 'customer') {
+                    $inv->customer = $inv->party;
+                } elseif ($inv->party_type === 'vendor') {
+                    $inv->vendor = $inv->party;
+                }
+                return $inv;
+            });
+            return response()->json([
+                'data' => $invoices,
+                'total' => $invoices->count(),
+            ]);
+        }
+
+        $invoices = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         // Attach party metadata
         $invoices->getCollection()->transform(function ($inv) {

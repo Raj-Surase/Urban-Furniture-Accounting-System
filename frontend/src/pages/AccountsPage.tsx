@@ -27,6 +27,11 @@ import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   ACCOUNT_CLASSIFICATIONS,
   PRESET_ACCOUNT_TEMPLATES,
@@ -34,6 +39,59 @@ import {
   PresetAccountTemplate,
 } from '../constants/formOptions';
 import { AccountClassification, NormalBalance, AccountSubType, BudgetLineType } from '../types';
+
+const accountFilterConfigs: FieldFilterConfig[] = [
+  { key: 'code', label: 'Account Code', type: 'text', placeholder: 'e.g. 1010...' },
+  { key: 'name', label: 'Account Title', type: 'text', placeholder: 'e.g. Bank Account...' },
+  {
+    key: 'type',
+    label: 'Classification',
+    type: 'select',
+    options: [
+      { label: 'Assets (1xxx)', value: AccountClassification.ASSET },
+      { label: 'Liabilities & GST (2xxx)', value: AccountClassification.LIABILITY },
+      { label: 'Equity (3xxx)', value: AccountClassification.EQUITY },
+      { label: 'Revenue (4xxx)', value: AccountClassification.REVENUE },
+      { label: 'Expenses (5xxx)', value: AccountClassification.EXPENSE },
+    ],
+  },
+  {
+    key: 'normal_balance',
+    label: 'Normal Balance',
+    type: 'select',
+    options: [
+      { label: 'Debit (DR)', value: NormalBalance.DEBIT },
+      { label: 'Credit (CR)', value: NormalBalance.CREDIT },
+    ],
+  },
+  { key: 'current_balance', label: 'Current Balance (₹)', type: 'number', placeholder: 'Min balance...' },
+];
+
+const accountColumnDefs: ColumnFilterDef[] = [
+  { key: 'code', filterType: 'text', placeholder: 'Filter code...' },
+  { key: 'name', filterType: 'text', placeholder: 'Filter title...' },
+  {
+    key: 'type',
+    filterType: 'select',
+    options: [
+      { label: 'Asset', value: AccountClassification.ASSET },
+      { label: 'Liability', value: AccountClassification.LIABILITY },
+      { label: 'Equity', value: AccountClassification.EQUITY },
+      { label: 'Revenue', value: AccountClassification.REVENUE },
+      { label: 'Expense', value: AccountClassification.EXPENSE },
+    ],
+  },
+  {
+    key: 'normal_balance',
+    filterType: 'select',
+    options: [
+      { label: 'Debit', value: NormalBalance.DEBIT },
+      { label: 'Credit', value: NormalBalance.CREDIT },
+    ],
+  },
+  { key: 'current_balance', filterType: 'number', placeholder: 'Min balance...' },
+  { key: 'actions', filterType: 'none' },
+];
 
 export const AccountsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +102,11 @@ export const AccountsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+
+  // Field & Column Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
 
   // Ledger Drawer/Modal State
   const [ledgerAccount, setLedgerAccount] = useState<any>(null);
@@ -107,7 +170,7 @@ export const AccountsPage: React.FC = () => {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const res = await accountsApi.list();
+      const res = await accountsApi.list({ per_page: 'all' });
       const accountList = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res)
@@ -266,13 +329,38 @@ export const AccountsPage: React.FC = () => {
     }
   };
 
-  const filteredAccounts = (Array.isArray(accounts) ? accounts : []).filter((acc) => {
-    const matchesSearch =
-      acc.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      acc.code?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === 'all' || acc.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = accountFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (typeFilter !== 'all') {
+      merged.push({
+        id: 'quick-type',
+        field: 'type',
+        operator: 'equals',
+        value: typeFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, typeFilter]);
+
+  const filteredAccounts = React.useMemo(() => {
+    return filterItems(
+      Array.isArray(accounts) ? accounts : [],
+      searchQuery,
+      ['code', 'name', 'description'],
+      allActiveFilters
+    );
+  }, [accounts, searchQuery, allActiveFilters]);
 
   const typeOrderMap: Record<string, number> = {
     asset: 1,
@@ -290,11 +378,25 @@ export const AccountsPage: React.FC = () => {
     expense: { label: 'Cost of Goods Sold & Expenses', range: '5000 - 5999', color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
   };
 
-  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
-    const tA = typeOrderMap[a.type] || 99;
-    const tB = typeOrderMap[b.type] || 99;
-    if (tA !== tB) return tA - tB;
-    return String(a.code || '').localeCompare(String(b.code || ''));
+  const sortedAccounts = React.useMemo(() => {
+    return [...filteredAccounts].sort((a, b) => {
+      const tA = typeOrderMap[a.type] || 99;
+      const tB = typeOrderMap[b.type] || 99;
+      if (tA !== tB) return tA - tB;
+      return String(a.code || '').localeCompare(String(b.code || ''));
+    });
+  }, [filteredAccounts]);
+
+  const {
+    visibleItems: visibleAccounts,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: sortedAccounts,
+    pageSize: 20,
   });
 
   let lastAccountType = '';
@@ -324,33 +426,36 @@ export const AccountsPage: React.FC = () => {
       </div>
 
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search code or account title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 w-64"
-              />
-            </div>
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
-            >
-              <option value="all">All Account Types</option>
-              <option value={AccountClassification.ASSET}>Assets (1xxx)</option>
-              <option value={AccountClassification.LIABILITY}>Liabilities & GST (2xxx)</option>
-              <option value={AccountClassification.EQUITY}>Equity (3xxx)</option>
-              <option value={AccountClassification.REVENUE}>Revenue (4xxx)</option>
-              <option value={AccountClassification.EXPENSE}>Expenses & COGS (5xxx)</option>
-            </select>
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search code or account title..."
+          filterConfigs={accountFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+            setTypeFilter('all');
+          }}
+          presets={{
+            field: 'type',
+            currentValue: typeFilter,
+            onChange: setTypeFilter,
+            options: [
+              { label: 'All Account Types', value: 'all' },
+              { label: 'Assets (1xxx)', value: AccountClassification.ASSET },
+              { label: 'Liabilities & GST (2xxx)', value: AccountClassification.LIABILITY },
+              { label: 'Equity (3xxx)', value: AccountClassification.EQUITY },
+              { label: 'Revenue (4xxx)', value: AccountClassification.REVENUE },
+              { label: 'Expenses (5xxx)', value: AccountClassification.EXPENSE },
+            ],
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -363,11 +468,18 @@ export const AccountsPage: React.FC = () => {
                 <th className="py-3 px-4 text-right">Current Balance (₹)</th>
                 <th className="py-3 px-4 text-right">Ledger</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={accountColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton columns={6} rows={6} />
-              ) : sortedAccounts.length === 0 ? (
+              ) : visibleAccounts.length === 0 ? (
                 <EmptyState
                   colSpan={6}
                   icon={BookOpen}

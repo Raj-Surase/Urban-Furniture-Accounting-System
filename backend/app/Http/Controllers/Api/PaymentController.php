@@ -43,14 +43,54 @@ class PaymentController extends Controller
             $query->where('status', $status);
         }
 
+        if ($paymentNumber = $request->query('payment_number')) {
+            $query->where('payment_number', 'like', "%{$paymentNumber}%");
+        }
+
+        if ($refNumber = $request->query('reference_number')) {
+            $query->where('reference_number', 'like', "%{$refNumber}%");
+        }
+
+        if ($method = $request->query('payment_method')) {
+            $query->where('payment_method', $method);
+        }
+
+        if ($from = $request->query('from_date')) {
+            $query->where('payment_date', '>=', $from);
+        }
+
+        if ($to = $request->query('to_date')) {
+            $query->where('payment_date', '<=', $to);
+        }
+
+        if ($minAmount = $request->query('min_amount')) {
+            $query->where('amount', '>=', $minAmount);
+        }
+
+        if ($maxAmount = $request->query('max_amount')) {
+            $query->where('amount', '<=', $maxAmount);
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('payment_number', 'like', "%{$search}%")
-                  ->orWhere('reference_number', 'like', "%{$search}%");
+                  ->orWhere('reference_number', 'like', "%{$search}%")
+                  ->orWhereHas('party', function ($pq) use ($search) {
+                      $pq->where('name', 'like', "%{$search}%");
+                  });
             });
         }
 
-        $payments = $query->paginate($request->query('per_page', 20));
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $payments = $query->get();
+            return response()->json([
+                'data' => $payments,
+                'total' => $payments->count(),
+            ]);
+        }
+
+        $payments = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         return response()->json($payments);
     }

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\JournalEntryController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PurchaseOrderController;
+use App\Http\Controllers\Api\RazorpayController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SalesOrderController;
 use App\Http\Controllers\Api\UserController;
@@ -38,6 +39,7 @@ Route::get('/health', function () {
 Route::get('/rbac/matrix', [UserController::class, 'matrix']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/razorpay/webhook', [RazorpayController::class, 'handleWebhook']);
 
 /*
 |--------------------------------------------------------------------------
@@ -126,4 +128,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/ap-aging', [ReportController::class, 'apAging']);
         Route::get('/gst-summary', [ReportController::class, 'gstSummary']);
     });
+
+    // Razorpay Online Payments & Transaction Management
+    Route::post('/razorpay/order', [RazorpayController::class, 'createOrder']);
+    Route::post('/razorpay/verify', [RazorpayController::class, 'verifyPayment']);
+    Route::get('/payment-transactions', [RazorpayController::class, 'indexTransactions']);
+    Route::get('/payment-transactions/{transaction}', [RazorpayController::class, 'showTransaction']);
+    Route::post('/payment-transactions/{transaction}/sync', [RazorpayController::class, 'syncTransaction']);
+    Route::post('/payment-transactions/{transaction}/refund', [RazorpayController::class, 'refundTransaction']);
 });

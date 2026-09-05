@@ -21,7 +21,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi, salesOrdersApi } from '../lib/api';
+import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi, salesOrdersApi, razorpayApi } from '../lib/api';
+import { openRazorpayCheckout } from '../lib/razorpay';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
@@ -32,6 +33,11 @@ import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfMod
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 import {
   InvoiceStatus,
@@ -385,6 +391,50 @@ export const InvoicesPage: React.FC = () => {
       setIsPaying(true);
       const isCust = payInvoice.type === InvoiceType.RECEIVABLE || payInvoice.party_type === ContactType.CUSTOMER || payInvoice.type === ContactType.CUSTOMER;
       const resolvedPartyId = payInvoice.party_id || (isCust ? payInvoice.customer_id : payInvoice.vendor_id);
+
+      if (payMethod === PaymentMethod.RAZORPAY) {
+        const orderRes = await razorpayApi.createOrder({
+          invoice_id: payInvoice.id,
+          amount: numAmount,
+        });
+
+        const { order, key_id, customer } = orderRes.data;
+
+        await openRazorpayCheckout({
+          key_id: key_id,
+          order_id: order.id,
+          amount: numAmount,
+          currency: 'INR',
+          name: 'Urban Furniture Platform',
+          description: `Invoice ${payInvoice.invoice_number}`,
+          customer: customer,
+          onSuccess: () => {
+            addToast({
+              type: 'success',
+              title: 'Razorpay Payment Captured',
+              message: `Recorded ₹${numAmount.toLocaleString('en-IN')} payment and updated General Ledger.`,
+            });
+            setIsPayModalOpen(false);
+            setPayInvoice(null);
+            setPayAmount('');
+            setIsPaying(false);
+            fetchData();
+          },
+          onError: (checkoutErr) => {
+            addToast({
+              type: 'error',
+              title: 'Payment Error',
+              message: checkoutErr?.description || checkoutErr?.message || 'Razorpay checkout was cancelled.',
+            });
+            setIsPaying(false);
+          },
+          onDismiss: () => {
+            setIsPaying(false);
+          },
+        });
+        return;
+      }
+
       await paymentsApi.create({
         type: isCust ? 'received' : 'made',
         party_type: isCust ? ContactType.CUSTOMER : ContactType.VENDOR,
@@ -427,22 +477,123 @@ export const InvoicesPage: React.FC = () => {
     }
   };
 
-  const filteredInvoices = invoices.filter((inv) => {
-    const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
-    const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'customer' && isCust) ||
-      (activeTab === 'vendor' && !isCust);
+  const invFilterConfigs: FieldFilterConfig[] = [
+    { key: 'invoice_number', label: 'Invoice #', type: 'text', placeholder: 'e.g. INV-2026' },
+    { key: 'party_name', label: 'Party / Entity', type: 'text', placeholder: 'Customer or vendor...' },
+    {
+      key: 'type',
+      label: 'Invoice Type',
+      type: 'select',
+      options: [
+        { label: 'Customer Invoice (AR)', value: InvoiceType.RECEIVABLE },
+        { label: 'Vendor Bill (AP)', value: InvoiceType.PAYABLE },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Draft', value: InvoiceStatus.DRAFT },
+        { label: 'Approved', value: InvoiceStatus.APPROVED },
+        { label: 'Paid', value: InvoiceStatus.PAID },
+        { label: 'Void', value: InvoiceStatus.VOID },
+      ],
+    },
+    { key: 'invoice_date', label: 'Invoice Date', type: 'date' },
+    { key: 'due_date', label: 'Due Date', type: 'date' },
+    { key: 'total_amount', label: 'Total Amount', type: 'number', placeholder: 'Amount in ₹' },
+  ];
 
-    const party = isCust ? inv.customer : inv.vendor;
-    const partyName = party?.company_name || party?.name || inv.party?.name || '';
-    const matchesQuery =
-      inv.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      partyName.toLowerCase().includes(searchQuery.toLowerCase());
+  const invColumnDefs: ColumnFilterDef[] = [
+    { key: 'invoice_number', filterType: 'text', placeholder: 'Filter #...' },
+    {
+      key: 'type',
+      filterType: 'select',
+      options: [
+        { label: 'Customer Invoice', value: InvoiceType.RECEIVABLE },
+        { label: 'Vendor Bill', value: InvoiceType.PAYABLE },
+      ],
+    },
+    { key: 'party_name', filterType: 'text', placeholder: 'Filter party...' },
+    { key: 'invoice_date', filterType: 'date' },
+    { key: 'subtotal', filterType: 'number', placeholder: 'Min taxable...' },
+    { key: 'tax_amount', filterType: 'number', placeholder: 'Min GST...' },
+    { key: 'total_amount', filterType: 'number', placeholder: 'Min total...' },
+    {
+      key: 'status',
+      filterType: 'select',
+      options: [
+        { label: 'Draft', value: InvoiceStatus.DRAFT },
+        { label: 'Approved', value: InvoiceStatus.APPROVED },
+        { label: 'Paid', value: InvoiceStatus.PAID },
+        { label: 'Void', value: InvoiceStatus.VOID },
+      ],
+    },
+    { key: 'actions', filterType: 'none' },
+  ];
 
-    const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
 
-    return matchesTab && matchesQuery && matchesStatus;
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = invFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (statusFilter !== 'all') {
+      merged.push({
+        id: 'quick-status',
+        field: 'status',
+        operator: 'equals',
+        value: statusFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, statusFilter]);
+
+  const preparedInvoices = React.useMemo(() => {
+    return invoices.map((inv) => {
+      const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
+      const party = isCust ? inv.customer : inv.vendor;
+      const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
+      return {
+        ...inv,
+        party_name: partyName,
+        is_customer: isCust,
+      };
+    });
+  }, [invoices]);
+
+  const filteredInvoices = React.useMemo(() => {
+    let list = preparedInvoices;
+    if (activeTab === 'customer') {
+      list = list.filter((i) => i.is_customer);
+    } else if (activeTab === 'vendor') {
+      list = list.filter((i) => !i.is_customer);
+    }
+    return filterItems(list, searchQuery, ['invoice_number', 'party_name', 'notes'], allActiveFilters);
+  }, [preparedInvoices, activeTab, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleInvoices,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredInvoices,
+    pageSize: 15,
   });
 
   // Calculate high level metrics
@@ -561,69 +712,38 @@ export const InvoicesPage: React.FC = () => {
         </Card>
       </div>
 
+      {/* Field-Wise Filtering Toolbar */}
+      <FieldFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search invoice #, customer, vendor, GSTIN..."
+        filterConfigs={invFilterConfigs}
+        activeFilters={activeFilters}
+        onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+        onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+        onClearAll={() => {
+          setSearchQuery('');
+          setActiveFilters([]);
+          setColumnFilters({});
+          setStatusFilter('all');
+          setActiveTab('all');
+        }}
+        showColumnFilters={showColumnFilters}
+        onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+        presets={{
+          field: 'tab',
+          currentValue: activeTab,
+          onChange: (val) => setActiveTab(val as any),
+          options: [
+            { label: `All Invoices (${invoices.length})`, value: 'all' },
+            { label: 'Customer Invoices (AR)', value: 'customer' },
+            { label: 'Vendor Bills (AP)', value: 'vendor' },
+          ],
+        }}
+      />
+
       {/* Main Content Area */}
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        {/* Filter Navigation Bar */}
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'all'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              All Invoices ({invoices.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('customer')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'customer'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              Customer Invoices (AR)
-            </button>
-            <button
-              onClick={() => setActiveTab('vendor')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'vendor'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              Vendor Bills (AP)
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search invoice or party..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 w-52 sm:w-64"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none focus:border-purple-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value={InvoiceStatus.DRAFT}>Draft</option>
-              <option value={InvoiceStatus.APPROVED}>Approved</option>
-              <option value={InvoiceStatus.PAID}>Paid</option>
-              <option value={InvoiceStatus.VOID}>Void</option>
-            </select>
-          </div>
-        </div>
-
         {/* Invoices Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -639,6 +759,13 @@ export const InvoicesPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={invColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
@@ -651,15 +778,17 @@ export const InvoicesPage: React.FC = () => {
                   description="Try adjusting your filters or search query, or create a new invoice or vendor bill."
                   actionLabel="New Invoice"
                   onAction={() => setIsCreateModalOpen(true)}
-                  secondaryActionLabel={searchQuery || activeTab !== 'all' || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  secondaryActionLabel={searchQuery || activeFilters.length > 0 || activeTab !== 'all' || statusFilter !== 'all' ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');
+                    setActiveFilters([]);
+                    setColumnFilters({});
                     setActiveTab('all');
                     setStatusFilter('all');
                   }}
                 />
               ) : (
-                filteredInvoices.map((inv) => {
+                visibleInvoices.map((inv) => {
                   const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
                   const party = isCust ? inv.customer : inv.vendor;
                   const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
@@ -803,6 +932,15 @@ export const InvoicesPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleInvoices.length}
+          onLoadMore={loadMore}
+          entityName="invoices"
+        />
       </Card>
 
       {/* PDF Modal Styled with pdfcn principles */}
@@ -1298,6 +1436,7 @@ export const InvoicesPage: React.FC = () => {
                   onChange={(e) => setPayMethod(e.target.value)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none"
                 >
+                  <option value={PaymentMethod.RAZORPAY}>Razorpay Gateway (UPI, Cards, Netbanking)</option>
                   <option value={PaymentMethod.BANK_TRANSFER}>Bank Transfer (NEFT/RTGS)</option>
                   <option value={PaymentMethod.UPI}>UPI / Instant QR</option>
                   <option value={PaymentMethod.CASH}>Cash in Hand</option>
@@ -1305,16 +1444,18 @@ export const InvoicesPage: React.FC = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / UTR Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. UTR-987654321"
-                  value={payReference}
-                  onChange={(e) => setPayReference(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none font-mono"
-                />
-              </div>
+              {payMethod !== PaymentMethod.RAZORPAY && (
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">Reference / UTR Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UTR-987654321"
+                    value={payReference}
+                    onChange={(e) => setPayReference(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none font-mono"
+                  />
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-3">
                 <Button
@@ -1330,9 +1471,17 @@ export const InvoicesPage: React.FC = () => {
                   type="submit"
                   size="sm"
                   disabled={isPaying}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                  className={`font-semibold shadow-md ${
+                    payMethod === PaymentMethod.RAZORPAY
+                      ? 'bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] text-white shadow-[#7042f4]/30'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  }`}
                 >
-                  {isPaying ? 'Recording...' : 'Confirm Payment & Reconcile'}
+                  {isPaying
+                    ? 'Processing...'
+                    : payMethod === PaymentMethod.RAZORPAY
+                    ? `Pay ₹${Number(payAmount || 0).toLocaleString('en-IN')} with Razorpay`
+                    : 'Record & Reconcile'}
                 </Button>
               </div>
             </form>

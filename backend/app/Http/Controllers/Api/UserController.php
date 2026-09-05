@@ -25,9 +25,29 @@ class UserController extends Controller
     {
         Gate::authorize('viewAny', User::class);
 
-        $users = User::withCount('items')
-            ->orderBy('id', 'asc')
-            ->get(['id', 'name', 'email', 'role', 'created_at']);
+        $query = User::withCount('items')->orderBy('id', 'asc');
+
+        if ($role = $request->query('role')) {
+            $query->where('role', $role);
+        }
+
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($email = $request->query('email')) {
+            $query->where('email', 'like', "%{$email}%");
+        }
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('role', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->get(['id', 'name', 'email', 'role', 'created_at']);
 
         return response()->json([
             'data' => $users,

@@ -29,6 +29,11 @@ import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOptions';
 import { SalesOrderStatus } from '../types';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 
 export const SalesOrdersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -238,12 +243,81 @@ export const SalesOrdersPage: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter((so) => {
-    const matchesSearch =
-      so.so_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      so.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || so.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Field-Wise Filter Configurations
+  const soFilterConfigs: FieldFilterConfig[] = [
+    { key: 'so_number', label: 'SO Number', type: 'text', placeholder: 'e.g. SO-2026' },
+    { key: 'customer.name', label: 'Customer Name', type: 'text', placeholder: 'Customer...' },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { label: 'Draft', value: SalesOrderStatus.DRAFT },
+        { label: 'Confirmed', value: SalesOrderStatus.CONFIRMED },
+        { label: 'Approved', value: SalesOrderStatus.APPROVED },
+        { label: 'Delivered', value: SalesOrderStatus.DELIVERED },
+        { label: 'Cancelled', value: SalesOrderStatus.CANCELLED },
+      ],
+    },
+    { key: 'order_date', label: 'Order Date', type: 'date' },
+    { key: 'total_amount', label: 'Total Amount', type: 'number', placeholder: 'Amount in ₹' },
+  ];
+
+  const soColumnDefs: ColumnFilterDef[] = [
+    { key: 'so_number', filterType: 'text', placeholder: 'Filter SO...' },
+    { key: 'customer.name', filterType: 'text', placeholder: 'Filter customer...' },
+    { key: 'order_date', filterType: 'date' },
+    { key: 'subtotal', filterType: 'number', placeholder: 'Min taxable...' },
+    { key: 'tax_amount', filterType: 'number', placeholder: 'Min GST...' },
+    { key: 'total_amount', filterType: 'number', placeholder: 'Min amount...' },
+    {
+      key: 'status',
+      filterType: 'select',
+      options: [
+        { label: 'Draft', value: SalesOrderStatus.DRAFT },
+        { label: 'Confirmed', value: SalesOrderStatus.CONFIRMED },
+        { label: 'Approved', value: SalesOrderStatus.APPROVED },
+        { label: 'Delivered', value: SalesOrderStatus.DELIVERED },
+        { label: 'Cancelled', value: SalesOrderStatus.CANCELLED },
+      ],
+    },
+    { key: 'actions', filterType: 'none' },
+  ];
+
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = soFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    return merged;
+  }, [activeFilters, columnFilters]);
+
+  const filteredOrders = React.useMemo(() => {
+    return filterItems(orders, searchQuery, ['so_number', 'customer.name', 'notes'], allActiveFilters);
+  }, [orders, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleOrders,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredOrders,
+    pageSize: 15,
   });
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
@@ -295,35 +369,37 @@ export const SalesOrdersPage: React.FC = () => {
         </Button>
       </div>
 
+      <FieldFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search SO number, customer name, notes..."
+        filterConfigs={soFilterConfigs}
+        activeFilters={activeFilters}
+        onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+        onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+        onClearAll={() => {
+          setSearchQuery('');
+          setActiveFilters([]);
+          setColumnFilters({});
+          setStatusFilter('all');
+        }}
+        showColumnFilters={showColumnFilters}
+        onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+        presets={{
+          field: 'status',
+          currentValue: statusFilter,
+          onChange: setStatusFilter,
+          options: [
+            { label: 'All Orders', value: 'all' },
+            { label: 'Draft', value: SalesOrderStatus.DRAFT },
+            { label: 'Confirmed', value: SalesOrderStatus.CONFIRMED },
+            { label: 'Approved', value: SalesOrderStatus.APPROVED },
+            { label: 'Delivered', value: SalesOrderStatus.DELIVERED },
+          ],
+        }}
+      />
+
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search SO or customer..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 w-64"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
-            >
-              <option value="all">All Statuses</option>
-              <option value={SalesOrderStatus.DRAFT}>Draft</option>
-              <option value={SalesOrderStatus.CONFIRMED}>Confirmed</option>
-              <option value={SalesOrderStatus.APPROVED}>Approved</option>
-              <option value={SalesOrderStatus.DELIVERED}>Delivered</option>
-              <option value={SalesOrderStatus.CANCELLED}>Cancelled</option>
-            </select>
-          </div>
-        </div>
-
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -337,6 +413,13 @@ export const SalesOrdersPage: React.FC = () => {
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={soColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
@@ -349,14 +432,16 @@ export const SalesOrdersPage: React.FC = () => {
                   description="Try adjusting your filters or search query, or create a new quotation/sales order."
                   actionLabel="New Sales Order"
                   onAction={() => setIsCreateOpen(true)}
-                  secondaryActionLabel={searchQuery || statusFilter !== 'all' ? 'Clear Filters' : undefined}
+                  secondaryActionLabel={searchQuery || activeFilters.length > 0 || statusFilter !== 'all' ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');
+                    setActiveFilters([]);
+                    setColumnFilters({});
                     setStatusFilter('all');
                   }}
                 />
               ) : (
-                filteredOrders.map((so) => (
+                visibleOrders.map((so) => (
                   <tr
                     key={so.id}
                     onClick={() => handleOpenDetail(so)}
@@ -455,6 +540,15 @@ export const SalesOrdersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleOrders.length}
+          onLoadMore={loadMore}
+          entityName="sales orders"
+        />
       </Card>
 
       {/* Create SO Modal */}

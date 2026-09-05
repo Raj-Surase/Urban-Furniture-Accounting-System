@@ -37,6 +37,26 @@ class SalesOrderController extends Controller
             $query->where('customer_id', $customerId);
         }
 
+        if ($soNumber = $request->query('so_number')) {
+            $query->where('so_number', 'like', "%{$soNumber}%");
+        }
+
+        if ($from = $request->query('from_date')) {
+            $query->where('order_date', '>=', $from);
+        }
+
+        if ($to = $request->query('to_date')) {
+            $query->where('order_date', '<=', $to);
+        }
+
+        if ($minAmount = $request->query('min_amount')) {
+            $query->where('total_amount', '>=', $minAmount);
+        }
+
+        if ($maxAmount = $request->query('max_amount')) {
+            $query->where('total_amount', '<=', $maxAmount);
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('so_number', 'like', "%{$search}%")
@@ -46,7 +66,16 @@ class SalesOrderController extends Controller
             });
         }
 
-        $orders = $query->paginate($request->query('per_page', 20));
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $orders = $query->get();
+            return response()->json([
+                'data' => $orders,
+                'total' => $orders->count(),
+            ]);
+        }
+
+        $orders = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         return response()->json($orders);
     }

@@ -18,7 +18,58 @@ import {
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { analyticAccountsApi } from '../lib/api';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { BudgetLineType } from '../types';
+
+const analyticFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Account Name', type: 'text', placeholder: 'Filter by account name...' },
+  { key: 'code', label: 'Code', type: 'text', placeholder: 'Filter by code...' },
+  {
+    key: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'Expense', value: BudgetLineType.EXPENSE },
+      { label: 'Income', value: BudgetLineType.INCOME },
+    ],
+  },
+  { key: 'description', label: 'Description', type: 'text', placeholder: 'Filter description...' },
+  {
+    key: 'is_active',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Active', value: 'true' },
+      { label: 'Inactive', value: 'false' },
+    ],
+  },
+];
+
+const analyticColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter name...' },
+  {
+    key: 'type',
+    filterType: 'select',
+    options: [
+      { label: 'Expense', value: BudgetLineType.EXPENSE },
+      { label: 'Income', value: BudgetLineType.INCOME },
+    ],
+  },
+  { key: 'code', filterType: 'text', placeholder: 'Filter code...' },
+  { key: 'description', filterType: 'text', placeholder: 'Filter desc...' },
+  {
+    key: 'is_active',
+    filterType: 'select',
+    options: [
+      { label: 'Active', value: 'true' },
+      { label: 'Inactive', value: 'false' },
+    ],
+  },
+];
 
 interface RelatedBudget {
   budget_id: number;
@@ -55,6 +106,11 @@ export const AnalyticAccountsPage: React.FC = () => {
   const [search, setSearch] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<'all' | BudgetLineType>('all');
 
+  // Filter States
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
   // Form State
   const [activeAccount, setActiveAccount] = useState<AnalyticAccount | null>(null);
   const [name, setName] = useState<string>('');
@@ -71,7 +127,7 @@ export const AnalyticAccountsPage: React.FC = () => {
   const fetchAccounts = async () => {
     setLoading(true);
     try {
-      const res = await analyticAccountsApi.list({ search: search || undefined });
+      const res = await analyticAccountsApi.list({ per_page: 'all' });
       setAnalytics(res?.data || []);
     } catch (err) {
       console.error('Failed to load analytic accounts:', err);
@@ -82,7 +138,7 @@ export const AnalyticAccountsPage: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
-  }, [search]);
+  }, []);
 
   // Handle URL query parameter ?new=true to open form view
   useEffect(() => {
@@ -190,9 +246,44 @@ export const AnalyticAccountsPage: React.FC = () => {
     }
   };
 
-  const filteredAnalytics = analytics.filter((a) => {
-    if (typeFilter !== 'all' && a.type !== typeFilter) return false;
-    return true;
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = analyticFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (typeFilter !== 'all') {
+      merged.push({
+        id: 'quick-type',
+        field: 'type',
+        operator: 'equals',
+        value: typeFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, typeFilter]);
+
+  const filteredAnalytics = React.useMemo(() => {
+    return filterItems(analytics, search, ['name', 'code', 'description'], allActiveFilters);
+  }, [analytics, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleAnalytics,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredAnalytics,
+    pageSize: 15,
   });
 
   return (
@@ -203,9 +294,6 @@ export const AnalyticAccountsPage: React.FC = () => {
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
       onBack={() => setViewMode('list')}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search analytic accounts..."
     >
       {viewMode === 'form' ? (
         <form onSubmit={handleSave} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6">
@@ -462,48 +550,37 @@ export const AnalyticAccountsPage: React.FC = () => {
         </form>
       ) : (
         <div className="space-y-4">
-          {/* Filter Pills */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTypeFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                typeFilter === 'all'
-                  ? 'bg-[#7042f4] text-white shadow-md'
-                  : 'bg-[#18181f] text-[#8a8a9a] hover:text-white border border-white/[0.06]'
-              }`}
-            >
-              All ({analytics.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTypeFilter(BudgetLineType.EXPENSE)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                typeFilter === BudgetLineType.EXPENSE
-                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                  : 'bg-[#18181f] text-[#8a8a9a] hover:text-white border border-white/[0.06]'
-              }`}
-            >
-              <TrendingDown className="w-3 h-3 text-rose-400" />
-              Expense ({analytics.filter((a) => a.type === BudgetLineType.EXPENSE).length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setTypeFilter(BudgetLineType.INCOME)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                typeFilter === BudgetLineType.INCOME
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-[#18181f] text-[#8a8a9a] hover:text-white border border-white/[0.06]'
-              }`}
-            >
-              <TrendingUp className="w-3 h-3 text-emerald-400" />
-              Income ({analytics.filter((a) => a.type === BudgetLineType.INCOME).length})
-            </button>
-          </div>
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search analytic accounts by name, code, description..."
+            filterConfigs={analyticFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setActiveFilters([]);
+              setColumnFilters({});
+              setSearch('');
+              setTypeFilter('all');
+            }}
+            presets={{
+              field: 'type',
+              currentValue: typeFilter,
+              onChange: (val) => setTypeFilter(val as any),
+              options: [
+                { label: 'All Types', value: 'all' },
+                { label: 'Expense', value: BudgetLineType.EXPENSE },
+                { label: 'Income', value: BudgetLineType.INCOME },
+              ],
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters(!showColumnFilters)}
+          />
 
           {viewMode === 'kanban' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredAnalytics.map((a) => (
+              {visibleAnalytics.map((a) => (
                 <motion.div
                   key={a.id}
                   onClick={() => handleOpenForm(a)}
@@ -545,7 +622,7 @@ export const AnalyticAccountsPage: React.FC = () => {
                   )}
                 </motion.div>
               ))}
-              {filteredAnalytics.length === 0 && !loading && (
+              {visibleAnalytics.length === 0 && !loading && (
                 <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
                   No analytic accounts found matching current filters. Click "+ New" to create one.
                 </div>
@@ -563,9 +640,16 @@ export const AnalyticAccountsPage: React.FC = () => {
                       <th className="py-3.5 px-4">Description</th>
                       <th className="py-3.5 px-4 text-center">Status</th>
                     </tr>
+                    {showColumnFilters && (
+                      <ColumnFilterRow
+                        columns={analyticColumnDefs}
+                        values={columnFilters}
+                        onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                      />
+                    )}
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {filteredAnalytics.map((a) => (
+                    {visibleAnalytics.map((a) => (
                       <tr
                         key={a.id}
                         onClick={() => handleOpenForm(a)}
@@ -605,7 +689,7 @@ export const AnalyticAccountsPage: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                    {filteredAnalytics.length === 0 && !loading && (
+                    {visibleAnalytics.length === 0 && !loading && (
                       <tr>
                         <td colSpan={5} className="text-center py-8 text-[#707080]">
                           No analytic accounts found. Click "+ New" to create one.
@@ -615,6 +699,16 @@ export const AnalyticAccountsPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              <ScrollSentinel
+                sentinelRef={sentinelRef}
+                loadingMore={loadingMore}
+                hasMore={hasMore}
+                totalCount={totalCount}
+                visibleCount={visibleAnalytics.length}
+                onLoadMore={loadMore}
+                entityName="analytic accounts"
+              />
             </div>
           )}
         </div>

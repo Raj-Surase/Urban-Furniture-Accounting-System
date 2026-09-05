@@ -28,11 +28,57 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   FURNITURE_CATEGORIES,
   FURNITURE_HSN_CODES,
   UNITS_OF_MEASURE,
 } from '../constants/formOptions';
+
+const productFilterConfigs: FieldFilterConfig[] = [
+  { key: 'sku', label: 'SKU / Code', type: 'text', placeholder: 'e.g. CHR-001' },
+  { key: 'name', label: 'Product Name', type: 'text', placeholder: 'Product name...' },
+  { key: 'category', label: 'Category', type: 'text', placeholder: 'Category...' },
+  {
+    key: 'type',
+    label: 'Product Type',
+    type: 'select',
+    options: [
+      { label: 'Goods', value: 'goods' },
+      { label: 'Service', value: 'service' },
+      { label: 'Consumable', value: 'consumable' },
+    ],
+  },
+  { key: 'hsn_code', label: 'HSN Code', type: 'text', placeholder: 'HSN...' },
+  { key: 'cost_price', label: 'Cost Price', type: 'number', placeholder: 'Min ₹...' },
+  { key: 'price', label: 'Selling Price', type: 'number', placeholder: 'Min ₹...' },
+  { key: 'gst_rate', label: 'GST %', type: 'number', placeholder: 'GST %...' },
+  { key: 'current_stock', label: 'Current Stock', type: 'number', placeholder: 'Min stock...' },
+];
+
+const productColumnDefs: ColumnFilterDef[] = [
+  { key: 'sku', filterType: 'text', placeholder: 'Filter SKU...' },
+  { key: 'name', filterType: 'text', placeholder: 'Filter name...' },
+  {
+    key: 'type',
+    filterType: 'select',
+    options: [
+      { label: 'Goods', value: 'goods' },
+      { label: 'Service', value: 'service' },
+    ],
+  },
+  { key: 'category', filterType: 'text', placeholder: 'Filter cat...' },
+  { key: 'hsn_code', filterType: 'text', placeholder: 'Filter HSN...' },
+  { key: 'cost_price', filterType: 'number', placeholder: 'Min cost...' },
+  { key: 'price', filterType: 'number', placeholder: 'Min price...' },
+  { key: 'gst_rate', filterType: 'number', placeholder: 'GST %...' },
+  { key: 'current_stock', filterType: 'number', placeholder: 'Min stock...' },
+  { key: 'actions', filterType: 'none' },
+];
 
 export const ProductsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -257,6 +303,10 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
   const lowStockItems = Array.isArray(products)
     ? products.filter(
         (p) => p && Number(p?.current_stock ?? 0) <= Number(p?.min_stock_alert ?? 5)
@@ -271,13 +321,49 @@ export const ProductsPage: React.FC = () => {
     )
   );
 
-  const filteredProducts = (Array.isArray(products) ? products : []).filter((p) => {
-    if (!p) return false;
-    const nameMatches = p.name ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) : false;
-    const skuMatches = p.sku ? p.sku.toLowerCase().includes(searchQuery.toLowerCase()) : false;
-    const matchesSearch = !searchQuery || nameMatches || skuMatches;
-    const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = productFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (categoryFilter !== 'all') {
+      merged.push({
+        id: 'quick-category',
+        field: 'category',
+        operator: 'equals',
+        value: categoryFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, categoryFilter]);
+
+  const filteredProducts = React.useMemo(() => {
+    return filterItems(
+      (Array.isArray(products) ? products : []).filter(Boolean),
+      searchQuery,
+      ['sku', 'name', 'category', 'hsn_code', 'description'],
+      allActiveFilters
+    );
+  }, [products, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleProducts,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredProducts,
+    pageSize: 15,
   });
 
   return (
@@ -323,33 +409,32 @@ export const ProductsPage: React.FC = () => {
 
       {/* Table Card */}
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search product SKU or name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 w-64"
-              />
-            </div>
-
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
-            >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search product SKU, name, category, HSN..."
+          filterConfigs={productFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+            setCategoryFilter('all');
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+          presets={{
+            field: 'category',
+            currentValue: categoryFilter,
+            onChange: setCategoryFilter,
+            options: [
+              { label: 'All Categories', value: 'all' },
+              ...categories.slice(0, 6).map((c) => ({ label: c, value: c })),
+            ],
+          }}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -366,11 +451,18 @@ export const ProductsPage: React.FC = () => {
                 <th className="py-3 px-4 text-right">Current Stock</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={productColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton rows={6} cols={10} />
-              ) : filteredProducts.length === 0 ? (
+              ) : visibleProducts.length === 0 ? (
                 <EmptyState
                   icon={Package}
                   colSpan={10}
@@ -378,14 +470,16 @@ export const ProductsPage: React.FC = () => {
                   description="Add raw materials, finished furniture, or hardware to your inventory catalog."
                   actionLabel="New Product"
                   onAction={() => setIsNewOpen(true)}
-                  secondaryActionLabel={searchQuery || categoryFilter !== 'all' ? 'Clear Filters' : undefined}
+                  secondaryActionLabel={searchQuery || categoryFilter !== 'all' || activeFilters.length > 0 ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');
                     setCategoryFilter('all');
+                    setActiveFilters([]);
+                    setColumnFilters({});
                   }}
                 />
               ) : (
-                filteredProducts.map((prod) => {
+                visibleProducts.map((prod) => {
                   const isLow = Number(prod.current_stock) <= Number(prod.min_stock_alert || 5);
                   return (
                     <tr
@@ -452,6 +546,15 @@ export const ProductsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleProducts.length}
+          onLoadMore={loadMore}
+          entityName="products"
+        />
       </Card>
 
       {/* Adjust Stock Modal */}

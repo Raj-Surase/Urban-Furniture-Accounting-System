@@ -23,6 +23,11 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   INDIAN_STATES,
   PAYMENT_TERMS_OPTIONS,
@@ -30,6 +35,25 @@ import {
   getStateFromGstin,
 } from '../constants/formOptions';
 import { AccountClassification } from '../types';
+
+const vendorFilterConfigs: FieldFilterConfig[] = [
+  { key: 'name', label: 'Vendor Name', type: 'text', placeholder: 'Name...' },
+  { key: 'company_name', label: 'Company / Business', type: 'text', placeholder: 'Company...' },
+  { key: 'gstin', label: 'GSTIN', type: 'text', placeholder: 'GSTIN...' },
+  { key: 'pan', label: 'PAN', type: 'text', placeholder: 'PAN...' },
+  { key: 'state', label: 'State', type: 'text', placeholder: 'State...' },
+  { key: 'email', label: 'Email', type: 'text', placeholder: 'Email...' },
+  { key: 'phone', label: 'Phone', type: 'text', placeholder: 'Phone...' },
+  { key: 'outstanding_balance', label: 'Outstanding Payable', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const vendorColumnDefs: ColumnFilterDef[] = [
+  { key: 'name', filterType: 'text', placeholder: 'Filter vendor...' },
+  { key: 'gstin', filterType: 'text', placeholder: 'Filter GSTIN...' },
+  { key: 'state', filterType: 'text', placeholder: 'Filter state...' },
+  { key: 'email', filterType: 'text', placeholder: 'Filter contact...' },
+  { key: 'outstanding_balance', filterType: 'number', placeholder: 'Min payable...' },
+];
 
 export const VendorsPage: React.FC = () => {
   const { isAdmin, isManager } = useAuth();
@@ -174,12 +198,46 @@ export const VendorsPage: React.FC = () => {
     }
   };
 
-  const filtered = vendors.filter(
-    (v) =>
-      v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.gstin?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = vendorFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' ? 'gte' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    return merged;
+  }, [activeFilters, columnFilters]);
+
+  const filteredVendors = React.useMemo(() => {
+    return filterItems(
+      Array.isArray(vendors) ? vendors : [],
+      searchQuery,
+      ['name', 'company_name', 'gstin', 'pan', 'state', 'email', 'phone'],
+      allActiveFilters
+    );
+  }, [vendors, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visibleVendors,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredVendors,
+    pageSize: 15,
+  });
 
   return (
     <div className="space-y-6">
@@ -206,18 +264,22 @@ export const VendorsPage: React.FC = () => {
       </div>
 
       <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-            <input
-              type="text"
-              placeholder="Search vendor, company or GSTIN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-72"
-            />
-          </div>
-        </div>
+        <FieldFilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search vendor, company or GSTIN..."
+          filterConfigs={vendorFilterConfigs}
+          activeFilters={activeFilters}
+          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+          onClearAll={() => {
+            setSearchQuery('');
+            setActiveFilters([]);
+            setColumnFilters({});
+          }}
+          showColumnFilters={showColumnFilters}
+          onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+        />
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -229,25 +291,38 @@ export const VendorsPage: React.FC = () => {
                 <th className="py-3 px-4">Contact Info</th>
                 <th className="py-3 px-4 text-right">Outstanding Payable</th>
               </tr>
+              {showColumnFilters && (
+                <ColumnFilterRow
+                  columns={vendorColumnDefs}
+                  values={columnFilters}
+                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                />
+              )}
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton columns={5} rows={6} />
-              ) : filtered.length === 0 ? (
+              ) : visibleVendors.length === 0 ? (
                 <EmptyState
                   colSpan={5}
                   icon={Truck}
                   title="No vendors found"
                   description={
-                    searchQuery
-                      ? 'No suppliers match your search criteria. Try a different query.'
+                    searchQuery || activeFilters.length > 0
+                      ? 'No suppliers match your search and filter criteria. Try adjusting your filters.'
                       : 'Add your raw material suppliers, timber mills, and hardware vendors.'
                   }
                   actionLabel={isAdmin || isManager ? 'Add Supplier / Vendor' : undefined}
                   onAction={isAdmin || isManager ? () => setIsModalOpen(true) : undefined}
+                  secondaryActionLabel={searchQuery || activeFilters.length > 0 ? 'Clear Filters' : undefined}
+                  onSecondaryAction={() => {
+                    setSearchQuery('');
+                    setActiveFilters([]);
+                    setColumnFilters({});
+                  }}
                 />
               ) : (
-                filtered.map((v) => (
+                visibleVendors.map((v) => (
                   <tr
                     key={v.id}
                     onClick={() => setDetailVendor(v)}
@@ -278,6 +353,15 @@ export const VendorsPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <ScrollSentinel
+          sentinelRef={sentinelRef}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          totalCount={totalCount}
+          visibleCount={visibleVendors.length}
+          onLoadMore={loadMore}
+          entityName="vendors"
+        />
       </Card>
 
       {/* Add Vendor Modal */}

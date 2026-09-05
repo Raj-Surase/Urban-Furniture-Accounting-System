@@ -15,6 +15,7 @@ import {
   Receipt,
   Sparkles,
   IndianRupee,
+  Zap,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { paymentsApi, customersApi, vendorsApi, accountsApi, invoicesApi } from '../lib/api';
@@ -26,6 +27,12 @@ import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
+import { TransactionLedgerTab } from '../components/payments/TransactionLedgerTab';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import {
   PaymentStatus,
   PaymentType,
@@ -35,6 +42,79 @@ import {
   ContactType,
   AccountClassification,
 } from '../types';
+
+const paymentFilterConfigs: FieldFilterConfig[] = [
+  { key: 'payment_number', label: 'Payment #', type: 'text', placeholder: 'e.g. PAY-2026' },
+  { key: 'party_name', label: 'Party / Entity', type: 'text', placeholder: 'Customer or vendor...' },
+  { key: 'reference_number', label: 'Reference / UTR', type: 'text', placeholder: 'Ref / UTR...' },
+  {
+    key: 'payment_type',
+    label: 'Flow / Type',
+    type: 'select',
+    options: [
+      { label: 'Customer Receipts (Inflow)', value: PaymentType.CUSTOMER_RECEIPT },
+      { label: 'Vendor Payments (Outflow)', value: PaymentType.VENDOR_PAYMENT },
+    ],
+  },
+  {
+    key: 'payment_method',
+    label: 'Method',
+    type: 'select',
+    options: [
+      { label: 'Bank Transfer', value: PaymentMethod.BANK_TRANSFER },
+      { label: 'Cheque', value: PaymentMethod.CHEQUE },
+      { label: 'Cash', value: PaymentMethod.CASH },
+      { label: 'UPI / Razorpay', value: PaymentMethod.UPI },
+    ],
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Draft', value: PaymentStatus.DRAFT },
+      { label: 'Posted', value: PaymentStatus.POSTED },
+      { label: 'Reconciled', value: PaymentStatus.RECONCILED },
+    ],
+  },
+  { key: 'payment_date', label: 'Date', type: 'date' },
+  { key: 'amount', label: 'Amount', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const paymentColumnDefs: ColumnFilterDef[] = [
+  { key: 'payment_number', filterType: 'text', placeholder: 'Filter #...' },
+  {
+    key: 'payment_type',
+    filterType: 'select',
+    options: [
+      { label: 'Customer Receipt', value: PaymentType.CUSTOMER_RECEIPT },
+      { label: 'Vendor Payment', value: PaymentType.VENDOR_PAYMENT },
+    ],
+  },
+  { key: 'party_name', filterType: 'text', placeholder: 'Filter entity...' },
+  { key: 'payment_date', filterType: 'date' },
+  {
+    key: 'payment_method',
+    filterType: 'select',
+    options: [
+      { label: 'Bank Transfer', value: PaymentMethod.BANK_TRANSFER },
+      { label: 'Cheque', value: PaymentMethod.CHEQUE },
+      { label: 'Cash', value: PaymentMethod.CASH },
+      { label: 'UPI', value: PaymentMethod.UPI },
+    ],
+  },
+  { key: 'amount', filterType: 'number', placeholder: 'Min amount...' },
+  {
+    key: 'status',
+    filterType: 'select',
+    options: [
+      { label: 'Draft', value: PaymentStatus.DRAFT },
+      { label: 'Posted', value: PaymentStatus.POSTED },
+      { label: 'Reconciled', value: PaymentStatus.RECONCILED },
+    ],
+  },
+  { key: 'actions', filterType: 'none' },
+];
 
 export interface PaymentsPageProps {
   openNew?: boolean;
@@ -51,6 +131,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [mainTab, setMainTab] = useState<'vouchers' | 'transactions'>('vouchers');
 
   // Detail Modal
   const [detailPayment, setDetailPayment] = useState<any>(null);
@@ -123,6 +204,11 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     } else if (typeParam === 'send' || typeParam === PaymentType.VENDOR_PAYMENT) {
       setPaymentType(PaymentType.VENDOR_PAYMENT);
       setTypeFilter(PaymentType.VENDOR_PAYMENT);
+    }
+
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'transactions' || tabParam === 'gateway' || tabParam === 'razorpay') {
+      setMainTab('transactions');
     }
 
     const invIdParam = searchParams.get('invoice_id');
@@ -254,20 +340,60 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     }
   };
 
-  const filteredPayments = payments.filter((p) => {
-    const isCustomerPayment = p.payment_type === PaymentType.CUSTOMER_RECEIPT || p.type === 'received';
-    const partyName = p.customer?.name || p.vendor?.name || p.party?.name || '';
-    const matchesSearch =
-      p.payment_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.reference_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      partyName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType =
-      typeFilter === 'all' ||
-      (typeFilter === PaymentType.CUSTOMER_RECEIPT && isCustomerPayment) ||
-      (typeFilter === PaymentType.VENDOR_PAYMENT && !isCustomerPayment) ||
-      p.payment_type === typeFilter ||
-      p.type === typeFilter;
-    return matchesSearch && matchesType;
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+
+  const preparedPayments = React.useMemo(() => {
+    return payments.map((p) => ({
+      ...p,
+      party_name: p.customer?.name || p.vendor?.name || p.party?.name || '',
+    }));
+  }, [payments]);
+
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = paymentFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (typeFilter !== 'all') {
+      merged.push({
+        id: 'quick-type',
+        field: 'payment_type',
+        operator: 'equals',
+        value: typeFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, typeFilter]);
+
+  const filteredPayments = React.useMemo(() => {
+    return filterItems(
+      preparedPayments,
+      searchQuery,
+      ['payment_number', 'reference_number', 'party_name', 'notes'],
+      allActiveFilters
+    );
+  }, [preparedPayments, searchQuery, allActiveFilters]);
+
+  const {
+    visibleItems: visiblePayments,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredPayments,
+    pageSize: 15,
   });
 
   return (
@@ -294,140 +420,192 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
         )}
       </div>
 
-      <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search payment #, ref, party..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 w-72"
-              />
-            </div>
+      {/* Top Segmented Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-white/[0.08] pb-2">
+        <button
+          onClick={() => setMainTab('vouchers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            mainTab === 'vouchers'
+              ? 'bg-[#18181f] text-white border border-white/10 shadow-sm'
+              : 'text-[#8a8a9a] hover:text-white hover:bg-white/[0.03]'
+          }`}
+        >
+          <CreditCard className="w-4 h-4 text-emerald-400" />
+          <span>Treasury Vouchers ({payments.length})</span>
+        </button>
 
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 bg-[#1a1a22] border border-white/10 rounded-lg text-xs text-neutral-300 focus:outline-none"
-            >
-              <option value="all">All Transactions</option>
-              <option value={PaymentType.CUSTOMER_RECEIPT}>Customer Receipts (Inflow)</option>
-              <option value={PaymentType.VENDOR_PAYMENT}>Vendor Payments (Outflow)</option>
-            </select>
-          </div>
-        </div>
+        <button
+          onClick={() => setMainTab('transactions')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            mainTab === 'transactions'
+              ? 'bg-[#18181f] text-white border border-white/10 shadow-sm'
+              : 'text-[#8a8a9a] hover:text-white hover:bg-white/[0.03]'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-[#a855f7]" />
+          <span>Razorpay Gateway Transactions</span>
+        </button>
+      </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                <th className="py-3 px-4">Payment #</th>
-                <th className="py-3 px-4">Flow / Type</th>
-                <th className="py-3 px-4">Entity</th>
-                <th className="py-3 px-4">Date & Ref</th>
-                <th className="py-3 px-4">Method</th>
-                <th className="py-3 px-4 text-right">Amount (₹)</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.04] text-xs">
-              {loading ? (
-                <TableSkeleton rows={5} cols={8} />
-              ) : filteredPayments.length === 0 ? (
-                <EmptyState
-                  icon={CreditCard}
-                  colSpan={8}
-                  title="No payments found"
-                  description="Record a customer receipt or vendor payment to begin tracking transactions."
-                  actionLabel="Record Payment"
-                  onAction={() => setIsNewOpen(true)}
-                  secondaryActionLabel={searchQuery || typeFilter !== 'all' ? 'Clear Filters' : undefined}
-                  onSecondaryAction={() => {
-                    setSearchQuery('');
-                    setTypeFilter('all');
-                  }}
-                />
-              ) : (
-                filteredPayments.map((p) => {
-                  const isInflow = p.payment_type === PaymentType.CUSTOMER_RECEIPT || p.type === 'received';
-                  const partyName = isInflow ? (p.customer?.name || p.party?.name) : (p.vendor?.name || p.party?.name);
-                  const isCleared = p.status === PaymentStatus.RECONCILED || p.status === PaymentStatus.CLEARED;
+      {mainTab === 'transactions' ? (
+        <TransactionLedgerTab />
+      ) : (
+        <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
+          <FieldFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search payment #, ref, party, notes..."
+            filterConfigs={paymentFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setSearchQuery('');
+              setActiveFilters([]);
+              setColumnFilters({});
+              setTypeFilter('all');
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+            presets={{
+              field: 'type',
+              currentValue: typeFilter,
+              onChange: setTypeFilter,
+              options: [
+                { label: 'All Transactions', value: 'all' },
+                { label: 'Customer Receipts (Inflow)', value: PaymentType.CUSTOMER_RECEIPT },
+                { label: 'Vendor Payments (Outflow)', value: PaymentType.VENDOR_PAYMENT },
+              ],
+            }}
+          />
 
-                  return (
-                    <tr
-                      key={p.id}
-                      onClick={() => setDetailPayment(p)}
-                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">{p.payment_number}</td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                            isInflow
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}
-                        >
-                          {isInflow ? (
-                            <>
-                              <ArrowDownLeft className="w-3 h-3" /> Receipt (In)
-                            </>
-                          ) : (
-                            <>
-                              <ArrowUpRight className="w-3 h-3" /> Payment (Out)
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-neutral-200">{partyName || 'Direct'}</td>
-                      <td className="py-3 px-4 text-neutral-400">
-                        <div>{p.payment_date}</div>
-                        <div className="text-[10px] text-neutral-500 font-mono">Ref: {p.reference_number || 'N/A'}</div>
-                      </td>
-                      <td className="py-3 px-4 uppercase text-[10px] font-mono text-neutral-300">
-                        {p.payment_method?.replace('_', ' ')}
-                      </td>
-                      <td
-                        className={`py-3 px-4 text-right font-mono font-bold text-sm ${
-                          isInflow ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                  <th className="py-3 px-4">Payment #</th>
+                  <th className="py-3 px-4">Flow / Type</th>
+                  <th className="py-3 px-4">Entity</th>
+                  <th className="py-3 px-4">Date & Ref</th>
+                  <th className="py-3 px-4">Method</th>
+                  <th className="py-3 px-4 text-right">Amount (₹)</th>
+                  <th className="py-3 px-4 text-center">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+                {showColumnFilters && (
+                  <ColumnFilterRow
+                    columns={paymentColumnDefs}
+                    values={columnFilters}
+                    onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                  />
+                )}
+              </thead>
+              <tbody className="divide-y divide-white/[0.04] text-xs">
+                {loading ? (
+                  <TableSkeleton rows={5} cols={8} />
+                ) : visiblePayments.length === 0 ? (
+                  <EmptyState
+                    icon={CreditCard}
+                    colSpan={8}
+                    title="No payments found"
+                    description="Record a customer receipt or vendor payment to begin tracking transactions."
+                    actionLabel="Record Payment"
+                    onAction={() => setIsNewOpen(true)}
+                    secondaryActionLabel={searchQuery || typeFilter !== 'all' || activeFilters.length > 0 ? 'Clear Filters' : undefined}
+                    onSecondaryAction={() => {
+                      setSearchQuery('');
+                      setTypeFilter('all');
+                      setActiveFilters([]);
+                      setColumnFilters({});
+                    }}
+                  />
+                ) : (
+                  visiblePayments.map((p) => {
+                    const isInflow = p.payment_type === PaymentType.CUSTOMER_RECEIPT || p.type === 'received';
+                    const partyName = isInflow ? (p.customer?.name || p.party?.name) : (p.vendor?.name || p.party?.name);
+                    const isCleared = p.status === PaymentStatus.RECONCILED || p.status === PaymentStatus.CLEARED;
+
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => setDetailPayment(p)}
+                        className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
                       >
-                        {isInflow ? '+' : '-'}₹
-                        {Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            isCleared
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        <td className="py-3 px-4 font-mono font-bold text-white group-hover:text-emerald-400 group-hover:underline">{p.payment_number}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isInflow
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            }`}
+                          >
+                            {isInflow ? (
+                              <>
+                                <ArrowDownLeft className="w-3 h-3" /> Receipt (In)
+                              </>
+                            ) : (
+                              <>
+                                <ArrowUpRight className="w-3 h-3" /> Payment (Out)
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-neutral-200">{partyName || 'Direct'}</td>
+                        <td className="py-3 px-4 text-neutral-400">
+                          <div>{p.payment_date}</div>
+                          <div className="text-[10px] text-neutral-500 font-mono">Ref: {p.reference_number || 'N/A'}</div>
+                        </td>
+                        <td className="py-3 px-4 uppercase text-[10px] font-mono text-neutral-300">
+                          {p.payment_method?.replace('_', ' ')}
+                        </td>
+                        <td
+                          className={`py-3 px-4 text-right font-mono font-bold text-sm ${
+                            isInflow ? 'text-emerald-400' : 'text-rose-400'
                           }`}
                         >
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        {p.status === PaymentStatus.DRAFT && (isAdmin || isManager) && (
-                          <button
-                            onClick={() => handleReconcile(p.id)}
-                            className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors"
+                          {isInflow ? '+' : '-'}₹
+                          {Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              isCleared
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}
                           >
-                            Reconcile
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          {p.status === PaymentStatus.DRAFT && (isAdmin || isManager) && (
+                            <button
+                              onClick={() => handleReconcile(p.id)}
+                              className="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold transition-colors"
+                            >
+                              Reconcile
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <ScrollSentinel
+            sentinelRef={sentinelRef}
+            loadingMore={loadingMore}
+            hasMore={hasMore}
+            totalCount={totalCount}
+            visibleCount={visiblePayments.length}
+            onLoadMore={loadMore}
+            entityName="payments"
+          />
+        </Card>
+      )}
 
       {/* New Payment Modal */}
       <PortalModal

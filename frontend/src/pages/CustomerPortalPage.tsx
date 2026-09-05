@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FileText, CreditCard, CheckCircle2, Clock, DollarSign, ExternalLink } from 'lucide-react';
+import { FileText, CreditCard, CheckCircle2, Clock, DollarSign, ExternalLink, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { invoicesApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
@@ -117,10 +117,10 @@ export const CustomerPortalPage: React.FC = () => {
                     {inv.balance_due > 0 ? (
                       <button
                         onClick={() => handlePay(inv)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md mx-auto transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] text-white text-xs font-semibold shadow-md shadow-[#7042f4]/30 mx-auto transition-all cursor-pointer"
                       >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>Pay Dues</span>
+                        <Zap className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Pay Online</span>
                       </button>
                     ) : (
                       <span className="text-emerald-400 font-semibold flex items-center justify-center gap-1">

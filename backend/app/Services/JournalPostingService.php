@@ -293,9 +293,9 @@ class JournalPostingService
                 self::createLine($je, $bankAccount, 0, $payment->amount, "Disbursement from {$bankAccount->name}", $payment->payment_number);
             }
 
-            $bankAccount->recalculateBalance();
-            $accounts['1120']->recalculateBalance();
-            $accounts['2110']->recalculateBalance();
+            $bankAccount?->recalculateBalance();
+            ($accounts['1120'] ?? null)?->recalculateBalance();
+            ($accounts['2110'] ?? null)?->recalculateBalance();
 
             return $je;
         });

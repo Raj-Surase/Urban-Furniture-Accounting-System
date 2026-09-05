@@ -19,6 +19,26 @@ class CustomerController extends Controller
 
         $query = Customer::with('receivableAccount')->orderBy('name', 'asc');
 
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($code = $request->query('code')) {
+            $query->where('code', 'like', "%{$code}%");
+        }
+
+        if ($gstin = $request->query('gstin')) {
+            $query->where('gstin', 'like', "%{$gstin}%");
+        }
+
+        if ($city = $request->query('city')) {
+            $query->where('city', 'like', "%{$city}%");
+        }
+
+        if ($state = $request->query('state')) {
+            $query->where('state', 'like', "%{$state}%");
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -28,7 +48,16 @@ class CustomerController extends Controller
             });
         }
 
-        $customers = $query->paginate($request->query('per_page', 20));
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $customers = $query->get();
+            return response()->json([
+                'data' => $customers,
+                'total' => $customers->count(),
+            ]);
+        }
+
+        $customers = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         return response()->json($customers);
     }

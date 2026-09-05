@@ -32,6 +32,30 @@ class ProductController extends Controller
             $query->whereColumn('current_stock', '<=', 'reorder_point');
         }
 
+        if ($sku = $request->query('sku')) {
+            $query->where('sku', 'like', "%{$sku}%");
+        }
+
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($type = $request->query('type')) {
+            $query->where('type', $type);
+        }
+
+        if ($hsn = $request->query('hsn_code')) {
+            $query->where('hsn_code', 'like', "%{$hsn}%");
+        }
+
+        if ($minPrice = $request->query('min_price')) {
+            $query->where('unit_price', '>=', $minPrice);
+        }
+
+        if ($maxPrice = $request->query('max_price')) {
+            $query->where('unit_price', '<=', $maxPrice);
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -40,7 +64,16 @@ class ProductController extends Controller
             });
         }
 
-        $products = $query->paginate($request->query('per_page', 20));
+        $perPage = $request->query('per_page', 20);
+        if ($perPage === 'all' || $perPage === '-1') {
+            $products = $query->get();
+            return response()->json([
+                'data' => $products,
+                'total' => $products->count(),
+            ]);
+        }
+
+        $products = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
 
         return response()->json($products);
     }

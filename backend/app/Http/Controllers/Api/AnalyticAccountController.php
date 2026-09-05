@@ -18,6 +18,14 @@ class AnalyticAccountController extends Controller
             $query->where('type', $request->type);
         }
 
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($code = $request->query('code')) {
+            $query->where('code', 'like', "%{$code}%");
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {

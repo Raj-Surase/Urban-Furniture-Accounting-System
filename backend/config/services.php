@@ -39,4 +39,11 @@ return [
         'url' => env('REALTIME_SERVER_URL', 'http://127.0.0.1:3001'),
     ],
 
+    'razorpay' => [
+        'key_id' => env('RAZORPAY_KEY_ID', 'rzp_test_mockKey99999'),
+        'key_secret' => env('RAZORPAY_KEY_SECRET', 'mockSecret88888'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET', 'mockWebhookSecret77777'),
+        'sandbox_mock' => env('RAZORPAY_SANDBOX_MOCK', true),
+    ],
+
 ];

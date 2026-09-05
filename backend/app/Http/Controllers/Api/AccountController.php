@@ -23,11 +23,34 @@ class AccountController extends Controller
             $query->where('type', $type);
         }
 
+        if ($code = $request->query('code')) {
+            $query->where('code', 'like', "%{$code}%");
+        }
+
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($subType = $request->query('sub_type')) {
+            $query->where('sub_type', $subType);
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'like', "%{$search}%")
                   ->orWhere('name', 'like', "%{$search}%");
             });
+        }
+
+        $perPage = $request->query('per_page');
+        if ($request->has('page') && $perPage !== 'all') {
+            $paginated = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
+            return response()->json([
+                'data' => $paginated->items(),
+                'total' => $paginated->total(),
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+            ]);
         }
 
         $accounts = $query->get();

@@ -9,9 +9,26 @@ use Illuminate\Http\Request;
 
 class JournalController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(\Illuminate\Http\Request $request): JsonResponse
     {
-        $journals = Journal::with('defaultAccount')->orderBy('name')->get();
+        $query = Journal::with('defaultAccount')->orderBy('name');
+
+        if ($type = $request->query('type')) {
+            $query->where('type', $type);
+        }
+
+        if ($name = $request->query('name')) {
+            $query->where('name', 'like', "%{$name}%");
+        }
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $journals = $query->get();
         return response()->json([
             'success' => true,
             'data' => $journals,

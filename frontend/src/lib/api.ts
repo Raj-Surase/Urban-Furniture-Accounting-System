@@ -161,6 +161,24 @@ export const paymentsApi = {
   delete: (id: number) => api.delete(`/payments/${id}`).then(res => res.data),
 };
 
+export const razorpayApi = {
+  createOrder: (data: { invoice_id?: number; sales_order_id?: number; amount?: number }) =>
+    api.post('/razorpay/order', data).then(res => res.data),
+  verify: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+    api.post('/razorpay/verify', data).then(res => res.data),
+};
+
+export const paymentTransactionsApi = {
+  list: (params?: Record<string, any>) =>
+    api.get('/payment-transactions', { params }).then(res => res.data),
+  get: (id: number) =>
+    api.get(`/payment-transactions/${id}`).then(res => res.data),
+  sync: (id: number) =>
+    api.post(`/payment-transactions/${id}/sync`).then(res => res.data),
+  refund: (id: number, data: { amount?: number; reason: string }) =>
+    api.post(`/payment-transactions/${id}/refund`, data).then(res => res.data),
+};
+
 export const journalApi = {
   list: (params?: Record<string, any>) => api.get('/journal', { params }).then(res => res.data),
   get: (id: number) => api.get(`/journal/${id}`).then(res => res.data),

@@ -18,7 +18,16 @@ class ContactController extends Controller
         $search = $request->query('search');
         $type = $request->query('type'); // 'customer', 'vendor', or null for all
 
+        $name = $request->query('name');
+        $city = $request->query('city');
+        $state = $request->query('state');
+        $gstin = $request->query('gstin');
+
         $customers = Customer::query()
+            ->when($name, fn($q) => $q->where('name', 'like', "%{$name}%"))
+            ->when($city, fn($q) => $q->where('city', 'like', "%{$city}%"))
+            ->when($state, fn($q) => $q->where('state', 'like', "%{$state}%"))
+            ->when($gstin, fn($q) => $q->where('gstin', 'like', "%{$gstin}%"))
             ->when($search, function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
@@ -45,6 +54,10 @@ class ContactController extends Controller
             });
 
         $vendors = Vendor::query()
+            ->when($name, fn($q) => $q->where('name', 'like', "%{$name}%"))
+            ->when($city, fn($q) => $q->where('city', 'like', "%{$city}%"))
+            ->when($state, fn($q) => $q->where('state', 'like', "%{$state}%"))
+            ->when($gstin, fn($q) => $q->where('gstin', 'like', "%{$gstin}%"))
             ->when($search, function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")

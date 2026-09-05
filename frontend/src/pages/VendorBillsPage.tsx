@@ -20,7 +20,52 @@ import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { BudgetExceededAlert } from '../components/common/BudgetExceededAlert';
 import { invoicesApi, vendorsApi, productsApi, accountsApi, analyticAccountsApi, purchaseOrdersApi, budgetsApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
+import { FieldFilterBar } from '../components/common/FieldFilterBar';
+import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
+import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { useScrollPagination } from '../hooks/useScrollPagination';
+import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { InvoiceStatus, InvoiceType, ContactType, BudgetStatus, BudgetLineType, AccountClassification } from '../types';
+
+const billFilterConfigs: FieldFilterConfig[] = [
+  { key: 'invoice_number', label: 'Bill #', type: 'text', placeholder: 'e.g. BILL-2026' },
+  { key: 'vendor.name', label: 'Vendor Name', type: 'text', placeholder: 'Vendor name...' },
+  { key: 'notes', label: 'Bill Reference', type: 'text', placeholder: 'Reference notes...' },
+  {
+    key: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Draft', value: InvoiceStatus.DRAFT },
+      { label: 'Approved', value: InvoiceStatus.APPROVED },
+      { label: 'Paid', value: InvoiceStatus.PAID },
+      { label: 'Void', value: InvoiceStatus.VOID },
+    ],
+  },
+  { key: 'invoice_date', label: 'Bill Date', type: 'date' },
+  { key: 'due_date', label: 'Due Date', type: 'date' },
+  { key: 'total_amount', label: 'Total Amount', type: 'number', placeholder: 'Min ₹...' },
+  { key: 'balance_due', label: 'Amount Due', type: 'number', placeholder: 'Min ₹...' },
+];
+
+const billColumnDefs: ColumnFilterDef[] = [
+  { key: 'invoice_number', filterType: 'text', placeholder: 'Filter #...' },
+  { key: 'vendor.name', filterType: 'text', placeholder: 'Filter vendor...' },
+  { key: 'notes', filterType: 'text', placeholder: 'Filter ref...' },
+  { key: 'invoice_date', filterType: 'date' },
+  { key: 'total_amount', filterType: 'number', placeholder: 'Min total...' },
+  { key: 'balance_due', filterType: 'number', placeholder: 'Min due...' },
+  {
+    key: 'status',
+    filterType: 'select',
+    options: [
+      { label: 'Draft', value: InvoiceStatus.DRAFT },
+      { label: 'Approved', value: InvoiceStatus.APPROVED },
+      { label: 'Paid', value: InvoiceStatus.PAID },
+      { label: 'Void', value: InvoiceStatus.VOID },
+    ],
+  },
+];
 
 export const VendorBillsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +79,10 @@ export const VendorBillsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
+  const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [showColumnFilters, setShowColumnFilters] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Form State
   const [activeBill, setActiveBill] = useState<any | null>(null);
@@ -315,6 +364,46 @@ export const VendorBillsPage: React.FC = () => {
     }
   };
 
+  const allActiveFilters = React.useMemo(() => {
+    const merged = [...activeFilters];
+    Object.entries(columnFilters).forEach(([key, val]) => {
+      if (val.trim()) {
+        const cfg = billFilterConfigs.find((c) => c.key === key);
+        merged.push({
+          id: `col-${key}`,
+          field: key,
+          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
+          value: val.trim(),
+        });
+      }
+    });
+    if (statusFilter !== 'all') {
+      merged.push({
+        id: 'quick-status',
+        field: 'status',
+        operator: 'equals',
+        value: statusFilter,
+      });
+    }
+    return merged;
+  }, [activeFilters, columnFilters, statusFilter]);
+
+  const filteredBills = React.useMemo(() => {
+    return filterItems(bills, search, ['invoice_number', 'vendor.name', 'notes'], allActiveFilters);
+  }, [bills, search, allActiveFilters]);
+
+  const {
+    visibleItems: visibleBills,
+    loadingMore,
+    hasMore,
+    totalCount,
+    sentinelRef,
+    loadMore,
+  } = useScrollPagination({
+    items: filteredBills,
+    pageSize: 15,
+  });
+
   const vendorName = vendors.find((v) => v.id === parseInt(vendorId, 10))?.name || activeBill?.vendor?.name || 'Vendor';
   const totalAmount = activeBill ? Number(activeBill.total_amount) : calculateTotal();
   const amountPaid = activeBill ? Number(activeBill.amount_paid) : 0;
@@ -328,9 +417,6 @@ export const VendorBillsPage: React.FC = () => {
       onViewModeChange={(m) => setViewMode(m)}
       onNew={() => handleOpenForm()}
       onBack={() => setViewMode('list')}
-      searchValue={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Search by bill number or vendor..."
     >
       {viewMode === 'form' ? (
         <form onSubmit={handleSaveBill} className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-6 shadow-obsidian-card space-y-6">
@@ -726,62 +812,109 @@ export const VendorBillsPage: React.FC = () => {
         </form>
       ) : (
         /* LIST VIEW */
-        <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
-                <tr>
-                  <th className="py-3.5 px-4">Vendor Bill No.</th>
-                  <th className="py-3.5 px-4">Vendor Name</th>
-                  <th className="py-3.5 px-4">Bill Reference</th>
-                  <th className="py-3.5 px-4">Date</th>
-                  <th className="py-3.5 px-4 text-right">Total</th>
-                  <th className="py-3.5 px-4 text-right">Amount Due</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {bills.map((b) => (
-                  <tr
-                    key={b.id}
-                    onClick={() => handleOpenForm(b)}
-                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                  >
-                    <td className="py-3.5 px-4 font-bold text-white font-mono flex items-center gap-2">
-                      <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
-                      <span>{b.invoice_number}</span>
-                    </td>
-                    <td className="py-3.5 px-4 font-semibold text-white">{b.vendor?.name || '—'}</td>
-                    <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.notes || '—'}</td>
-                    <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.invoice_date}</td>
-                    <td className="py-3.5 px-4 text-right font-mono text-white">
-                      ₹{Number(b.total_amount).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400">
-                      ₹{Number(b.balance_due).toLocaleString()}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        b.status === InvoiceStatus.PAID
-                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          : b.status === InvoiceStatus.APPROVED
-                          ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
-                          : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
-                      }`}>
-                        {b.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {bills.length === 0 && !loading && (
+        <div className="space-y-4">
+          <FieldFilterBar
+            searchQuery={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search by bill number, vendor, reference..."
+            filterConfigs={billFilterConfigs}
+            activeFilters={activeFilters}
+            onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+            onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+            onClearAll={() => {
+              setSearch('');
+              setActiveFilters([]);
+              setColumnFilters({});
+              setStatusFilter('all');
+            }}
+            showColumnFilters={showColumnFilters}
+            onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+            presets={{
+              field: 'status',
+              currentValue: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { label: 'All Bills', value: 'all' },
+                { label: 'Draft', value: InvoiceStatus.DRAFT },
+                { label: 'Approved', value: InvoiceStatus.APPROVED },
+                { label: 'Paid', value: InvoiceStatus.PAID },
+              ],
+            }}
+          />
+
+          <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#141418] text-[#707080] border-b border-white/[0.08] uppercase tracking-wider font-semibold">
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-[#707080]">
-                      No vendor bills found. Click "+ New" to create one.
-                    </td>
+                    <th className="py-3.5 px-4">Vendor Bill No.</th>
+                    <th className="py-3.5 px-4">Vendor Name</th>
+                    <th className="py-3.5 px-4">Bill Reference</th>
+                    <th className="py-3.5 px-4">Date</th>
+                    <th className="py-3.5 px-4 text-right">Total</th>
+                    <th className="py-3.5 px-4 text-right">Amount Due</th>
+                    <th className="py-3.5 px-4 text-center">Status</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                  {showColumnFilters && (
+                    <ColumnFilterRow
+                      columns={billColumnDefs}
+                      values={columnFilters}
+                      onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  )}
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {visibleBills.map((b) => (
+                    <tr
+                      key={b.id}
+                      onClick={() => handleOpenForm(b)}
+                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    >
+                      <td className="py-3.5 px-4 font-bold text-white font-mono flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
+                        <span>{b.invoice_number}</span>
+                      </td>
+                      <td className="py-3.5 px-4 font-semibold text-white">{b.vendor?.name || '—'}</td>
+                      <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.notes || '—'}</td>
+                      <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.invoice_date}</td>
+                      <td className="py-3.5 px-4 text-right font-mono text-white">
+                        ₹{Number(b.total_amount).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400">
+                        ₹{Number(b.balance_due).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          b.status === InvoiceStatus.PAID
+                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                            : b.status === InvoiceStatus.APPROVED
+                            ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+                            : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
+                        }`}>
+                          {b.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {visibleBills.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-8 text-[#707080]">
+                        No vendor bills found matching your criteria. Click "+ New" to create one.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <ScrollSentinel
+              sentinelRef={sentinelRef}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              totalCount={totalCount}
+              visibleCount={visibleBills.length}
+              onLoadMore={loadMore}
+              entityName="vendor bills"
+            />
           </div>
         </div>
       )}

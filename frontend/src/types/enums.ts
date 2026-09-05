@@ -121,6 +121,7 @@ export enum PaymentStatus {
   DRAFT = 'draft',
   CLEARED = 'cleared',
   RECONCILED = 'reconciled',
+  POSTED = 'posted',
   CANCELLED = 'cancelled',
 }
 
@@ -148,6 +149,9 @@ export enum PaymentMethod {
   UPI = 'upi',
   CREDIT_CARD = 'credit_card',
   BANK = 'bank',
+  RAZORPAY = 'razorpay',
+  CARD = 'card',
+  NETBANKING = 'netbanking',
 }
 
 /**
@@ -205,4 +209,72 @@ export enum JournalType {
   BANK = 'bank',
   CASH = 'cash',
   GENERAL = 'general',
+}
+
+/**
+ * Gateway transaction status lifecycle.
+ */
+export enum TransactionStatus {
+  INITIATED = 'initiated',
+  ORDER_CREATED = 'order_created',
+  AUTHORIZED = 'authorized',
+  CAPTURED = 'captured',
+  FAILED = 'failed',
+  REFUNDED = 'refunded',
+  PARTIALLY_REFUNDED = 'partially_refunded',
+}
+
+/**
+ * Gateway transaction direction.
+ */
+export enum TransactionDirection {
+  INBOUND = 'inbound',
+  OUTBOUND = 'outbound',
+}
+
+/**
+ * Gateway transaction flow types.
+ */
+export enum TransactionFlowType {
+  INVOICE_SETTLEMENT = 'invoice_settlement',
+  SALES_ORDER_ADVANCE = 'sales_order_advance',
+  VENDOR_PAYOUT = 'vendor_payout',
+  REFUND = 'refund',
+}
+
+/**
+ * Online Payment Transaction entity interface.
+ */
+export interface PaymentTransaction {
+  id: number;
+  transaction_number: string;
+  direction: TransactionDirection;
+  flow_type: TransactionFlowType;
+  status: TransactionStatus;
+  party_type: ContactType | string;
+  party_id: number;
+  party_name?: string;
+  source_type?: string;
+  source_id?: number;
+  source_label?: string;
+  source?: any;
+  amount: number | string;
+  currency: string;
+  gateway: string;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_refund_id?: string;
+  gateway_fee?: number | string;
+  gateway_tax?: number | string;
+  method_details?: any;
+  error_code?: string;
+  error_description?: string;
+  payment_id?: number;
+  payment?: any;
+  idempotency_key?: string;
+  metadata?: any;
+  created_by?: number;
+  creator?: any;
+  created_at: string;
+  updated_at: string;
 }
