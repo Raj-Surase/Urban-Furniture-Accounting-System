@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Services\GstService;
 use App\Services\JournalPostingService;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -114,8 +115,7 @@ class InvoiceController extends Controller
 
         $year = now()->format('Y');
         $prefix = $validated['type'] === 'receivable' ? 'INV' : 'BILL';
-        $count = Invoice::where('type', $validated['type'])->whereYear('created_at', $year)->count() + 1;
-        $invNumber = sprintf("%s-%s-%04d", $prefix, $year, $count);
+        $invNumber = SequenceService::generate($prefix, (int) $year, 4);
 
         return DB::transaction(function () use ($validated, $party, $placeOfSupply, $isInterstate, $invNumber, $request) {
             $subtotal = 0.00;
@@ -285,29 +285,35 @@ class InvoiceController extends Controller
             return response()->json(['message' => 'Invoice is already approved.'], 422);
         }
 
-        return DB::transaction(function () use ($invoice, $request) {
-            $invoice->status = 'approved';
-            $invoice->approved_by = $request->user()->id;
-            $invoice->approved_at = now();
-            $invoice->save();
+        try {
+            return DB::transaction(function () use ($invoice, $request) {
+                $invoice->status = 'approved';
+                $invoice->approved_by = $request->user()->id;
+                $invoice->approved_at = now();
+                $invoice->save();
 
-            // Auto-post double-entry journal entry!
-            $je = JournalPostingService::postInvoice($invoice, $request->user());
+                // Auto-post double-entry journal entry!
+                $je = JournalPostingService::postInvoice($invoice, $request->user());
 
-            RealtimeService::broadcast('invoice:approved', [
-                'id' => $invoice->id,
-                'invoice_number' => $invoice->invoice_number,
-                'status' => 'approved',
-                'journal_entry' => $je->entry_number,
-                'approved_by' => $request->user()->name,
-            ], 'invoices');
+                RealtimeService::broadcast('invoice:approved', [
+                    'id' => $invoice->id,
+                    'invoice_number' => $invoice->invoice_number,
+                    'status' => 'approved',
+                    'journal_entry' => $je->entry_number,
+                    'approved_by' => $request->user()->name,
+                ], 'invoices');
 
+                return response()->json([
+                    'message' => "Invoice {$invoice->invoice_number} approved and balanced General Ledger entry auto-posted ({$je->entry_number}).",
+                    'data' => $invoice->fresh(['items']),
+                    'journal_entry' => $je,
+                ]);
+            });
+        } catch (\RuntimeException $e) {
             return response()->json([
-                'message' => "Invoice {$invoice->invoice_number} approved and balanced General Ledger entry auto-posted ({$je->entry_number}).",
-                'data' => $invoice->fresh(['items']),
-                'journal_entry' => $je,
-            ]);
-        });
+                'message' => 'Failed to approve invoice: ' . $e->getMessage(),
+            ], 422);
+        }
     }
 
     /**

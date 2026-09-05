@@ -11,6 +11,7 @@ use App\Models\Vendor;
 use App\Services\GstService;
 use App\Services\JournalPostingService;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,8 +75,7 @@ class PurchaseOrderController extends Controller
         $isInterstate = GstService::isInterstate($placeOfSupply, $vendor->gstin);
 
         $year = now()->format('Y');
-        $count = PurchaseOrder::whereYear('created_at', $year)->count() + 1;
-        $poNumber = sprintf("PO-%s-%04d", $year, $count);
+        $poNumber = SequenceService::generate('PO', (int) $year, 4);
 
         return DB::transaction(function () use ($validated, $vendor, $placeOfSupply, $isInterstate, $poNumber, $request) {
             $subtotal = 0.00;
@@ -266,23 +266,50 @@ class PurchaseOrderController extends Controller
     {
         Gate::authorize('receive', $purchaseOrder);
 
+        if ($purchaseOrder->status === 'received') {
+            return response()->json(['message' => 'Purchase order has already been fully received.'], 422);
+        }
+
         $validated = $request->validate([
             'delivery_date' => ['nullable', 'date'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.id' => ['required', 'exists:purchase_order_items,id'],
-            'items.*.quantity_received' => ['required', 'numeric', 'min:0'],
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['required_with:items', 'exists:purchase_order_items,id'],
+            'items.*.quantity_received' => ['nullable', 'numeric', 'min:0'],
+            'items.*.quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         return DB::transaction(function () use ($purchaseOrder, $validated, $request) {
+            $purchaseOrder->load('items');
+            $itemsToProcess = $validated['items'] ?? [];
+
+            // If items array is not provided, auto-populate all pending items
+            if (empty($itemsToProcess)) {
+                $itemsToProcess = [];
+                foreach ($purchaseOrder->items as $item) {
+                    $pending = (float) $item->quantity_ordered - (float) $item->quantity_received;
+                    if ($pending > 0) {
+                        $itemsToProcess[] = [
+                            'id' => $item->id,
+                            'quantity_received' => $pending,
+                        ];
+                    }
+                }
+            }
+
             $allReceived = true;
             $anyReceived = false;
+            $batchValue = 0.00;
 
-            foreach ($validated['items'] as $itemRec) {
+            foreach ($itemsToProcess as $itemRec) {
                 $poItem = PurchaseOrderItem::where('purchase_order_id', $purchaseOrder->id)
                     ->where('id', $itemRec['id'])
                     ->firstOrFail();
 
-                $receivedDelta = (float) $itemRec['quantity_received'];
+                $receivedDelta = (float) ($itemRec['quantity_received'] ?? $itemRec['quantity'] ?? 0);
+                if ($receivedDelta <= 0 && !isset($itemRec['quantity_received']) && !isset($itemRec['quantity'])) {
+                    $receivedDelta = max(0, (float) $poItem->quantity_ordered - (float) $poItem->quantity_received);
+                }
+
                 if ($receivedDelta > 0) {
                     $anyReceived = true;
                     $poItem->quantity_received += $receivedDelta;
@@ -293,13 +320,16 @@ class PurchaseOrderController extends Controller
                     $product->current_stock += $receivedDelta;
                     $product->save();
 
+                    $lineTotal = round($receivedDelta * (float) $poItem->unit_price, 2);
+                    $batchValue += $lineTotal;
+
                     // Log audit inventory movement
                     InventoryMovement::create([
                         'product_id' => $product->id,
                         'type' => 'purchase',
                         'quantity' => $receivedDelta,
                         'unit_cost' => (float) $poItem->unit_price,
-                        'total_value' => round($receivedDelta * (float) $poItem->unit_price, 2),
+                        'total_value' => $lineTotal,
                         'reference_type' => PurchaseOrder::class,
                         'reference_id' => $purchaseOrder->id,
                         'notes' => "Goods receipt under {$purchaseOrder->po_number}",
@@ -316,14 +346,17 @@ class PurchaseOrderController extends Controller
             $purchaseOrder->status = $allReceived ? 'received' : ($anyReceived ? 'partially_received' : $purchaseOrder->status);
             $purchaseOrder->save();
 
-            // Auto-post Goods Receipt Journal Entry (Dr. Inventory, Cr. GRNI Clearing)
-            $je = JournalPostingService::postGoodsReceipt($purchaseOrder, $request->user());
+            // Auto-post Goods Receipt Journal Entry (Dr. Inventory, Cr. GRNI Clearing) for received value
+            $je = null;
+            if ($batchValue > 0 || $anyReceived) {
+                $je = JournalPostingService::postGoodsReceipt($purchaseOrder, $request->user(), $batchValue > 0 ? $batchValue : null);
+            }
 
             RealtimeService::broadcast('po:goods_received', [
                 'id' => $purchaseOrder->id,
                 'po_number' => $purchaseOrder->po_number,
                 'status' => $purchaseOrder->status,
-                'journal_entry' => $je->entry_number,
+                'journal_entry' => $je?->entry_number,
             ], 'purchase_orders');
 
             return response()->json([

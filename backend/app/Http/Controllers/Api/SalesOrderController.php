@@ -11,6 +11,7 @@ use App\Models\SalesOrderItem;
 use App\Services\GstService;
 use App\Services\JournalPostingService;
 use App\Services\RealtimeService;
+use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,8 +76,7 @@ class SalesOrderController extends Controller
         $isInterstate = GstService::isInterstate($placeOfSupply, $customer->gstin);
 
         $year = now()->format('Y');
-        $count = SalesOrder::whereYear('created_at', $year)->count() + 1;
-        $soNumber = sprintf("SO-%s-%04d", $year, $count);
+        $soNumber = SequenceService::generate('SO', (int) $year, 4);
 
         return DB::transaction(function () use ($validated, $customer, $placeOfSupply, $isInterstate, $soNumber, $request) {
             $subtotal = 0.00;
@@ -248,21 +248,52 @@ class SalesOrderController extends Controller
     {
         Gate::authorize('deliver', $salesOrder);
 
+        if ($salesOrder->status === 'delivered') {
+            return response()->json(['message' => 'Sales order has already been fully delivered.'], 422);
+        }
+
         $validated = $request->validate([
             'delivery_date' => ['nullable', 'date'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.id' => ['required', 'exists:sales_order_items,id'],
-            'items.*.quantity_delivered' => ['required', 'numeric', 'min:0'],
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['required_with:items', 'exists:sales_order_items,id'],
+            'items.*.quantity_delivered' => ['nullable', 'numeric', 'min:0'],
+            'items.*.quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         return DB::transaction(function () use ($salesOrder, $validated, $request) {
-            foreach ($validated['items'] as $itemDel) {
+            $salesOrder->load('items');
+            $itemsToProcess = $validated['items'] ?? [];
+
+            // If items array is not provided, auto-populate all pending items
+            if (empty($itemsToProcess)) {
+                $itemsToProcess = [];
+                foreach ($salesOrder->items as $item) {
+                    $pending = (float) $item->quantity_ordered - (float) $item->quantity_delivered;
+                    if ($pending > 0) {
+                        $itemsToProcess[] = [
+                            'id' => $item->id,
+                            'quantity_delivered' => $pending,
+                        ];
+                    }
+                }
+            }
+
+            $allDelivered = true;
+            $anyDelivered = false;
+            $batchCost = 0.00;
+
+            foreach ($itemsToProcess as $itemDel) {
                 $soItem = SalesOrderItem::where('sales_order_id', $salesOrder->id)
                     ->where('id', $itemDel['id'])
                     ->firstOrFail();
 
-                $deliveredDelta = (float) $itemDel['quantity_delivered'];
+                $deliveredDelta = (float) ($itemDel['quantity_delivered'] ?? $itemDel['quantity'] ?? 0);
+                if ($deliveredDelta <= 0 && !isset($itemDel['quantity_delivered']) && !isset($itemDel['quantity'])) {
+                    $deliveredDelta = max(0, (float) $soItem->quantity_ordered - (float) $soItem->quantity_delivered);
+                }
+
                 if ($deliveredDelta > 0) {
+                    $anyDelivered = true;
                     $soItem->quantity_delivered += $deliveredDelta;
                     $soItem->save();
 
@@ -271,13 +302,17 @@ class SalesOrderController extends Controller
                     $product->current_stock -= $deliveredDelta;
                     $product->save();
 
+                    $itemCost = (float) $product->cost_price ?: ((float) $soItem->unit_price * 0.6);
+                    $lineCost = round($deliveredDelta * $itemCost, 2);
+                    $batchCost += $lineCost;
+
                     // Log audit inventory movement
                     InventoryMovement::create([
                         'product_id' => $product->id,
                         'type' => 'sale',
                         'quantity' => -$deliveredDelta,
-                        'unit_cost' => (float) $product->cost_price,
-                        'total_value' => -round($deliveredDelta * (float) $product->cost_price, 2),
+                        'unit_cost' => $itemCost,
+                        'total_value' => -$lineCost,
                         'reference_type' => SalesOrder::class,
                         'reference_id' => $salesOrder->id,
                         'notes' => "Delivery dispatch for {$salesOrder->so_number}",
@@ -294,20 +329,27 @@ class SalesOrderController extends Controller
                         ], 'alerts');
                     }
                 }
+
+                if ($soItem->quantity_delivered < $soItem->quantity_ordered) {
+                    $allDelivered = false;
+                }
             }
 
             $salesOrder->delivery_date = $validated['delivery_date'] ?? now()->toDateString();
-            $salesOrder->status = 'delivered';
+            $salesOrder->status = $allDelivered ? 'delivered' : ($anyDelivered ? 'partially_delivered' : $salesOrder->status);
             $salesOrder->save();
 
             // Auto-post Cost of Goods Sold journal entry
-            $je = JournalPostingService::postSalesDelivery($salesOrder, $request->user());
+            $je = null;
+            if ($batchCost > 0 || $anyDelivered) {
+                $je = JournalPostingService::postSalesDelivery($salesOrder, $request->user(), $batchCost > 0 ? $batchCost : null);
+            }
 
             RealtimeService::broadcast('so:delivered', [
                 'id' => $salesOrder->id,
                 'so_number' => $salesOrder->so_number,
-                'status' => 'delivered',
-                'journal_entry' => $je->entry_number,
+                'status' => $salesOrder->status,
+                'journal_entry' => $je?->entry_number,
             ], 'sales_orders');
 
             return response()->json([

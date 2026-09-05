@@ -16,6 +16,7 @@ class JournalPostingService
 {
     /**
      * Automatically post double-entry General Ledger entry on Invoice Approval.
+     * Guaranteed to balance debits and credits strictly.
      */
     public static function postInvoice(Invoice $invoice, User $user): JournalEntry
     {
@@ -23,8 +24,11 @@ class JournalPostingService
             $nextNum = self::generateEntryNumber();
             $accounts = Account::whereIn('code', [
                 '1110', '1120', '1130', '1140', '2110', '2121', '2122', '2123',
-                '2131', '2132', '2133', '4100', '4300', '5100'
+                '2131', '2132', '2133', '4100', '4200', '4300', '5100', '5200', '5300'
             ])->get()->keyBy('code');
+
+            $year = (int) now()->format('Y');
+            $period = (int) now()->format('n');
 
             $je = JournalEntry::create([
                 'entry_number' => $nextNum,
@@ -33,66 +37,128 @@ class JournalPostingService
                 'reference_id' => $invoice->id,
                 'description' => "Auto-posted on approval: {$invoice->invoice_number} ({$invoice->party_type})",
                 'posting_date' => $invoice->invoice_date ?? now()->toDateString(),
-                'fiscal_year' => (int) now()->format('Y'),
-                'period' => (int) now()->format('n'),
+                'fiscal_year' => $year,
+                'period' => $period,
                 'status' => 'posted',
                 'posted_by' => $user->id,
                 'posted_at' => now(),
                 'created_by' => $user->id,
             ]);
 
+            $invoice->load('items.account');
+
             if ($invoice->type === 'receivable') {
                 // AR Invoice (Customer Tax Invoice)
-                // Dr. 1120 Accounts Receivable (Total)
+                // Dr. 1120 Accounts Receivable (Total amount due)
                 self::createLine($je, $accounts['1120'], $invoice->total_amount, 0, "AR Receivable for {$invoice->invoice_number}", $invoice->invoice_number);
 
-                // Dr. 4300 Discount Allowed (if discount)
-                if ($invoice->discount_amount > 0) {
-                    self::createLine($je, $accounts['4300'], $invoice->discount_amount, 0, "Discount allowance", $invoice->invoice_number);
+                // Dr. 4300 Discount Allowed (if discount granted)
+                if ((float) $invoice->discount_amount > 0) {
+                    $discAcc = $accounts['4300'] ?? $accounts['1120'];
+                    self::createLine($je, $discAcc, (float) $invoice->discount_amount, 0, "Discount allowance", $invoice->invoice_number);
                 }
 
-                // Cr. 4100 Sales Revenue (Subtotal)
-                self::createLine($je, $accounts['4100'], 0, $invoice->subtotal, "Sales revenue", $invoice->invoice_number);
-
-                // Cr. GST Outputs
-                if ($invoice->is_interstate) {
-                    if ($invoice->igst_amount > 0) {
-                        self::createLine($je, $accounts['2123'], 0, $invoice->igst_amount, "18% Integrated GST Output", $invoice->invoice_number);
+                // Cr. Revenue Account(s) (Subtotal)
+                if ($invoice->items->isNotEmpty()) {
+                    $itemsByAccount = $invoice->items->groupBy('account_id');
+                    foreach ($itemsByAccount as $accId => $groupItems) {
+                        $lineAcc = Account::find($accId) ?? $accounts['4100'];
+                        $groupSubtotal = (float) $groupItems->sum(function ($it) {
+                            return (float) $it->quantity * (float) $it->unit_price;
+                        });
+                        if ($groupSubtotal > 0) {
+                            self::createLine($je, $lineAcc, 0, $groupSubtotal, "Sales revenue", $invoice->invoice_number);
+                        }
                     }
                 } else {
-                    if ($invoice->cgst_amount > 0) {
-                        self::createLine($je, $accounts['2121'], 0, $invoice->cgst_amount, "9% Central GST Output", $invoice->invoice_number);
-                    }
-                    if ($invoice->sgst_amount > 0) {
-                        self::createLine($je, $accounts['2122'], 0, $invoice->sgst_amount, "9% State GST Output", $invoice->invoice_number);
-                    }
+                    self::createLine($je, $accounts['4100'], 0, (float) $invoice->subtotal, "Sales revenue", $invoice->invoice_number);
+                }
+
+                // Cr. GST Outputs
+                if ((float) $invoice->cgst_amount > 0 && isset($accounts['2121'])) {
+                    self::createLine($je, $accounts['2121'], 0, (float) $invoice->cgst_amount, "9% Central GST Output", $invoice->invoice_number);
+                }
+                if ((float) $invoice->sgst_amount > 0 && isset($accounts['2122'])) {
+                    self::createLine($je, $accounts['2122'], 0, (float) $invoice->sgst_amount, "9% State GST Output", $invoice->invoice_number);
+                }
+                if ((float) $invoice->igst_amount > 0 && isset($accounts['2123'])) {
+                    self::createLine($je, $accounts['2123'], 0, (float) $invoice->igst_amount, "18% Integrated GST Output", $invoice->invoice_number);
                 }
             } else {
                 // AP Bill (Vendor Tax Bill)
-                // Dr. 1130 Inventory or 5100 Expense (Subtotal)
-                self::createLine($je, $accounts['1130'], $invoice->subtotal, 0, "Inventory purchase asset", $invoice->invoice_number);
+                // Net taxable asset/expense value (Subtotal minus vendor discount)
+                $netSubtotal = round((float) $invoice->subtotal - (float) $invoice->discount_amount, 2);
 
-                // Dr. GST Input Tax Credits (Receivables)
-                if ($invoice->is_interstate) {
-                    if ($invoice->igst_amount > 0) {
-                        self::createLine($je, $accounts['2133'], $invoice->igst_amount, 0, "18% Integrated GST Input Credit", $invoice->invoice_number);
+                // Dr. 1130 Inventory / Expense accounts (Net Subtotal)
+                if ($invoice->items->isNotEmpty()) {
+                    $itemsByAccount = $invoice->items->groupBy('account_id');
+                    foreach ($itemsByAccount as $accId => $groupItems) {
+                        $lineAcc = Account::find($accId) ?? $accounts['1130'];
+                        $groupNet = (float) $groupItems->sum(function ($it) {
+                            $gross = (float) $it->quantity * (float) $it->unit_price;
+                            $disc = $gross * ((float) $it->discount_percent / 100);
+                            return $gross - $disc;
+                        });
+                        if ($groupNet > 0) {
+                            self::createLine($je, $lineAcc, $groupNet, 0, "Inventory purchase asset", $invoice->invoice_number);
+                        }
                     }
                 } else {
-                    if ($invoice->cgst_amount > 0) {
-                        self::createLine($je, $accounts['2131'], $invoice->cgst_amount, 0, "9% Central GST Input Credit", $invoice->invoice_number);
-                    }
-                    if ($invoice->sgst_amount > 0) {
-                        self::createLine($je, $accounts['2132'], $invoice->sgst_amount, 0, "9% State GST Input Credit", $invoice->invoice_number);
-                    }
+                    self::createLine($je, $accounts['1130'], $netSubtotal, 0, "Inventory purchase asset", $invoice->invoice_number);
                 }
 
-                // Cr. 2110 Accounts Payable (Total)
-                self::createLine($je, $accounts['2110'], 0, $invoice->total_amount, "AP Payable for {$invoice->invoice_number}", $invoice->invoice_number);
+                // Dr. GST Input Tax Credits
+                if ((float) $invoice->cgst_amount > 0 && isset($accounts['2131'])) {
+                    self::createLine($je, $accounts['2131'], (float) $invoice->cgst_amount, 0, "9% Central GST Input Credit", $invoice->invoice_number);
+                }
+                if ((float) $invoice->sgst_amount > 0 && isset($accounts['2132'])) {
+                    self::createLine($je, $accounts['2132'], (float) $invoice->sgst_amount, 0, "9% State GST Input Credit", $invoice->invoice_number);
+                }
+                if ((float) $invoice->igst_amount > 0 && isset($accounts['2133'])) {
+                    self::createLine($je, $accounts['2133'], (float) $invoice->igst_amount, 0, "18% Integrated GST Input Credit", $invoice->invoice_number);
+                }
+
+                // Cr. 2110 Accounts Payable (Total invoice amount due)
+                self::createLine($je, $accounts['2110'], 0, (float) $invoice->total_amount, "AP Payable for {$invoice->invoice_number}", $invoice->invoice_number);
+            }
+
+            // Adjust residual rounding difference to ensure total debit == total credit to the penny
+            $totalDebit = round((float) $je->lines()->sum('debit'), 2);
+            $totalCredit = round((float) $je->lines()->sum('credit'), 2);
+            $diff = round($totalDebit - $totalCredit, 2);
+
+            if (abs($diff) > 0 && abs($diff) <= 0.05) {
+                if ($diff > 0) {
+                    // Debits exceed credits by $diff; adjust credit line
+                    $targetCreditLine = $je->lines()->where('credit', '>', 0)->latest('id')->first();
+                    if ($targetCreditLine) {
+                        $targetCreditLine->credit = round($targetCreditLine->credit + $diff, 2);
+                        $targetCreditLine->save();
+                    }
+                } else {
+                    // Credits exceed debits by abs($diff); adjust debit line
+                    $targetDebitLine = $je->lines()->where('debit', '>', 0)->latest('id')->first();
+                    if ($targetDebitLine) {
+                        $targetDebitLine->debit = round($targetDebitLine->debit + abs($diff), 2);
+                        $targetDebitLine->save();
+                    }
+                }
+            }
+
+            // Strictly verify that the entry balances
+            $je->refresh();
+            if (!$je->isBalanced()) {
+                throw new \RuntimeException(
+                    "Cannot commit unbalanced journal entry {$je->entry_number}: " .
+                    "Total Debit {$je->total_debit} != Total Credit {$je->total_credit}."
+                );
             }
 
             // Recalculate affected account balances
-            foreach ($accounts as $acc) {
-                $acc->recalculateBalance();
+            $touchedAccounts = $je->lines()->pluck('account_id')->unique();
+            foreach ($touchedAccounts as $accId) {
+                $acc = Account::find($accId);
+                $acc?->recalculateBalance();
             }
 
             return $je;
@@ -102,11 +168,15 @@ class JournalPostingService
     /**
      * Auto-post Goods Receipt clearing entry on PO receipt.
      */
-    public static function postGoodsReceipt(PurchaseOrder $po, User $user): JournalEntry
+    public static function postGoodsReceipt(PurchaseOrder $po, User $user, ?float $receivedValue = null): JournalEntry
     {
-        return DB::transaction(function () use ($po, $user) {
+        return DB::transaction(function () use ($po, $user, $receivedValue) {
             $nextNum = self::generateEntryNumber();
             $accounts = Account::whereIn('code', ['1130', '1140'])->get()->keyBy('code');
+
+            $amount = ($receivedValue !== null && $receivedValue > 0)
+                ? round($receivedValue, 2)
+                : (float) $po->subtotal;
 
             $je = JournalEntry::create([
                 'entry_number' => $nextNum,
@@ -123,11 +193,11 @@ class JournalPostingService
                 'created_by' => $user->id,
             ]);
 
-            // Dr. 1130 Inventory (Subtotal)
-            self::createLine($je, $accounts['1130'], $po->subtotal, 0, "Stock intake at cost", $po->po_number);
+            // Dr. 1130 Inventory
+            self::createLine($je, $accounts['1130'], $amount, 0, "Stock intake at cost", $po->po_number);
 
-            // Cr. 1140 GRNI Clearing (Subtotal)
-            self::createLine($je, $accounts['1140'], 0, $po->subtotal, "Goods Received Not Invoiced", $po->po_number);
+            // Cr. 1140 GRNI Clearing
+            self::createLine($je, $accounts['1140'], 0, $amount, "Goods Received Not Invoiced", $po->po_number);
 
             $accounts['1130']->recalculateBalance();
             $accounts['1140']->recalculateBalance();
@@ -139,19 +209,23 @@ class JournalPostingService
     /**
      * Auto-post COGS inventory relief entry on Sales Order delivery.
      */
-    public static function postSalesDelivery(SalesOrder $so, User $user): JournalEntry
+    public static function postSalesDelivery(SalesOrder $so, User $user, ?float $deliveredCost = null): JournalEntry
     {
-        return DB::transaction(function () use ($so, $user) {
+        return DB::transaction(function () use ($so, $user, $deliveredCost) {
             $nextNum = self::generateEntryNumber();
             $accounts = Account::whereIn('code', ['5100', '1130'])->get()->keyBy('code');
 
-            $so->load('items.product');
-            $totalCost = 0.00;
-            foreach ($so->items as $item) {
-                $costPerUnit = $item->product ? (float) $item->product->cost_price : (float) $item->unit_price * 0.6;
-                $totalCost += ($costPerUnit * (float) $item->quantity_delivered);
+            if ($deliveredCost !== null && $deliveredCost > 0) {
+                $totalCost = round($deliveredCost, 2);
+            } else {
+                $so->load('items.product');
+                $totalCost = 0.00;
+                foreach ($so->items as $item) {
+                    $costPerUnit = $item->product ? (float) $item->product->cost_price : (float) $item->unit_price * 0.6;
+                    $totalCost += ($costPerUnit * (float) $item->quantity_delivered);
+                }
+                $totalCost = round($totalCost, 2);
             }
-            $totalCost = round($totalCost, 2);
 
             $je = JournalEntry::create([
                 'entry_number' => $nextNum,
@@ -266,8 +340,8 @@ class JournalPostingService
                     'account_id' => $line->account_id,
                     'account_code' => $line->account_code,
                     'account_name' => $line->account_name,
-                    'debit' => $line->credit, // Swapped!
-                    'credit' => $line->debit, // Swapped!
+                    'debit' => $line->credit, // Swapped
+                    'credit' => $line->debit, // Swapped
                     'description' => "Reversal: " . $line->description,
                     'reference' => "VOID-" . $invoice->invoice_number,
                 ]);
@@ -298,8 +372,6 @@ class JournalPostingService
 
     private static function generateEntryNumber(): string
     {
-        $year = now()->format('Y');
-        $count = JournalEntry::whereYear('created_at', $year)->count() + 1;
-        return sprintf("JE-%s-%04d", $year, $count);
+        return SequenceService::generate('JE', (int) now()->format('Y'), 4);
     }
 }
