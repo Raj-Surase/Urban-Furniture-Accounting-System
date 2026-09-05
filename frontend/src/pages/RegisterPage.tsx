@@ -7,8 +7,6 @@ import {
   CardBody,
   CardFooter,
   Input,
-  Select,
-  SelectItem,
   Button,
   Divider,
 } from '@heroui/react';

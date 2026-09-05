@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShoppingBag,
   Plus,
@@ -32,6 +32,7 @@ import { PAYMENT_TERMS_OPTIONS, calculateDueDate } from '../constants/formOption
 
 export const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin, isManager } = useAuth();
   const { addToast } = useToast();
 
@@ -107,6 +108,15 @@ export const PurchaseOrdersPage: React.FC = () => {
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
+
+  // Auto-open create modal when ?new=true (e.g., from Dashboard quick-action)
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setVendorId('');
+      setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
+      setIsCreateOpen(true);
+    }
+  }, [searchParams]);
 
   const handleProductChange = (index: number, productId: number) => {
     const prod = products.find((p) => p.id === productId);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Plus, Check, ArrowLeft, TrendingUp, TrendingDown, Layers } from 'lucide-react';
 import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { analyticAccountsApi } from '../lib/api';
@@ -24,6 +25,7 @@ interface AnalyticAccount {
 }
 
 export const AnalyticAccountsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<AnalyticAccount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
@@ -174,6 +176,19 @@ export const AnalyticAccountsPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                Code
+              </label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. AC-001"
+                className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
                 Type *
               </label>
               <select
@@ -190,6 +205,20 @@ export const AnalyticAccountsPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Description — full width */}
+          <div>
+            <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description for this analytic account..."
+              rows={3}
+              className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4] resize-none"
+            />
+          </div>
+
           {/* Sub-Table: All the Budget List where the Analytic Account is used */}
           <div className="pt-4 border-t border-white/[0.08]">
             <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -201,25 +230,57 @@ export const AnalyticAccountsPage: React.FC = () => {
                 <thead className="bg-[#18181f] text-[#707080] border-b border-white/[0.08]">
                   <tr>
                     <th className="py-2.5 px-3">Budget</th>
+                    <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3">Start Date</th>
                     <th className="py-2.5 px-3">End Date</th>
                     <th className="py-2.5 px-3 text-right">Committed</th>
                     <th className="py-2.5 px-3 text-right">Achieved</th>
+                    <th className="py-2.5 px-3 text-right">Achievement %</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {relatedBudgets.map((b) => (
-                    <tr key={b.budget_id} className="hover:bg-white/[0.02]">
-                      <td className="py-2.5 px-3 font-semibold text-white">{b.budget_name}</td>
-                      <td className="py-2.5 px-3 text-[#a0a0b0]">{b.start_date}</td>
-                      <td className="py-2.5 px-3 text-[#a0a0b0]">{b.end_date}</td>
-                      <td className="py-2.5 px-3 text-right text-white font-mono">₹{b.committed.toLocaleString()}</td>
-                      <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">₹{b.achieved.toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {relatedBudgets.map((b) => {
+                    const achievementPct = b.committed > 0 ? Math.round((b.achieved / b.committed) * 100) : 0;
+                    const statusMap: Record<string, string> = {
+                      draft: 'bg-[#2a2a3a] text-[#9090a0] border-white/[0.06]',
+                      confirm: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+                      revised: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+                      cancelled: 'bg-rose-500/10 text-rose-400 border-rose-500/25',
+                    };
+                    const statusLabel: Record<string, string> = {
+                      draft: 'Draft', confirm: 'Confirmed', revised: 'Revised', cancelled: 'Cancelled',
+                    };
+                    return (
+                      <tr key={b.budget_id} className="hover:bg-white/[0.02]">
+                        <td className="py-2.5 px-3">
+                          <button
+                            type="button"
+                            onClick={() => navigate('/budgets')}
+                            className="font-semibold text-[#7042f4] hover:underline text-left"
+                          >
+                            {b.budget_name}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusMap[b.status] || statusMap.draft}`}>
+                            {statusLabel[b.status] || b.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-[#a0a0b0]">{b.start_date}</td>
+                        <td className="py-2.5 px-3 text-[#a0a0b0]">{b.end_date}</td>
+                        <td className="py-2.5 px-3 text-right text-white font-mono">₹{b.committed.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-3 text-right text-emerald-400 font-mono">₹{b.achieved.toLocaleString('en-IN')}</td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span className={`text-xs font-bold font-mono ${achievementPct >= 80 ? 'text-emerald-400' : achievementPct >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                            {achievementPct}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {relatedBudgets.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center py-5 text-[#606070]">
+                      <td colSpan={7} className="text-center py-5 text-[#606070]">
                         No active budgets linked to this analytic account yet.
                       </td>
                     </tr>

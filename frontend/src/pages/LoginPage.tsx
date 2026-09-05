@@ -117,44 +117,44 @@ export const LoginPage: React.FC = () => {
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                     Instant Demo Login
                   </span>
-                  <span className="text-[10px] text-muted-foreground">Click to fill</span>
+                  <span className="text-[10px] text-muted-foreground">Click to auto-login</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => fillCredentials('admin@example.com', 'password')}
+                    onClick={() => fillAndLogin('admin@example.com', 'password')}
                     className="p-2.5 rounded-xl bg-card/60 hover:bg-card border border-border/50 dark:border-white/[0.08] text-left transition-all hover:border-primary/50 group active:scale-[0.98]"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground group-hover:text-primary">
                       <span>Admin</span>
-                      <Shield className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <Shield className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Owner (Full)</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Owner · Full Access</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => fillCredentials('manager@example.com', 'password')}
+                    onClick={() => fillAndLogin('manager@example.com', 'password')}
                     className="p-2.5 rounded-xl bg-card/60 hover:bg-card border border-border/50 dark:border-white/[0.08] text-left transition-all hover:border-amber-400/50 group active:scale-[0.98]"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground group-hover:text-amber-400">
                       <span>Accountant</span>
                       <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Invoicing User</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Finance · Reports Access</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => fillCredentials('user@example.com', 'password')}
+                    onClick={() => fillAndLogin('user@example.com', 'password')}
                     className="p-2.5 rounded-xl bg-card/60 hover:bg-card border border-border/50 dark:border-white/[0.08] text-left transition-all hover:border-blue-400/50 group active:scale-[0.98]"
                   >
                     <div className="flex items-center justify-between text-xs font-bold text-foreground group-hover:text-blue-400">
                       <span>Contact</span>
                       <User className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                     </div>
-                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Client / Vendor</span>
+                    <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">Portal · View Only</span>
                   </button>
                 </div>
               </div>

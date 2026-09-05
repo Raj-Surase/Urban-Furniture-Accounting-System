@@ -209,22 +209,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
                   Product (Products & Services)
                 </DropdownItem>
                 <DropdownItem
-                  key="analyticals"
-                  startContent={<Layers className="w-4 h-4 text-teal-400" />}
-                  onPress={() => navigate('/analyticals')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Analyticals (Cost Centers)
-                </DropdownItem>
-                <DropdownItem
-                  key="budgets"
-                  startContent={<PieChart className="w-4 h-4 text-purple-400" />}
-                  onPress={() => navigate('/budgets')}
-                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
-                >
-                  Analytical Budget
-                </DropdownItem>
-                <DropdownItem
                   key="coa"
                   startContent={<Scale className="w-4 h-4 text-emerald-400" />}
                   onPress={() => navigate('/accounts')}
@@ -247,6 +231,22 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({ onSearchClick }) => {
                   className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
                 >
                   Journal Entries
+                </DropdownItem>
+                <DropdownItem
+                  key="analyticals"
+                  startContent={<Layers className="w-4 h-4 text-teal-400" />}
+                  onPress={() => navigate('/analyticals')}
+                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                >
+                  Analyticals (Cost Centers)
+                </DropdownItem>
+                <DropdownItem
+                  key="budgets"
+                  startContent={<PieChart className="w-4 h-4 text-purple-400" />}
+                  onPress={() => navigate('/budgets')}
+                  className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                >
+                  Analytical Budget
                 </DropdownItem>
               </DropdownMenu>
             </Dropdown>

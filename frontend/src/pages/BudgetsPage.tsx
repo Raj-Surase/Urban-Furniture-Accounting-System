@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   PieChart,
@@ -47,6 +48,7 @@ interface BudgetRecord {
 }
 
 export const BudgetsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [budgets, setBudgets] = useState<BudgetRecord[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -91,6 +93,14 @@ export const BudgetsPage: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, [search]);
+
+  // Auto-open new budget form when ?new=true is in URL
+  useEffect(() => {
+    if (searchParams.get('new') === 'true') {
+      setActiveBudget(null);
+      setViewMode('form');
+    }
+  }, [searchParams]);
 
   const handleOpenForm = async (budgetId?: number) => {
     setError(null);

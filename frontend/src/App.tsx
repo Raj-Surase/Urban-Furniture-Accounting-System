@@ -43,6 +43,7 @@ import { AnalyticAccountsPage } from './pages/AnalyticAccountsPage';
 import { BudgetsPage } from './pages/BudgetsPage';
 import { ProfitAndLossReportPage } from './pages/ProfitAndLossReportPage';
 import { BalanceSheetReportPage } from './pages/BalanceSheetReportPage';
+import { BudgetReportPage } from './pages/BudgetReportPage';
 import { CustomerPortalPage } from './pages/CustomerPortalPage';
 
 /**
@@ -266,7 +267,7 @@ export const App: React.FC = () => {
                         element={
                           <ProtectedRoute>
                             <RoleRoute allowedRoles={['admin', 'manager', 'accountant']}>
-                              <BudgetsPage />
+                              <BudgetReportPage />
                             </RoleRoute>
                           </ProtectedRoute>
                         }
