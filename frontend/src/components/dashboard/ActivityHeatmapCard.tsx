@@ -72,7 +72,7 @@ export const ActivityHeatmapCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 min-h-[340px]">
+    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 h-[380px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export const ActivityHeatmapCard: React.FC = () => {
       </div>
 
       {/* Heatmap Grid matching Target Design */}
-      <div className="mt-4 overflow-x-auto select-none">
+      <div className="my-auto overflow-x-auto select-none">
         <div className="min-w-[280px]">
           {/* Days Header */}
           <div className="grid grid-cols-8 gap-1.5 mb-2 text-center text-[11px] text-[#757588] font-sans">
@@ -147,7 +147,7 @@ export const ActivityHeatmapCard: React.FC = () => {
       </div>
 
       {/* Dynamic Hover Tooltip / Footer Legend */}
-      <div className="flex items-center justify-between text-[11px] text-[#6d6d7e] font-sans pt-3 mt-2 border-t border-white/[0.04]">
+      <div className="flex items-center justify-between text-[11px] text-[#6d6d7e] font-sans pt-3 border-t border-white/[0.04]">
         <div className="text-white/80 font-medium truncate pr-2">
           {activeCell ? (
             <span>

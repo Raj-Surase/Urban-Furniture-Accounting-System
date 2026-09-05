@@ -72,7 +72,7 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
   };
 
   return (
-    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 min-h-[340px]">
+    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 h-[380px]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
       </div>
 
       {/* Transactions List */}
-      <div className="mt-4 space-y-2 select-none flex-1">
+      <div className="my-3 space-y-1 select-none flex-1 overflow-y-auto pr-1 min-h-0">
         {loading ? (
           <div className="space-y-3 py-2">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -161,7 +161,7 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
       </div>
 
       {/* Footer link to Invoices & Bills */}
-      <div className="pt-3 border-t border-white/[0.04] mt-2 flex items-center justify-between text-xs text-[#6d6d7e]">
+      <div className="pt-3 border-t border-white/[0.04] flex items-center justify-between text-xs text-[#6d6d7e]">
         <span>{transactions.length} displayed</span>
         <button
           onClick={() => navigate('/invoices')}

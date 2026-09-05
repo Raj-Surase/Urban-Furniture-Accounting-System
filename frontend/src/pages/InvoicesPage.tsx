@@ -125,7 +125,7 @@ export const InvoicesPage: React.FC = () => {
     }
     if (idParam && invoices.length > 0) {
       const found = invoices.find(
-        (inv) => String(inv.id) === String(idParam) || String(inv.invoice_number) === String(idParam)
+        (inv) => inv && (String(inv.id) === String(idParam) || String(inv.invoice_number) === String(idParam))
       );
       if (found) {
         setDetailInvoice(found);

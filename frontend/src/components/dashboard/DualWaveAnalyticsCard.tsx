@@ -122,38 +122,41 @@ export const DualWaveAnalyticsCard: React.FC = () => {
   const displayExpense = activeMonth?.expenses ?? analyticsData?.latest_expense ?? 68400.00;
 
   return (
-    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 min-h-[340px]">
-      {/* Card Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CircleDot className="w-4 h-4 text-white/80" />
-          <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight font-sans">
-            Analytics
-          </h2>
+    <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 flex flex-col justify-between hover:border-white/[0.1] transition-all duration-300 h-[380px]">
+      {/* Header and Legend */}
+      <div>
+        {/* Card Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CircleDot className="w-4 h-4 text-white/80" />
+            <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight font-sans">
+              Analytics
+            </h2>
+          </div>
+
+          <button
+            className="w-7 h-7 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-[#a0a0b0] hover:text-white flex items-center justify-center transition-colors"
+            aria-label="Analytics options"
+          >
+            <MoreVertical className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        <button
-          className="w-7 h-7 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-[#a0a0b0] hover:text-white flex items-center justify-center transition-colors"
-          aria-label="Analytics options"
-        >
-          <MoreVertical className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Legend Row */}
-      <div className="flex items-center gap-4 mt-3 select-none">
-        <div className="flex items-center gap-1.5 text-xs text-[#a0a0b0]">
-          <span className="w-2.5 h-2.5 rounded-xs bg-[#c6f135] shadow-[0_0_8px_rgba(198,241,53,0.5)]" />
-          <span>Sales Revenue (Furniture)</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-[#71717a]">
-          <span className="w-2.5 h-2.5 rounded-xs bg-[#52525b] border border-dashed border-white/40" />
-          <span>Procurement Expenses</span>
+        {/* Legend Row */}
+        <div className="flex items-center gap-4 mt-2.5 select-none">
+          <div className="flex items-center gap-1.5 text-xs text-[#a0a0b0]">
+            <span className="w-2.5 h-2.5 rounded-xs bg-[#c6f135] shadow-[0_0_8px_rgba(198,241,53,0.5)]" />
+            <span>Sales Revenue (Furniture)</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-[#71717a]">
+            <span className="w-2.5 h-2.5 rounded-xs bg-[#52525b] border border-dashed border-white/40" />
+            <span>Procurement Expenses</span>
+          </div>
         </div>
       </div>
 
       {/* Dual Wave SVG Canvas matching Expected UI */}
-      <div className="relative w-full h-44 mt-4 select-none">
+      <div className="relative w-full h-44 my-auto select-none">
         {loading ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="w-full h-24 bg-white/5 animate-pulse rounded-xl" />
