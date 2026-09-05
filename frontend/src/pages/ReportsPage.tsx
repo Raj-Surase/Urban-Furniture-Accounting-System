@@ -10,11 +10,21 @@ import {
   RefreshCw,
   Printer,
   Download,
+  Calendar,
+  Filter,
+  X,
 } from 'lucide-react';
 import { reportsApi } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import {
+  exportTrialBalancePdf,
+  exportIncomeStatementPdf,
+  exportBalanceSheetPdf,
+  exportAgingPdf,
+  exportGstSummaryPdf,
+} from '../components/pdf/ReportPdfGenerator';
 
 export const ReportsPage: React.FC = () => {
   const { addToast } = useToast();
@@ -31,24 +41,37 @@ export const ReportsPage: React.FC = () => {
   const [apAgingData, setApAgingData] = useState<any>(null);
   const [gstData, setGstData] = useState<any>(null);
 
-  const fetchReport = async () => {
+  // Date range filters
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+
+  const fetchReport = async (overrideFrom?: string, overrideTo?: string) => {
     try {
       setLoading(true);
+      const start = overrideFrom !== undefined ? overrideFrom : fromDate;
+      const end = overrideTo !== undefined ? overrideTo : toDate;
+      const params: Record<string, any> = {};
+      if (start) params.from_date = start;
+      if (end) params.to_date = end;
+
       if (activeTab === 'trial-balance') {
-        const res = await reportsApi.getTrialBalance();
+        const res = await reportsApi.getTrialBalance(params);
         setTrialBalanceData(res);
       } else if (activeTab === 'income-statement') {
-        const res = await reportsApi.getIncomeStatement();
+        const res = await reportsApi.getIncomeStatement(params);
         setPnlData(res);
       } else if (activeTab === 'balance-sheet') {
-        const res = await reportsApi.getBalanceSheet();
+        const res = await reportsApi.getBalanceSheet(params);
         setBalanceSheetData(res);
       } else if (activeTab === 'aging') {
-        const [ar, ap] = await Promise.all([reportsApi.getArAging(), reportsApi.getApAging()]);
+        const [ar, ap] = await Promise.all([
+          reportsApi.getArAging(params),
+          reportsApi.getApAging(params),
+        ]);
         setArAgingData(ar);
         setApAgingData(ap);
       } else if (activeTab === 'gst-summary') {
-        const res = await reportsApi.getGstSummary();
+        const res = await reportsApi.getGstSummary(params);
         setGstData(res);
       }
     } catch (err) {
@@ -60,6 +83,68 @@ export const ReportsPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApplyPreset = (preset: 'all' | 'fy' | 'month' | '30days') => {
+    const now = new Date();
+    let start = '';
+    let end = '';
+
+    if (preset === 'all') {
+      start = '';
+      end = '';
+    } else if (preset === 'fy') {
+      const year = now.getFullYear();
+      const isPostMarch = now.getMonth() >= 3;
+      const fyStartYear = isPostMarch ? year : year - 1;
+      start = `${fyStartYear}-04-01`;
+      end = `${fyStartYear + 1}-03-31`;
+    } else if (preset === 'month') {
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      start = `${year}-${month}-01`;
+      const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+      end = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    } else if (preset === '30days') {
+      const prior = new Date();
+      prior.setDate(prior.getDate() - 30);
+      start = prior.toISOString().slice(0, 10);
+      end = now.toISOString().slice(0, 10);
+    }
+
+    setFromDate(start);
+    setToDate(end);
+    fetchReport(start, end);
+  };
+
+  const handleExportPdf = () => {
+    const range = { fromDate, toDate };
+    try {
+      if (activeTab === 'trial-balance' && trialBalanceData) {
+        exportTrialBalancePdf(trialBalanceData, range);
+      } else if (activeTab === 'income-statement' && pnlData) {
+        exportIncomeStatementPdf(pnlData, range);
+      } else if (activeTab === 'balance-sheet' && balanceSheetData) {
+        exportBalanceSheetPdf(balanceSheetData, range);
+      } else if (activeTab === 'aging' && (arAgingData || apAgingData)) {
+        exportAgingPdf(arAgingData, apAgingData, range);
+      } else if (activeTab === 'gst-summary' && gstData) {
+        exportGstSummaryPdf(gstData, range);
+      } else {
+        addToast({
+          type: 'info',
+          title: 'Exporting...',
+          message: 'Report data is loading or empty.',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to export PDF:', err);
+      addToast({
+        type: 'error',
+        title: 'Export Error',
+        message: 'Could not generate report PDF.',
+      });
     }
   };
 
@@ -96,9 +181,20 @@ export const ReportsPage: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <Button
+            variant="primary"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={loading}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white gap-1.5 text-xs shadow-sm font-semibold"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export PDF
+          </Button>
+
+          <Button
             variant="outline"
             size="sm"
-            onClick={fetchReport}
+            onClick={() => fetchReport()}
             disabled={loading}
             className="border-neutral-700 bg-neutral-800 text-neutral-300 gap-1.5 text-xs"
           >
@@ -115,6 +211,75 @@ export const ReportsPage: React.FC = () => {
             <Printer className="w-3.5 h-3.5" />
             Print Report
           </Button>
+        </div>
+      </div>
+
+      {/* Date Range Filter Bar */}
+      <div className="bg-[#141418] border border-white/[0.06] rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-neutral-400 font-medium">
+            <Filter className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Date Range:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="bg-[#1c1c23] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500"
+              placeholder="From date"
+              title="From date"
+            />
+            <span className="text-neutral-500 text-xs">to</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="bg-[#1c1c23] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500"
+              placeholder="To date"
+              title="To date"
+            />
+          </div>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => fetchReport()}
+            disabled={loading}
+            className="text-xs px-3 py-1.5 h-8 bg-neutral-800 hover:bg-neutral-700 text-white"
+          >
+            Apply
+          </Button>
+
+          {(fromDate || toDate) && (
+            <button
+              onClick={() => handleApplyPreset('all')}
+              className="text-neutral-400 hover:text-white text-xs flex items-center gap-1 transition-colors px-2 py-1 rounded bg-white/[0.04]"
+              title="Clear date filter"
+            >
+              <X className="w-3 h-3" /> Clear
+            </button>
+          )}
+        </div>
+
+        {/* Quick Presets */}
+        <div className="flex items-center gap-1.5 overflow-x-auto select-none">
+          <span className="text-[11px] text-neutral-500 mr-1 hidden sm:inline">Presets:</span>
+          {[
+            { id: 'all', label: 'All Time' },
+            { id: 'fy', label: 'FY 2026-27' },
+            { id: 'month', label: 'This Month' },
+            { id: '30days', label: 'Last 30 Days' },
+          ].map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => handleApplyPreset(preset.id as any)}
+              className="px-2.5 py-1 rounded-full text-[11px] bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-neutral-300 hover:text-white transition-all whitespace-nowrap"
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
       </div>
 

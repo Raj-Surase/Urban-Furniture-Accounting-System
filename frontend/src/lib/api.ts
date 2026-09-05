@@ -148,12 +148,12 @@ export const journalApi = {
 };
 
 export const reportsApi = {
-  getTrialBalance: () => api.get('/reports/trial-balance').then(res => res.data),
-  getIncomeStatement: () => api.get('/reports/income-statement').then(res => res.data),
-  getBalanceSheet: () => api.get('/reports/balance-sheet').then(res => res.data),
-  getArAging: () => api.get('/reports/ar-aging').then(res => res.data),
-  getApAging: () => api.get('/reports/ap-aging').then(res => res.data),
-  getGstSummary: () => api.get('/reports/gst-summary').then(res => res.data),
+  getTrialBalance: (params?: Record<string, any>) => api.get('/reports/trial-balance', { params }).then(res => res.data),
+  getIncomeStatement: (params?: Record<string, any>) => api.get('/reports/income-statement', { params }).then(res => res.data),
+  getBalanceSheet: (params?: Record<string, any>) => api.get('/reports/balance-sheet', { params }).then(res => res.data),
+  getArAging: (params?: Record<string, any>) => api.get('/reports/ar-aging', { params }).then(res => res.data),
+  getApAging: (params?: Record<string, any>) => api.get('/reports/ap-aging', { params }).then(res => res.data),
+  getGstSummary: (params?: Record<string, any>) => api.get('/reports/gst-summary', { params }).then(res => res.data),
 };
 
 export const usersApi = {

@@ -7,7 +7,7 @@ use App\Models\Account;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Vendor;
-use App\Security\Rbac;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -16,12 +16,28 @@ class ReportController extends Controller
 {
     /**
      * Trial Balance statement ensuring Total Debits == Total Credits.
+     * Supports optional from_date and to_date filters.
      */
     public function trialBalance(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
-        $accounts = Account::with(['journalLines'])->orderBy('code', 'asc')->get();
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
+
+        $accountsQuery = Account::with(['journalLines' => function ($q) use ($fromDate, $toDate) {
+            $q->whereHas('journalEntry', function ($jeQ) use ($fromDate, $toDate) {
+                $jeQ->where('status', 'posted');
+                if ($fromDate) {
+                    $jeQ->where('posting_date', '>=', $fromDate);
+                }
+                if ($toDate) {
+                    $jeQ->where('posting_date', '<=', $toDate);
+                }
+            });
+        }])->orderBy('code', 'asc');
+
+        $accounts = $accountsQuery->get();
 
         $rows = [];
         $sumDebits = 0.00;
@@ -30,6 +46,15 @@ class ReportController extends Controller
         foreach ($accounts as $acc) {
             $totalDebit = (float) $acc->journalLines->sum('debit');
             $totalCredit = (float) $acc->journalLines->sum('credit');
+
+            // If date range is not specified and opening balance exists, include opening balance
+            if (!$fromDate && !$toDate && (float) $acc->opening_balance > 0) {
+                if ($acc->normal_balance === 'debit') {
+                    $totalDebit += (float) $acc->opening_balance;
+                } else {
+                    $totalCredit += (float) $acc->opening_balance;
+                }
+            }
 
             $net = $totalDebit - $totalCredit;
             $debitBal = 0.00;
@@ -56,7 +81,9 @@ class ReportController extends Controller
         }
 
         return response()->json([
-            'as_of_date' => now()->toDateString(),
+            'as_of_date' => $toDate ?: now()->toDateString(),
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'rows' => $rows,
             'total_debit' => round($sumDebits, 2),
             'total_credit' => round($sumCredits, 2),
@@ -67,12 +94,26 @@ class ReportController extends Controller
 
     /**
      * Income Statement / Profit & Loss statement.
+     * Supports optional from_date and to_date filters.
      */
     public function incomeStatement(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
-        $accounts = Account::with(['journalLines'])
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
+
+        $accounts = Account::with(['journalLines' => function ($q) use ($fromDate, $toDate) {
+            $q->whereHas('journalEntry', function ($jeQ) use ($fromDate, $toDate) {
+                $jeQ->where('status', 'posted');
+                if ($fromDate) {
+                    $jeQ->where('posting_date', '>=', $fromDate);
+                }
+                if ($toDate) {
+                    $jeQ->where('posting_date', '<=', $toDate);
+                }
+            });
+        }])
             ->whereIn('type', ['revenue', 'expense'])
             ->orderBy('code', 'asc')
             ->get();
@@ -115,8 +156,19 @@ class ReportController extends Controller
         $grossProfit = $totalRevenue - $cogsTotal;
         $netProfit = $grossProfit - $operatingExpenses;
 
+        $periodLabel = 'Fiscal Year ' . now()->format('Y');
+        if ($fromDate && $toDate) {
+            $periodLabel = $fromDate . ' to ' . $toDate;
+        } elseif ($fromDate) {
+            $periodLabel = 'Since ' . $fromDate;
+        } elseif ($toDate) {
+            $periodLabel = 'Up to ' . $toDate;
+        }
+
         return response()->json([
-            'period' => 'Fiscal Year ' . now()->format('Y'),
+            'period' => $periodLabel,
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'revenues' => $revenues,
             'total_revenue' => round($totalRevenue, 2),
             'cogs' => round($cogsTotal, 2),
@@ -129,12 +181,23 @@ class ReportController extends Controller
 
     /**
      * Balance Sheet Statement (Assets = Liabilities + Equity).
+     * Supports optional from_date and to_date filters.
      */
     public function balanceSheet(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
-        $accounts = Account::with('journalLines')
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date', $request->query('as_of_date'));
+
+        $accounts = Account::with(['journalLines' => function ($q) use ($toDate) {
+            $q->whereHas('journalEntry', function ($jeQ) use ($toDate) {
+                $jeQ->where('status', 'posted');
+                if ($toDate) {
+                    $jeQ->where('posting_date', '<=', $toDate);
+                }
+            });
+        }])
             ->whereIn('type', ['asset', 'liability', 'equity'])
             ->orderBy('code', 'asc')
             ->get();
@@ -150,6 +213,15 @@ class ReportController extends Controller
         foreach ($accounts as $acc) {
             $debits = (float) $acc->journalLines->sum('debit');
             $credits = (float) $acc->journalLines->sum('credit');
+
+            // Add opening balance if no specific date filter restricts it
+            if ((float) $acc->opening_balance > 0) {
+                if ($acc->normal_balance === 'debit') {
+                    $debits += (float) $acc->opening_balance;
+                } else {
+                    $credits += (float) $acc->opening_balance;
+                }
+            }
 
             if ($acc->type === 'asset') {
                 $bal = ($acc->normal_balance === 'debit') ? ($debits - $credits) : ($credits - $debits);
@@ -181,8 +253,19 @@ class ReportController extends Controller
             }
         }
 
-        // Calculate Net Income from P&L to reconcile retained equity
-        $pnlAccounts = Account::with('journalLines')->whereIn('type', ['revenue', 'expense'])->get();
+        // Calculate Net Income from P&L up to to_date
+        $pnlAccounts = Account::with(['journalLines' => function ($q) use ($fromDate, $toDate) {
+            $q->whereHas('journalEntry', function ($jeQ) use ($fromDate, $toDate) {
+                $jeQ->where('status', 'posted');
+                if ($fromDate) {
+                    $jeQ->where('posting_date', '>=', $fromDate);
+                }
+                if ($toDate) {
+                    $jeQ->where('posting_date', '<=', $toDate);
+                }
+            });
+        }])->whereIn('type', ['revenue', 'expense'])->get();
+
         $netIncome = 0.00;
         foreach ($pnlAccounts as $pnl) {
             $dr = (float) $pnl->journalLines->sum('debit');
@@ -197,7 +280,9 @@ class ReportController extends Controller
         $totalEquityWithIncome = $totalEquity + $netIncome;
 
         return response()->json([
-            'as_of_date' => now()->toDateString(),
+            'as_of_date' => $toDate ?: now()->toDateString(),
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'assets' => $assets,
             'total_assets' => round($totalAssets, 2),
             'liabilities' => $liabilities,
@@ -212,17 +297,29 @@ class ReportController extends Controller
 
     /**
      * Accounts Receivable Aging analysis (30 / 60 / 90 / 90+ days).
+     * Supports optional from_date and to_date filters.
      */
     public function arAging(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
-        $invoices = Invoice::where('type', 'receivable')
-            ->whereIn('status', ['approved', 'partially_paid'])
-            ->where('balance_due', '>', 0)
-            ->get();
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
 
-        $today = now();
+        $query = Invoice::where('type', 'receivable')
+            ->whereIn('status', ['approved', 'partially_paid'])
+            ->where('balance_due', '>', 0);
+
+        if ($fromDate) {
+            $query->where('invoice_date', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->where('invoice_date', '<=', $toDate);
+        }
+
+        $invoices = $query->get();
+
+        $today = $toDate ? Carbon::parse($toDate) : now();
         $buckets = [
             'current' => 0.00,
             'days_1_30' => 0.00,
@@ -235,7 +332,7 @@ class ReportController extends Controller
         $customerAging = [];
 
         foreach ($invoices as $inv) {
-            $due = \Carbon\Carbon::parse($inv->due_date);
+            $due = Carbon::parse($inv->due_date);
             $bal = (float) $inv->balance_due;
             $buckets['total'] += $bal;
 
@@ -274,7 +371,9 @@ class ReportController extends Controller
         }
 
         return response()->json([
-            'as_of_date' => now()->toDateString(),
+            'as_of_date' => $today->toDateString(),
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'summary' => $buckets,
             'by_customer' => array_values($customerAging),
         ]);
@@ -282,17 +381,29 @@ class ReportController extends Controller
 
     /**
      * Accounts Payable Aging analysis.
+     * Supports optional from_date and to_date filters.
      */
     public function apAging(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
-        $bills = Invoice::where('type', 'payable')
-            ->whereIn('status', ['approved', 'partially_paid'])
-            ->where('balance_due', '>', 0)
-            ->get();
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
 
-        $today = now();
+        $query = Invoice::where('type', 'payable')
+            ->whereIn('status', ['approved', 'partially_paid'])
+            ->where('balance_due', '>', 0);
+
+        if ($fromDate) {
+            $query->where('invoice_date', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->where('invoice_date', '<=', $toDate);
+        }
+
+        $bills = $query->get();
+
+        $today = $toDate ? Carbon::parse($toDate) : now();
         $buckets = [
             'current' => 0.00,
             'days_1_30' => 0.00,
@@ -305,7 +416,7 @@ class ReportController extends Controller
         $vendorAging = [];
 
         foreach ($bills as $bill) {
-            $due = \Carbon\Carbon::parse($bill->due_date);
+            $due = Carbon::parse($bill->due_date);
             $bal = (float) $bill->balance_due;
             $buckets['total'] += $bal;
 
@@ -344,7 +455,9 @@ class ReportController extends Controller
         }
 
         return response()->json([
-            'as_of_date' => now()->toDateString(),
+            'as_of_date' => $today->toDateString(),
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'summary' => $buckets,
             'by_vendor' => array_values($vendorAging),
         ]);
@@ -352,13 +465,27 @@ class ReportController extends Controller
 
     /**
      * GST Summary report detailing CGST, SGST, IGST input and output balances.
+     * Supports optional from_date and to_date filters.
      */
     public function gstSummary(Request $request): JsonResponse
     {
         Gate::authorize('viewFinancial', Account::class);
 
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
+
         $gstCodes = ['2121', '2122', '2123', '2131', '2132', '2133'];
-        $accounts = Account::with('journalLines')->whereIn('code', $gstCodes)->get()->keyBy('code');
+        $accounts = Account::with(['journalLines' => function ($q) use ($fromDate, $toDate) {
+            $q->whereHas('journalEntry', function ($jeQ) use ($fromDate, $toDate) {
+                $jeQ->where('status', 'posted');
+                if ($fromDate) {
+                    $jeQ->where('posting_date', '>=', $fromDate);
+                }
+                if ($toDate) {
+                    $jeQ->where('posting_date', '<=', $toDate);
+                }
+            });
+        }])->whereIn('code', $gstCodes)->get()->keyBy('code');
 
         $cgstOutput = isset($accounts['2121']) ? (float) $accounts['2121']->journalLines->sum('credit') - (float) $accounts['2121']->journalLines->sum('debit') : 0.00;
         $sgstOutput = isset($accounts['2122']) ? (float) $accounts['2122']->journalLines->sum('credit') - (float) $accounts['2122']->journalLines->sum('debit') : 0.00;
@@ -374,7 +501,9 @@ class ReportController extends Controller
         $inputCreditCarryover = max(0, $totalInput - $totalOutput);
 
         return response()->json([
-            'as_of_date' => now()->toDateString(),
+            'as_of_date' => $toDate ?: now()->toDateString(),
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
             'output_tax' => [
                 'cgst_output' => round($cgstOutput, 2),
                 'sgst_output' => round($sgstOutput, 2),

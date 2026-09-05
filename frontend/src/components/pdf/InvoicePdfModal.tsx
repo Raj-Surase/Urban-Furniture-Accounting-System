@@ -13,8 +13,7 @@ import {
   ArrowDownToLine,
   Loader2,
 } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { generateVectorInvoicePdf } from './InvoicePdfGenerator';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 
@@ -155,30 +154,10 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   };
 
   const handleDownloadPdf = async () => {
-    if (!printAreaRef.current) return;
+    if (!invoice) return;
     try {
       setIsGenerating(true);
-      const element = printAreaRef.current;
-      
-      const canvas = await html2canvas(element, {
-        scale: 2, // High resolution
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${invoice.invoice_number || 'invoice'}.pdf`);
+      generateVectorInvoicePdf(invoice);
     } catch (err) {
       console.error('Failed to generate PDF:', err);
       alert('Could not generate PDF. You can also use the Print button.');
