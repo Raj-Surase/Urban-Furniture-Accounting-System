@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * ============================================================
+ *  Urban Furniture Accounting System — Global Design Tokens
+ * ============================================================
+ *
+ *  Design System: Clean Matte Dark UI
+ *  Primary colour: HSL(232, 85%, 65%) — indigo-blue
+ *  Accent colour:  HSL(281, 54%, 18%) — deep purple
+ *
+ *  Token categories:
+ *    1. Core colour tokens (background, foreground, card, popover)
+ *    2. Semantic colour tokens (primary, secondary, muted, accent, destructive)
+ *    3. Shadow scale (soft → medium → strong → card → dropdown → modal)
+ *    4. Sidebar tokens
+ *    5. Component layer utilities (scrollbar, transitions, glassmorphism)
+ *
+ *  All CSS custom properties use the shadcn/ui HSL convention:
+ *    --token: <hue> <saturation> <lightness>  (no "hsl()" wrapper)
+ * ============================================================
+ */
+
 /* Clean Matte Design System - Reference: Urban Furniture Accounting System */
 
 @layer base {
