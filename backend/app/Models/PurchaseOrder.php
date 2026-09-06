@@ -28,6 +28,8 @@ class PurchaseOrder extends Model
         "igst_amount",
         "discount_amount",
         "total_amount",
+        "is_custom",
+        "customization_details",
         "notes",
         "terms_conditions",
         "approved_by",
@@ -42,6 +44,8 @@ class PurchaseOrder extends Model
         "delivery_date" => "date",
         "approved_at" => "datetime",
         "is_interstate" => "boolean",
+        "is_custom" => "boolean",
+        "customization_details" => "array",
         "subtotal" => "decimal:2",
         "tax_amount" => "decimal:2",
         "cgst_amount" => "decimal:2",
@@ -50,6 +54,47 @@ class PurchaseOrder extends Model
         "discount_amount" => "decimal:2",
         "total_amount" => "decimal:2",
     ];
+
+    protected $appends = [
+        "custom_tags",
+    ];
+
+    public function getCustomTagsAttribute(): array
+    {
+        if (!empty($this->customization_details['tags']) && is_array($this->customization_details['tags'])) {
+            return $this->customization_details['tags'];
+        }
+
+        $tags = [];
+        if ($this->is_custom) {
+            $tags[] = '3D Custom';
+        }
+
+        if (!empty($this->customization_details)) {
+            $details = $this->customization_details;
+            if (!empty($details['wood'])) {
+                $tags[] = $details['wood'];
+            }
+            if (!empty($details['model'])) {
+                $tags[] = $details['model'];
+            }
+            if (!empty($details['dimensions'])) {
+                $dims = $details['dimensions'];
+                if (is_array($dims) && isset($dims['width'], $dims['depth'], $dims['height'])) {
+                    $tags[] = "{$dims['width']}x{$dims['depth']}x{$dims['height']}cm";
+                } elseif (is_string($dims)) {
+                    $tags[] = $dims;
+                }
+            }
+            if (!empty($details['upholstery'])) {
+                $tags[] = $details['upholstery'];
+            }
+        } elseif ($this->notes && str_contains($this->notes, '[3D Workshop Custom Order]')) {
+            $tags[] = '3D Custom';
+        }
+
+        return array_values(array_unique($tags));
+    }
 
     public function vendor(): BelongsTo
     {

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Palette,
@@ -138,6 +138,7 @@ const UPHOLSTERY_OPTIONS: UpholsteryOption[] = [
 
 export const WorkshopPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const isElevated =
     user?.role === UserRole.ADMIN ||
@@ -152,6 +153,59 @@ export const WorkshopPage: React.FC = () => {
   const [width, setWidth] = useState<number>(TEMPLATES[0].defaultWidth);
   const [depth, setDepth] = useState<number>(TEMPLATES[0].defaultDepth);
   const [height, setHeight] = useState<number>(TEMPLATES[0].defaultHeight);
+
+  // Sync state if arrived with customized specifications in query params
+  useEffect(() => {
+    const modelParam = searchParams.get('model') || searchParams.get('custom_model');
+    const woodParam = searchParams.get('wood');
+    const upholsteryParam = searchParams.get('upholstery');
+    const widthParam = searchParams.get('width');
+    const depthParam = searchParams.get('depth');
+    const heightParam = searchParams.get('height');
+
+    if (modelParam) {
+      const foundTmpl = TEMPLATES.find(
+        (t) =>
+          t.name.toLowerCase() === modelParam.toLowerCase() ||
+          t.id.toLowerCase() === modelParam.toLowerCase() ||
+          modelParam.toLowerCase().includes(t.name.toLowerCase())
+      );
+      if (foundTmpl) {
+        setSelectedTemplate(foundTmpl);
+      }
+    }
+    if (woodParam) {
+      const foundWood = WOOD_FINISHES.find(
+        (w) =>
+          w.name.toLowerCase() === woodParam.toLowerCase() ||
+          w.id.toLowerCase() === woodParam.toLowerCase() ||
+          woodParam.toLowerCase().includes(w.name.toLowerCase())
+      );
+      if (foundWood) {
+        setSelectedWood(foundWood);
+      }
+    }
+    if (upholsteryParam) {
+      const foundUph = UPHOLSTERY_OPTIONS.find(
+        (u) =>
+          u.name.toLowerCase() === upholsteryParam.toLowerCase() ||
+          u.id.toLowerCase() === upholsteryParam.toLowerCase() ||
+          upholsteryParam.toLowerCase().includes(u.name.toLowerCase())
+      );
+      if (foundUph) {
+        setSelectedUpholstery(foundUph);
+      }
+    }
+    if (widthParam && !isNaN(Number(widthParam))) {
+      setWidth(Number(widthParam));
+    }
+    if (depthParam && !isNaN(Number(depthParam))) {
+      setDepth(Number(depthParam));
+    }
+    if (heightParam && !isNaN(Number(heightParam))) {
+      setHeight(Number(heightParam));
+    }
+  }, [searchParams]);
 
   // View Mode for 3D Studio
   const [viewAngle, setViewAngle] = useState<'isometric' | 'front' | 'top' | 'room'>('isometric');
@@ -853,17 +907,35 @@ export const WorkshopPage: React.FC = () => {
                 <Button
                   size="md"
                   variant="flat"
-                  onPress={() =>
-                    navigate(
-                      `/purchase-orders?new=true&wood=${encodeURIComponent(
-                        selectedWood.name
-                      )}&raw_cost=${calculatedCost}`
-                    )
-                  }
-                  className="bg-[#1e1e28] hover:bg-[#252533] text-amber-300 border border-amber-500/30 font-semibold text-xs py-3 px-5 rounded-2xl"
+                  onPress={() => {
+                    const params = new URLSearchParams({
+                      new: 'true',
+                      is_custom: 'true',
+                      model: selectedTemplate.name,
+                      model_id: selectedTemplate.id,
+                      category: selectedTemplate.category,
+                      wood: selectedWood.name,
+                      wood_species: selectedWood.species,
+                      wood_color: selectedWood.colorHex,
+                      wood_grain: selectedWood.grainPattern,
+                      upholstery: selectedUpholstery.name,
+                      upholstery_material: selectedUpholstery.material,
+                      dimensions: `${width}x${depth}x${height}cm`,
+                      width: width.toString(),
+                      depth: depth.toString(),
+                      height: height.toString(),
+                      raw_cost: calculatedCost.toString(),
+                      price: calculatedPrice.toString(),
+                    });
+                    navigate(`/purchase-orders?${params.toString()}`);
+                  }}
+                  className="bg-gradient-to-r from-amber-500/15 to-amber-600/10 hover:from-amber-500/25 hover:to-amber-600/20 text-amber-300 border border-amber-500/35 hover:border-amber-500/60 font-semibold text-xs py-3 px-5 rounded-2xl flex items-center gap-2 transition-all shadow-md shadow-amber-500/5"
                 >
-                  <ShoppingBag className="w-4 h-4 mr-1 text-amber-400" />
-                  <span>Procure Raw Timber (PO)</span>
+                  <ShoppingBag className="w-4 h-4 text-amber-400" />
+                  <span>Procure Custom Timber & Specs (PO)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-500/30">
+                    {selectedWood.name.split(' ')[0]} • {width}x{depth}cm
+                  </span>
                 </Button>
               )}
             </div>

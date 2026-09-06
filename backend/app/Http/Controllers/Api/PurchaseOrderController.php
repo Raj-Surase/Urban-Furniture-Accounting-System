@@ -50,6 +50,20 @@ class PurchaseOrderController extends Controller
             $query->where('order_date', '<=', $to);
         }
 
+        if ($request->has('is_custom')) {
+            $isCustom = filter_var($request->query('is_custom'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($isCustom !== null) {
+                $query->where('is_custom', $isCustom);
+            }
+        }
+
+        if ($wood = $request->query('custom_wood')) {
+            $query->where(function ($wq) use ($wood) {
+                $wq->where('customization_details->wood', 'like', "%{$wood}%")
+                   ->orWhere('notes', 'like', "%{$wood}%");
+            });
+        }
+
         if ($minAmount = $request->query('min_amount')) {
             $query->where('total_amount', '>=', $minAmount);
         }
@@ -61,6 +75,8 @@ class PurchaseOrderController extends Controller
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('po_number', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%")
+                  ->orWhere('customization_details', 'like', "%{$search}%")
                   ->orWhereHas('vendor', function ($vq) use ($search) {
                       $vq->where('name', 'like', "%{$search}%");
                   });
@@ -103,11 +119,14 @@ class PurchaseOrderController extends Controller
             'order_date' => ['required', 'date'],
             'expected_delivery_date' => ['nullable', 'date'],
             'place_of_supply' => ['nullable', 'string', 'max:100'],
+            'is_custom' => ['nullable', 'boolean'],
+            'customization_details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.analytic_account_id' => ['nullable', 'exists:analytic_accounts,id'],
+            'items.*.description' => ['nullable', 'string'],
             'items.*.quantity_ordered' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
             'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -145,7 +164,7 @@ class PurchaseOrderController extends Controller
                     'product_id' => $product->id,
                     'analytic_account_id' => $item['analytic_account_id'] ?? null,
                     'hsn_code' => $product->hsn_code ?? '94018000',
-                    'description' => $product->name,
+                    'description' => $item['description'] ?? $product->name,
                     'quantity_ordered' => $qty,
                     'quantity_received' => 0.00,
                     'unit_price' => $price,
@@ -164,6 +183,12 @@ class PurchaseOrderController extends Controller
             $totalTax = $cgstTotal + $sgstTotal + $igstTotal;
             $totalAmount = $subtotal + $totalTax;
 
+            $isCustom = (bool) ($validated['is_custom'] ?? false);
+            $customDetails = $validated['customization_details'] ?? null;
+            if (!$isCustom && !empty($customDetails)) {
+                $isCustom = true;
+            }
+
             $po = PurchaseOrder::create([
                 'po_number' => $poNumber,
                 'vendor_id' => $vendor->id,
@@ -180,6 +205,8 @@ class PurchaseOrderController extends Controller
                 'igst_amount' => $igstTotal,
                 'discount_amount' => 0.00,
                 'total_amount' => $totalAmount,
+                'is_custom' => $isCustom,
+                'customization_details' => $customDetails,
                 'notes' => $validated['notes'] ?? null,
                 'terms_conditions' => $validated['terms_conditions'] ?? null,
                 'created_by' => $request->user()->id,
@@ -220,6 +247,8 @@ class PurchaseOrderController extends Controller
             'order_date' => ['sometimes', 'date'],
             'expected_delivery_date' => ['nullable', 'date'],
             'place_of_supply' => ['nullable', 'string', 'max:100'],
+            'is_custom' => ['nullable', 'boolean'],
+            'customization_details' => ['nullable', 'array'],
             'notes' => ['nullable', 'string'],
             'terms_conditions' => ['nullable', 'string'],
         ]);
