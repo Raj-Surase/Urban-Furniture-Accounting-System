@@ -2,34 +2,42 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// Determine PHP executable
-let phpBin = 'php';
-
-if (process.platform === 'win32') {
-  let hasPhp = false;
-  try {
-    execSync('where php', { stdio: 'ignore' });
-    hasPhp = true;
-  } catch {
-    hasPhp = false;
+function getPhpExecutable() {
+  if (process.env.PHP_PATH && fs.existsSync(process.env.PHP_PATH)) {
+    return process.env.PHP_PATH;
   }
 
-  if (!hasPhp) {
-    const candidates = [
+  if (process.platform === 'win32') {
+    const standardPaths = [
       'C:\\tools\\php\\php.exe',
       'C:\\php\\php.exe',
       'C:\\xampp\\php\\php.exe'
     ];
 
-    for (const candidate of candidates) {
+    for (const candidate of standardPaths) {
       if (fs.existsSync(candidate)) {
-        phpBin = candidate;
-        const phpDir = path.dirname(candidate);
-        process.env.PATH = `${phpDir};${process.env.PATH}`;
-        break;
+        return candidate;
       }
     }
+
+    try {
+      const output = execSync('where php.exe', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      const firstLine = output.split(/\r?\n/)[0];
+      if (firstLine && fs.existsSync(firstLine)) {
+        return firstLine;
+      }
+    } catch {
+      // ignore
+    }
   }
+
+  return 'php';
+}
+
+const phpBin = getPhpExecutable();
+const phpDir = path.dirname(phpBin);
+if (fs.existsSync(phpDir) && !process.env.PATH.includes(phpDir)) {
+  process.env.PATH = `${phpDir};${process.env.PATH}`;
 }
 
 const backendDir = path.resolve(__dirname, '..', 'backend');
