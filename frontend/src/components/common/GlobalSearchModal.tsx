@@ -567,6 +567,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       placement="top"
       backdrop="blur"
       hideCloseButton
+      scrollBehavior="inside"
       classNames={{
         base: 'bg-card dark:bg-[#16161c] border border-border dark:border-white/[0.1] rounded-[24px] shadow-[0_25px_80px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_80px_rgba(0,0,0,0.85)] overflow-hidden mt-12 sm:mt-20 mx-4 max-w-2xl text-foreground',
         backdrop: 'bg-black/50 dark:bg-black/75 backdrop-blur-md z-[100]',
@@ -633,7 +634,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           {/* 3. Search Results List */}
           <div
             ref={listRef}
-            className="max-h-[380px] overflow-y-auto p-3 sm:p-4 space-y-4 no-scrollbar"
+            className="max-h-[380px] overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-4 no-scrollbar"
           >
             {groupedItems.length > 0 ? (
               groupedItems.map((group) => (

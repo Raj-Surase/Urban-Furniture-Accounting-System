@@ -1056,8 +1056,9 @@ export const ItemsPage: React.FC = () => {
           onOpenChange={createModal.onOpenChange}
           backdrop="blur"
           radius="lg"
+          scrollBehavior="inside"
           classNames={{
-            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
+            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden max-h-[90vh]',
             backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
             wrapper: 'z-[61]',
           }}
@@ -1147,8 +1148,9 @@ export const ItemsPage: React.FC = () => {
           onOpenChange={editModal.onOpenChange}
           backdrop="blur"
           radius="lg"
+          scrollBehavior="inside"
           classNames={{
-            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
+            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden max-h-[90vh]',
             backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
             wrapper: 'z-[61]',
           }}
@@ -1237,8 +1239,9 @@ export const ItemsPage: React.FC = () => {
           onOpenChange={detailModal.onOpenChange}
           backdrop="blur"
           radius="lg"
+          scrollBehavior="inside"
           classNames={{
-            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
+            base: 'border border-white/[0.08] bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden max-h-[90vh]',
             backdrop: 'bg-black/70 backdrop-blur-md z-[60]',
             wrapper: 'z-[61]',
           }}
@@ -1320,8 +1323,9 @@ export const ItemsPage: React.FC = () => {
           onOpenChange={deleteModal.onOpenChange}
           backdrop="blur"
           radius="lg"
+          scrollBehavior="inside"
           classNames={{
-            base: 'border border-rose-500/30 bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden',
+            base: 'border border-rose-500/30 bg-[#15151a] shadow-2xl rounded-[28px] overflow-hidden max-h-[90vh]',
             backdrop: 'bg-black/70 backdrop-blur-md z-[80]',
             wrapper: 'z-[81]',
           }}

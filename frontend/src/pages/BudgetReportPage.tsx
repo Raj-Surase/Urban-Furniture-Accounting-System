@@ -20,6 +20,7 @@ import {
 import { budgetsApi } from '../lib/api';
 import { BudgetLineType } from '../types';
 import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
+import { PortalModal } from '../components/common/PortalModal';
 
 // ── SVG Donut Chart (no external dep) ──────────────────────────────────────────
 interface DonutProps {
@@ -116,20 +117,8 @@ const PieModal: React.FC<PieModalProps> = ({ budget, onClose }) => {
     '₹' + Math.round(v).toLocaleString('en-IN');
 
   return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-    >
-      <motion.div
-        className="bg-[#18181f] border border-white/[0.1] rounded-2xl p-8 shadow-2xl max-w-sm w-full mx-4 space-y-6"
-        initial={{ scale: 0.85, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.85, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <PortalModal isOpen={Boolean(budget)} onClose={onClose} maxWidth="max-w-sm" zIndex="z-[60]">
+      <div className="bg-[#18181f] border border-white/[0.1] rounded-2xl p-8 shadow-2xl w-full space-y-6 text-white">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
@@ -205,8 +194,8 @@ const PieModal: React.FC<PieModalProps> = ({ budget, onClose }) => {
           <span className="text-[#8a8a9a]">Total Committed</span>
           <span className="font-mono font-bold text-white">{fmt(totalCommitted)}</span>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </PortalModal>
   );
 };
 

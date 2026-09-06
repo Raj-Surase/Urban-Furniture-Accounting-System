@@ -25,6 +25,7 @@ import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
 import { TableSkeleton } from '../components/common/TableSkeleton';
+import { PortalModal } from '../components/common/PortalModal';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { BudgetStatus, BudgetLineType, ContactType } from '../types';
@@ -1238,72 +1239,68 @@ export const BudgetsPage: React.FC = () => {
       )}
 
       {/* Achieved Amount Transactions Modal */}
-      <AnimatePresence>
-        {transactionModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
+      <PortalModal
+        isOpen={transactionModalOpen}
+        onClose={() => setTransactionModalOpen(false)}
+        maxWidth="max-w-2xl"
+        zIndex="z-[65]"
+      >
+        <div className="w-full bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-white">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418] shrink-0">
+            <div>
+              <h3 className="text-sm font-bold text-white">
+                Achieved Transactions Breakdown — {modalAnalyticName}
+              </h3>
+              <p className="text-[11px] text-[#8a8a9a]">
+                Matching Sales Invoices / Vendor Bills for budget period
+              </p>
+            </div>
+            <button
+              onClick={() => setTransactionModalOpen(false)}
+              className="p-1.5 rounded-lg text-[#707080] hover:text-white"
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418]">
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Achieved Transactions Breakdown — {modalAnalyticName}
-                  </h3>
-                  <p className="text-[11px] text-[#8a8a9a]">
-                    Matching Sales Invoices / Vendor Bills for budget period
-                  </p>
-                </div>
-                <button
-                  onClick={() => setTransactionModalOpen(false)}
-                  className="p-1.5 rounded-lg text-[#707080] hover:text-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 max-h-[60vh] overflow-y-auto">
-                {modalLoading ? (
-                  <div className="text-center py-8 text-[#8a8a9a]">Loading transactions...</div>
-                ) : modalTransactions.length === 0 ? (
-                  <div className="text-center py-8 text-[#707080]">
-                    No transactions recorded against this analytic account in this period.
-                  </div>
-                ) : (
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#121216] text-[#707080] border-b border-white/[0.08]">
-                      <tr>
-                        <th className="py-2.5 px-3">Document</th>
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Party</th>
-                        <th className="py-2.5 px-3">Description</th>
-                        <th className="py-2.5 px-3 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.04]">
-                      {modalTransactions.map((tx, i) => (
-                        <tr key={i} className="hover:bg-white/[0.02]">
-                          <td className="py-2.5 px-3 font-semibold text-white">
-                            {tx.invoice_number}
-                          </td>
-                          <td className="py-2.5 px-3 text-[#a0a0b0] font-mono">{tx.issue_date}</td>
-                          <td className="py-2.5 px-3 text-[#a0a0b0]">{tx.customer_name || tx.vendor_name || '—'}</td>
-                          <td className="py-2.5 px-3 text-[#8a8a9a]">{tx.description}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">
-                            ₹{Number(tx.line_total).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </motion.div>
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="p-6 max-h-[60vh] overflow-y-auto overscroll-contain">
+            {modalLoading ? (
+              <div className="text-center py-8 text-[#8a8a9a]">Loading transactions...</div>
+            ) : modalTransactions.length === 0 ? (
+              <div className="text-center py-8 text-[#707080]">
+                No transactions recorded against this analytic account in this period.
+              </div>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/[0.06] text-[#707080] text-left">
+                    <th className="py-2 px-3">Type</th>
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 px-3">Partner</th>
+                    <th className="py-2 px-3">Description</th>
+                    <th className="py-2 px-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {modalTransactions.map((tx: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-white/[0.02]">
+                      <td className="py-2.5 px-3 font-mono text-purple-400">
+                        {tx.invoice_number || '—'}
+                      </td>
+                      <td className="py-2.5 px-3 text-[#a0a0b0] font-mono">{tx.issue_date}</td>
+                      <td className="py-2.5 px-3 text-[#a0a0b0]">{tx.customer_name || tx.vendor_name || '—'}</td>
+                      <td className="py-2.5 px-3 text-[#8a8a9a]">{tx.description}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-emerald-400 font-semibold">
+                        ₹{Number(tx.line_total).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </PortalModal>
     </MasterViewLayout>
   );
 };
