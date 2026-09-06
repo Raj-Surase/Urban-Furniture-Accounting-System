@@ -2530,14 +2530,8 @@ class DatabaseSeeder extends Seeder
         $this->call(ExcalidrawAccountingSeeder::class);
 
         // =========================================================================
-        // 18. Seed 250+ Records Across All Modules with Realistic Operations Data
+        // 18. Seed 250 Records Across All Modules with Realistic Operations Data
         // =========================================================================
         $this->call(ComprehensiveOperationsSeeder::class);
-
-        // =========================================================================
-        // 19. Seed 200+ records per module for each named demo user account
-        //     Ensures user-role demo accounts (scoped by created_by) have rich data
-        // =========================================================================
-        $this->call(DemoUserSeeder::class);
     }
 }

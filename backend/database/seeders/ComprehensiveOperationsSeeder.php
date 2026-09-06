@@ -74,34 +74,50 @@ class ComprehensiveOperationsSeeder extends Seeder
         'Bansal', 'Mittal', 'Goel', 'Jindal', 'Trivedi', 'Pandey', 'Mishra', 'Dubey', 'Tiwari', 'Shukla'
     ];
 
+    /**
+     * Get the 5 primary demo users so that operational data is distributed across demo accounts
+     */
+    private function getCoreDemoUsers(): array
+    {
+        $core = User::whereIn('email', [
+            'admin@example.com',
+            'manager@example.com',
+            'manager2@example.com',
+            'user@example.com',
+            'clerk@example.com',
+        ])->get()->all();
+
+        return !empty($core) ? $core : User::limit(5)->get()->all();
+    }
+
     public function run(): void
     {
-        $this->command->info('🚀 Starting Comprehensive Operations Seeding (260+ records per module)...');
+        $this->command->info('🚀 Starting Comprehensive Operations Seeding (200-250 records per module)...');
 
-        $users = $this->seedUsers(265);
-        $accounts = $this->seedAccounts(270, $users[0]);
-        $journals = $this->seedJournals(265, $accounts);
-        $analytics = $this->seedAnalyticAccounts(265);
-        $customers = $this->seedCustomers(265, $accounts, $users);
-        $vendors = $this->seedVendors(265, $accounts, $users);
-        $products = $this->seedProducts(265, $accounts, $users);
+        $users = $this->seedUsers(250);
+        $accounts = $this->seedAccounts(250, $users[0]);
+        $journals = $this->seedJournals(250, $accounts);
+        $analytics = $this->seedAnalyticAccounts(250);
+        $customers = $this->seedCustomers(250, $accounts, $users);
+        $vendors = $this->seedVendors(250, $accounts, $users);
+        $products = $this->seedProducts(250, $accounts, $users);
 
-        $pos = $this->seedPurchaseOrders(265, $vendors, $products, $analytics, $users);
-        $sos = $this->seedSalesOrders(265, $customers, $products, $analytics, $users);
+        $pos = $this->seedPurchaseOrders(250, $vendors, $products, $analytics, $users);
+        $sos = $this->seedSalesOrders(250, $customers, $products, $analytics, $users);
 
-        $invoices = $this->seedInvoicesAndBills(270, $sos, $pos, $customers, $vendors, $products, $accounts, $analytics, $users);
-        $payments = $this->seedPayments(530, $invoices, $accounts, $users);
-        $this->seedPaymentTransactions(265, $invoices, $sos, $customers, $vendors, $payments, $users);
+        $invoices = $this->seedInvoicesAndBills(125, $sos, $pos, $customers, $vendors, $products, $accounts, $analytics, $users);
+        $payments = $this->seedPayments(250, $invoices, $accounts, $users);
+        $this->seedPaymentTransactions(250, $invoices, $sos, $customers, $vendors, $payments, $users);
 
-        $this->seedJournalEntries(270, $journals, $accounts, $invoices, $users);
-        $this->seedInventoryMovements(265, $products, $pos, $sos, $users);
-        $this->seedBudgets(265, $analytics, $customers, $vendors, $users);
-        $this->seedItems(265, $users);
+        $this->seedJournalEntries(250, $journals, $accounts, $invoices, $users);
+        $this->seedInventoryMovements(250, $products, $pos, $sos, $users);
+        $this->seedBudgets(250, $analytics, $customers, $vendors, $users);
+        $this->seedItems(250, $users);
 
         $this->syncDocumentSequences();
         $this->recalculateGLBalances($accounts);
 
-        $this->command->info('✅ Comprehensive Operations Seeder completed successfully!');
+        $this->command->info('✅ Comprehensive Operations Seeder completed successfully (200-250 rows per table)!');
     }
 
     /**
@@ -200,7 +216,7 @@ class ComprehensiveOperationsSeeder extends Seeder
             ];
 
             $counter = 10;
-            while ($counter < 270) {
+            while ($counter < $targetCount) {
                 $tmpl = $accountTemplates[$counter % count($accountTemplates)];
                 $subNumber = (int)($counter / count($accountTemplates)) + 1;
                 $code = sprintf("%s%02d", $tmpl['prefix'], $subNumber);
@@ -364,7 +380,8 @@ class ComprehensiveOperationsSeeder extends Seeder
                 $suffix = $companySuffixes[($counter * 2) % count($companySuffixes)];
                 $company = "{$prefix} {$suffix}";
                 $gstin = sprintf("%sAAACU%04d%s1Z%d", $cityInfo['state_code'], 1000 + ($counter % 8000), chr(65 + ($counter % 26)), ($counter % 9) + 1);
-                $creator = $users[$counter % count($users)];
+                $coreUsers = $this->getCoreDemoUsers();
+                $creator = $coreUsers[$counter % count($coreUsers)];
 
                 $customer = Customer::firstOrCreate(
                     ['code' => $code],
@@ -434,7 +451,8 @@ class ComprehensiveOperationsSeeder extends Seeder
                 $company = "{$niche['prefix']} {$niche['suffix']} (#{$counter})";
                 $pan = sprintf("AABFV%04d%s", 2000 + ($counter % 7000), chr(65 + ($counter % 26)));
                 $gstin = sprintf("%s%s1Z%d", $cityInfo['state_code'], $pan, ($counter % 9) + 1);
-                $creator = $users[$counter % count($users)];
+                $coreUsers = $this->getCoreDemoUsers();
+                $creator = $coreUsers[$counter % count($coreUsers)];
 
                 $vendor = Vendor::firstOrCreate(
                     ['code' => $code],
@@ -530,7 +548,8 @@ class ComprehensiveOperationsSeeder extends Seeder
                 $cost = (float) $arch['cost'] + (($counter % 15) * 150);
                 $price = (float) $arch['price'] + (($counter % 15) * 300);
                 $stock = $arch['type'] === 'service' ? 0.00 : (float) rand(8, 120);
-                $creator = $users[$counter % count($users)];
+                $coreUsers = $this->getCoreDemoUsers();
+                $creator = $coreUsers[$counter % count($coreUsers)];
 
                 $product = Product::firstOrCreate(
                     ['sku' => $sku],
@@ -589,8 +608,9 @@ class ComprehensiveOperationsSeeder extends Seeder
                 }
                 $vendor = $vendors[$counter % count($vendors)];
                 $status = $statuses[$counter % count($statuses)];
-                $creator = $users[$counter % count($users)];
-                $approver = in_array($status, ['approved', 'received', 'partially_received']) ? $users[0] : null;
+                $coreUsers = $this->getCoreDemoUsers();
+                $creator = $coreUsers[$counter % count($coreUsers)];
+                $approver = in_array($status, ['approved', 'received', 'partially_received']) ? $coreUsers[0] : null;
 
                 $orderDate = Carbon::create($year, ($counter % 12) + 1, rand(1, 28))->format('Y-m-d');
                 $isInterstate = ($vendor->state !== 'Maharashtra');
@@ -714,8 +734,9 @@ class ComprehensiveOperationsSeeder extends Seeder
                 }
                 $customer = $customers[$counter % count($customers)];
                 $status = $statuses[$counter % count($statuses)];
-                $creator = $users[$counter % count($users)];
-                $approver = in_array($status, ['approved', 'invoiced', 'delivered']) ? $users[0] : null;
+                $coreUsers = $this->getCoreDemoUsers();
+                $creator = $coreUsers[$counter % count($coreUsers)];
+                $approver = in_array($status, ['approved', 'invoiced', 'delivered']) ? $coreUsers[0] : null;
 
                 $orderDate = Carbon::create($year, ($counter % 12) + 1, rand(1, 28))->format('Y-m-d');
                 $isInterstate = ($customer->state !== 'Maharashtra');
@@ -847,7 +868,8 @@ class ComprehensiveOperationsSeeder extends Seeder
             $customer = $customers[$idx % count($customers)];
             $status = $statuses[$idx % count($statuses)];
             $so = $sos[$idx % count($sos)];
-            $creator = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $creator = $coreUsers[$idx % count($coreUsers)];
 
             $invDate = Carbon::create($year, ($idx % 12) + 1, rand(1, 28));
             $dueDate = $status === 'overdue'
@@ -970,7 +992,8 @@ class ComprehensiveOperationsSeeder extends Seeder
             $vendor = $vendors[$idx % count($vendors)];
             $status = $statuses[$idx % count($statuses)];
             $po = $pos[$idx % count($pos)];
-            $creator = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $creator = $coreUsers[$idx % count($coreUsers)];
 
             $billDate = Carbon::create($year, ($idx % 12) + 1, rand(1, 28));
             $dueDate = $status === 'overdue'
@@ -1120,7 +1143,8 @@ class ComprehensiveOperationsSeeder extends Seeder
             $amount = $inv ? (float)($inv->amount_paid > 0 ? $inv->amount_paid : $inv->total_amount) : rand(10, 500) * 1000.00;
             $method = $methods[$idx % count($methods)];
             $status = $statuses[$idx % count($statuses)];
-            $creator = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $creator = $coreUsers[$idx % count($coreUsers)];
 
             $refNumber = match ($method) {
                 'bank_transfer' => 'NEFT-HDFC-' . rand(100000, 999999),
@@ -1186,7 +1210,8 @@ class ComprehensiveOperationsSeeder extends Seeder
             $idx = $counter;
             $status = $statuses[$idx % count($statuses)];
             $mConfig = $methods[$idx % count($methods)];
-            $creator = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $creator = $coreUsers[$idx % count($coreUsers)];
 
             $isCustomer = ($idx % 3 !== 0);
             $partyType = $isCustomer ? 'customer' : 'vendor';
@@ -1268,7 +1293,8 @@ class ComprehensiveOperationsSeeder extends Seeder
 
             $idx = $counter;
             $journal = $journals[$idx % count($journals)];
-            $creator = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $creator = $coreUsers[$idx % count($coreUsers)];
             $status = ($idx % 10 === 0) ? 'draft' : (($idx % 25 === 0) ? 'reversed' : 'posted');
 
             $month = ($idx % 12) + 1;
@@ -1299,7 +1325,7 @@ class ComprehensiveOperationsSeeder extends Seeder
                     'status' => $status,
                     'reference_type' => 'ManualAdjustment',
                     'reference_id' => $idx,
-                    'posted_by' => $status === 'posted' ? $users[0]->id : null,
+                    'posted_by' => $status === 'posted' ? $coreUsers[0]->id : null,
                     'posted_at' => $status === 'posted' ? Carbon::parse($postingDate)->addHours(4) : null,
                     'created_by' => $creator->id,
                 ]);
@@ -1513,7 +1539,8 @@ class ComprehensiveOperationsSeeder extends Seeder
                 default => $idx,
             };
 
-            $performedBy = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $performedBy = $coreUsers[$idx % count($coreUsers)];
 
             InventoryMovement::create([
                 'product_id' => $prod->id,
@@ -1628,7 +1655,8 @@ class ComprehensiveOperationsSeeder extends Seeder
         for ($i = 1; $i <= $needed; $i++) {
             $idx = $existing + $i;
             $tmpl = $actionTemplates[$idx % count($actionTemplates)];
-            $user = $users[$idx % count($users)];
+            $coreUsers = $this->getCoreDemoUsers();
+            $user = $coreUsers[$idx % count($coreUsers)];
             $priority = $priorities[$idx % count($priorities)];
             $status = $statuses[$idx % count($statuses)];
 

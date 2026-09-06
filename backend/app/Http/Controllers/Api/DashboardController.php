@@ -208,8 +208,8 @@ class DashboardController extends Controller
 
         $fetchLimit = max(50, $page * $perPage + 20);
 
-        $invQuery = Invoice::latest('created_at');
-        $payQuery = Payment::with('bankAccount')->latest('created_at');
+        $invQuery = Invoice::with('party')->latest('created_at');
+        $payQuery = Payment::with(['bankAccount', 'party', 'invoice.party'])->latest('created_at');
 
         if (! $isElevated) {
             $invQuery->where('created_by', $user->id);

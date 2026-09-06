@@ -31,7 +31,7 @@ class InvoiceController extends Controller
     {
         Gate::authorize('viewAny', Invoice::class);
 
-        $query = Invoice::with(['items.product', 'creator', 'approver'])->latest();
+        $query = Invoice::with(['items.product', 'creator', 'approver', 'party'])->latest();
 
         $canViewAll = $request->user()->isAdmin() ||
                       $request->user()->isManager() ||
@@ -100,11 +100,18 @@ class InvoiceController extends Controller
             });
         }
 
+        $rawStats = (clone $baseQuery)->selectRaw("
+            SUM(CASE WHEN type = 'receivable' AND status IN ('approved', 'draft') THEN COALESCE(balance_due, total_amount) ELSE 0 END) as total_receivables,
+            SUM(CASE WHEN type = 'payable' AND status IN ('approved', 'draft') THEN COALESCE(balance_due, total_amount) ELSE 0 END) as total_payables,
+            SUM(CASE WHEN status IN ('approved', 'paid') THEN tax_amount ELSE 0 END) as total_gst,
+            COUNT(CASE WHEN status = 'draft' THEN 1 END) as pending_approvals
+        ")->reorder()->toBase()->first();
+
         $stats = [
-            'total_receivables' => (float) (clone $baseQuery)->where('type', 'receivable')->whereIn('status', ['approved', 'draft'])->sum(DB::raw('COALESCE(balance_due, total_amount)')),
-            'total_payables' => (float) (clone $baseQuery)->where('type', 'payable')->whereIn('status', ['approved', 'draft'])->sum(DB::raw('COALESCE(balance_due, total_amount)')),
-            'total_gst' => (float) (clone $baseQuery)->whereIn('status', ['approved', 'paid'])->sum('tax_amount'),
-            'pending_approvals' => (int) (clone $baseQuery)->where('status', 'draft')->count(),
+            'total_receivables' => (float) ($rawStats->total_receivables ?? 0),
+            'total_payables' => (float) ($rawStats->total_payables ?? 0),
+            'total_gst' => (float) ($rawStats->total_gst ?? 0),
+            'pending_approvals' => (int) ($rawStats->pending_approvals ?? 0),
         ];
 
         $perPage = $request->query('per_page', 15);
