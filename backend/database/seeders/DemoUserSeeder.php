@@ -207,10 +207,7 @@ class DemoUserSeeder extends Seeder
         $this->command->info("    Customers: {$existing} existing, creating {$needed}...");
 
         // Use DEMO-CUST prefix to avoid collisions with existing CUST- records
-        $baseOffset = (int) DB::table('customers')
-            ->where('code', 'like', 'DEMO-CUST-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
+        $baseOffset = $this->getMaxSuffixNumber('customers', 'code', 'DEMO-CUST-');
 
         for ($i = 1; $i <= $needed; $i++) {
             $n        = $baseOffset + $i;
@@ -258,10 +255,7 @@ class DemoUserSeeder extends Seeder
         $this->command->info("    Vendors: {$existing} existing, creating {$needed}...");
 
         // Use DEMO-VEN prefix to avoid collisions with existing VEN- records
-        $baseOffset = (int) DB::table('vendors')
-            ->where('code', 'like', 'DEMO-VEN-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
+        $baseOffset = $this->getMaxSuffixNumber('vendors', 'code', 'DEMO-VEN-');
 
         for ($i = 1; $i <= $needed; $i++) {
             $n     = $baseOffset + $i;
@@ -307,11 +301,7 @@ class DemoUserSeeder extends Seeder
         $statuses = ['draft', 'submitted', 'approved', 'partially_received', 'received', 'rejected', 'cancelled'];
 
         // Use global counter across ALL demo POs to avoid duplicate po_number collisions
-        $maxExistingNum = (int) DB::table('purchase_orders')
-            ->where('po_number', 'like', 'DEMO-PO-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(po_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxExistingNum + 1;
+        $counter = $this->getMaxSuffixNumber('purchase_orders', 'po_number', 'DEMO-PO-') + 1;
 
         for ($i = 1; $i <= $needed; $i++) {
             $year    = ($counter % 3 === 0) ? 2025 : 2026;
@@ -414,11 +404,7 @@ class DemoUserSeeder extends Seeder
         $statuses = ['draft', 'confirmed', 'approved', 'invoiced', 'delivered', 'cancelled'];
 
         // Use global counter across ALL demo SOs to avoid duplicate so_number collisions
-        $maxExistingNum = (int) DB::table('sales_orders')
-            ->where('so_number', 'like', 'DEMO-SO-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(so_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxExistingNum + 1;
+        $counter = $this->getMaxSuffixNumber('sales_orders', 'so_number', 'DEMO-SO-') + 1;
 
         for ($i = 1; $i <= $needed; $i++) {
             $year     = ($counter % 3 === 0) ? 2025 : 2026;
@@ -525,11 +511,7 @@ class DemoUserSeeder extends Seeder
         $statuses = ['draft', 'approved', 'partially_paid', 'paid', 'overdue', 'void'];
 
         // Use global counter across ALL demo AR invoices
-        $maxNum = (int) DB::table('invoices')
-            ->where('invoice_number', 'like', 'DEMO-INV-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxNum + 1;
+        $counter = $this->getMaxSuffixNumber('invoices', 'invoice_number', 'DEMO-INV-') + 1;
 
         $newInvoices = [];
 
@@ -654,11 +636,7 @@ class DemoUserSeeder extends Seeder
         $statuses = ['draft', 'approved', 'partially_paid', 'paid', 'overdue', 'void'];
 
         // Use global counter across ALL demo AP bills
-        $maxNum = (int) DB::table('invoices')
-            ->where('invoice_number', 'like', 'DEMO-BILL-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxNum + 1;
+        $counter = $this->getMaxSuffixNumber('invoices', 'invoice_number', 'DEMO-BILL-') + 1;
 
         for ($i = 1; $i <= $needed; $i++) {
             $year   = ($counter % 3 === 0) ? 2025 : 2026;
@@ -778,11 +756,7 @@ class DemoUserSeeder extends Seeder
         $statuses = ['cleared', 'cleared', 'pending', 'failed', 'reversed'];
 
         // Use global counter across ALL demo payments
-        $maxNum = (int) DB::table('payments')
-            ->where('payment_number', 'like', 'DEMO-PAY-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(payment_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxNum + 1;
+        $counter = $this->getMaxSuffixNumber('payments', 'payment_number', 'DEMO-PAY-') + 1;
 
         // Mix of received (AR) and made (AP) payments
         $allInvoices = array_merge($arInvoices, $apInvoices);
@@ -845,11 +819,7 @@ class DemoUserSeeder extends Seeder
         $this->command->info("    Journal Entries: {$existing} existing, creating {$needed}...");
 
         // Use global counter across ALL demo JEs
-        $maxNum = (int) DB::table('journal_entries')
-            ->where('entry_number', 'like', 'DEMO-JE-%')
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(entry_number, '-', -1) AS UNSIGNED)) as max_num")
-            ->value('max_num');
-        $counter = $maxNum + 1;
+        $counter = $this->getMaxSuffixNumber('journal_entries', 'entry_number', 'DEMO-JE-') + 1;
 
         for ($i = 1; $i <= $needed; $i++) {
             $year       = ($counter % 3 === 0) ? 2025 : 2026;
@@ -1036,6 +1006,30 @@ class DemoUserSeeder extends Seeder
     // =========================================================================
     // Helpers
     // =========================================================================
+
+    /**
+     * Get the max numeric suffix from dash-separated codes/identifiers.
+     * Database-agnostic (works on SQLite, MySQL, PostgreSQL, etc.)
+     */
+    private function getMaxSuffixNumber(string $table, string $column, string $prefix): int
+    {
+        $records = DB::table($table)
+            ->where($column, 'like', $prefix . '%')
+            ->pluck($column);
+
+        $max = 0;
+        foreach ($records as $val) {
+            $parts = explode('-', (string) $val);
+            $last = end($parts);
+            if (is_numeric($last)) {
+                $num = (int) $last;
+                if ($num > $max) {
+                    $max = $num;
+                }
+            }
+        }
+        return $max;
+    }
 
     /**
      * Calculate GST breakdown for a line amount.
