@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Truck,
   Plus,
@@ -13,6 +14,8 @@ import {
   CreditCard,
   FolderTree,
   ShieldCheck,
+  ShoppingBag,
+  CheckCircle2,
 } from 'lucide-react';
 import { vendorsApi, accountsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +23,7 @@ import { useToast } from '../context/ToastContext';
 import { formatApiError } from '../lib/errorHandler';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
@@ -56,7 +60,8 @@ const vendorColumnDefs: ColumnFilterDef[] = [
 ];
 
 export const VendorsPage: React.FC = () => {
-  const { isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const [vendors, setVendors] = useState<any[]>([]);
@@ -238,6 +243,182 @@ export const VendorsPage: React.FC = () => {
     items: filteredVendors,
     pageSize: 15,
   });
+
+  const isElevated = isAdmin || isManager || isAccountant;
+
+  if (!isElevated) {
+    const myVendor = vendors.length > 0 ? vendors[0] : null;
+
+    return (
+      <div className="space-y-6">
+        <RolePortalBanner entityName="Vendor Profile" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <Truck className="w-7 h-7 text-indigo-400" />
+              My Vendor Profile
+            </h1>
+            <p className="text-sm text-neutral-400 mt-1">
+              Your registered supplier profile, tax identity, and accounts payable settlement records.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <Button
+              onClick={() => navigate('/bills')}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 shadow-lg shadow-indigo-600/20 text-xs font-semibold"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              View Bills
+            </Button>
+            <Button
+              onClick={() => navigate('/purchase-orders')}
+              className="bg-[#1e1e28] hover:bg-[#252533] text-amber-300 border border-amber-500/30 text-xs font-semibold gap-2"
+            >
+              <ShoppingBag className="w-4 h-4 text-amber-400" />
+              Purchase Orders
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <TableSkeleton columns={3} rows={4} />
+        ) : !myVendor ? (
+          <Card className="p-8 text-center bg-[#141418] border-white/[0.06] rounded-2xl">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto mb-3">
+              <Truck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">No Linked Vendor Profile</h3>
+            <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+              Your user account ({user?.email}) has not been linked to an active supplier/vendor profile yet. Once your vendor agreement is approved by the procurement team, your full details will appear here.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Profile Info */}
+            <Card className="lg:col-span-2 p-6 bg-[#141418] border-white/[0.06] rounded-2xl space-y-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-400 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-600/20">
+                    {myVendor.name?.charAt(0) || 'V'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-white tracking-tight">{myVendor.name}</h2>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                        {myVendor.code || `VEND-${myVendor.id}`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {myVendor.company_name || 'Timber & Materials Supplier'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-3 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Verified Vendor</span>
+                </div>
+              </div>
+
+              {/* Tax & GST Specs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/[0.06]">
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <span className="text-[10.5px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    GSTIN Registration
+                  </span>
+                  <div className="font-mono text-sm font-semibold text-indigo-300">
+                    {myVendor.gstin || 'Unregistered Supplier'}
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    State: <span className="text-white font-medium">{myVendor.state || 'Maharashtra'}</span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] space-y-1">
+                  <span className="text-[10.5px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    Permanent Account Number (PAN)
+                  </span>
+                  <div className="font-mono text-sm font-semibold text-white">
+                    {myVendor.pan || 'N/A'}
+                  </div>
+                  <div className="text-xs text-neutral-400">
+                    Contact: <span className="text-white font-medium">{myVendor.contact_person || user?.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact & Address */}
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                  Business Address & Communication
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
+                      <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Email & Contact</span>
+                    </div>
+                    <div className="text-white font-medium">{myVendor.email || user?.email || 'N/A'}</div>
+                    <div className="text-neutral-400 mt-0.5">{myVendor.phone || user?.phone || 'N/A'}</div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="flex items-center gap-1.5 text-neutral-400 mb-1">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Operational Facility Address</span>
+                    </div>
+                    <div className="text-neutral-300">{myVendor.billing_address || myVendor.address || 'Registered Office'}</div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Financial Ledger Summary */}
+            <div className="space-y-6">
+              <Card className="p-6 bg-gradient-to-br from-indigo-500/10 via-[#181820] to-[#121216] border-indigo-500/20 rounded-2xl space-y-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">
+                  Total Outstanding Payable
+                </span>
+                <div className="text-3xl font-extrabold font-mono text-indigo-300">
+                  ₹{Number(myVendor.outstanding_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1 text-xs">
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Payment Terms:</span>
+                    <span className="text-white font-semibold">{myVendor.payment_terms_days || 30} Days</span>
+                  </div>
+                  <div className="flex justify-between text-neutral-400">
+                    <span>Payable A/C (2110):</span>
+                    <span className="text-white font-semibold font-mono">
+                      Accounts Payable
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 space-y-2">
+                  <Button
+                    onClick={() => navigate('/bills')}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold py-2.5 rounded-xl shadow-md shadow-indigo-600/20"
+                  >
+                    View Vendor Bills
+                  </Button>
+                  <Button
+                    onClick={() => navigate('/purchase-orders')}
+                    variant="outline"
+                    className="w-full border-white/10 text-neutral-300 hover:text-white text-xs py-2.5 rounded-xl"
+                  >
+                    Track Purchase Orders
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

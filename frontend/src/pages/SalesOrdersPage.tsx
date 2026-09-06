@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
@@ -38,7 +39,8 @@ import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filter
 export const SalesOrdersPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAdmin, isManager } = useAuth();
+  const { user, isAdmin, isManager, isAccountant } = useAuth();
+  const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
 
   const [orders, setOrders] = useState<any[]>([]);
@@ -114,14 +116,37 @@ export const SalesOrdersPage: React.FC = () => {
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
   }, []);
 
-  // Auto-open create modal when ?new=true is in URL (e.g., from Dashboard card)
+  const handleOpenCreateModal = () => {
+    if (!isElevated && customers.length > 0) {
+      const matched = (user?.customer_id && customers.find((c) => c.id === user.customer_id)) || customers[0];
+      if (matched) {
+        handleCustomerSelect(matched.id);
+      } else {
+        setCustomerId('');
+      }
+    } else {
+      setCustomerId('');
+    }
+    setIsCreateOpen(true);
+  };
+
+  // Auto-open create modal when ?new=true is in URL (e.g., from Dashboard card or 3D studio)
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
-      setCustomerId('');
+      if (!isElevated && customers.length > 0) {
+        const matched = (user?.customer_id && customers.find((c) => c.id === user.customer_id)) || customers[0];
+        if (matched) {
+          handleCustomerSelect(matched.id);
+        } else {
+          setCustomerId('');
+        }
+      } else if (isElevated) {
+        setCustomerId('');
+      }
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
       setIsCreateOpen(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isElevated, customers, user?.customer_id]);
 
   const handleProductChange = (index: number, productId: number) => {
     const prod = products.find((p) => p.id === productId);
@@ -346,6 +371,8 @@ export const SalesOrdersPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <RolePortalBanner entityName="Sales Orders" />
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
@@ -358,10 +385,7 @@ export const SalesOrdersPage: React.FC = () => {
         </div>
 
         <Button
-          onClick={() => {
-            setCustomerId('');
-            setIsCreateOpen(true);
-          }}
+          onClick={handleOpenCreateModal}
           className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 shadow-lg shadow-emerald-600/20 text-xs font-semibold"
         >
           <Plus className="w-4 h-4" />
@@ -601,19 +625,40 @@ export const SalesOrdersPage: React.FC = () => {
                 )}
               </div>
 
-              <select
-                value={customerId}
-                onChange={(e) => handleCustomerSelect(e.target.value === '' ? '' : Number(e.target.value))}
-                required
-                className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
-              >
-                <option value="">Select a registered client or institutional customer...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} • {c.state || 'MH'} {c.gstin ? `(${c.gstin})` : '(Unregistered)'}
-                  </option>
-                ))}
-              </select>
+              {!isElevated ? (
+                <div className="p-3 bg-white/[0.02] border border-emerald-500/30 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                      {selectedCustomer?.name?.charAt(0) || user?.name?.charAt(0) || 'C'}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">
+                        {selectedCustomer?.name || user?.customer_name || user?.name}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 block">
+                        {selectedCustomer?.company_name || 'Client Account'} • {selectedCustomer?.state || 'Maharashtra'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                    Active Customer Account
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={customerId}
+                  onChange={(e) => handleCustomerSelect(e.target.value === '' ? '' : Number(e.target.value))}
+                  required
+                  className="w-full px-3 py-2.5 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:border-emerald-500 focus:outline-none transition-colors"
+                >
+                  <option value="">Select a registered client or institutional customer...</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} • {c.state || 'MH'} {c.gstin ? `(${c.gstin})` : '(Unregistered)'}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {selectedCustomer && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-xs border-t border-white/[0.04]">

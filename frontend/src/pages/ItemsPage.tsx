@@ -34,6 +34,7 @@ import { formatApiError } from '../lib/errorHandler';
 import { AnimatedStatCard } from '../components/ui/AnimatedStatCard';
 import { PageTransition } from '../components/layout/PageTransition';
 import { PageHeader } from '../components/layout/PageHeader';
+import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
@@ -489,6 +490,8 @@ export const ItemsPage: React.FC = () => {
   return (
     <PageTransition>
       <div className="space-y-6 sm:space-y-8 pb-10">
+        <RolePortalBanner entityName="Operations & Tasks" />
+
         {/* Header matching Expected UI */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

@@ -62,13 +62,14 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
           amount: parsedAmount,
         });
 
-        const { order, key_id, customer } = orderRes.data;
+        const { order, key_id, customer, is_mock } = orderRes.data;
 
         await openRazorpayCheckout({
           key_id: key_id,
           order_id: order.id,
           amount: parsedAmount,
           currency: 'INR',
+          is_mock: is_mock,
           name: 'Urban Furniture Platform',
           description: `Settlement for ${partnerName}`,
           customer: customer,
@@ -315,6 +316,33 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
                   ? 'Select Razorpay for instant online checkout via UPI, Cards, and Netbanking.'
                   : 'Select disbursement account channel for vendor settlement.'}
               </span>
+
+              {paymentVia === PaymentMethod.RAZORPAY && parseFloat(amount || '0') > 100000 && (
+                <div className="mt-2.5 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-[11px] leading-relaxed flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <span>⚠️ Razorpay Test Mode Limit</span>
+                  </div>
+                  <div>
+                    Razorpay sandbox caps single test transactions at ₹1,00,000. Transactions above ₹1,00,000 (such as ₹{Number(amount || 0).toLocaleString('en-IN')}) will fail with <em>"Amount exceeds maximum amount allowed"</em>.
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setAmount('50000')}
+                      className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-medium rounded-md transition-colors"
+                    >
+                      Set to ₹50,000 (Partial Test)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAmount('100000')}
+                      className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-medium rounded-md transition-colors"
+                    >
+                      Set to ₹1,00,000 (Max Test)
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Note */}

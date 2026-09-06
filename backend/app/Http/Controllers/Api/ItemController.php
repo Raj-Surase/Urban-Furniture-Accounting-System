@@ -23,11 +23,14 @@ class ItemController extends Controller
     {
         Gate::authorize('viewAny', Item::class);
 
+        $user = $request->user();
         $query = Item::with('user')->latest();
 
-        // Optional filter: only show items owned by current user
-        if ($request->boolean('mine') && $request->user()) {
-            $query->where('user_id', $request->user()->id);
+        // Non-admin/manager users without view_any only see their own items
+        if (! $user->hasPermission(\App\Security\Rbac::PERMISSION_ITEMS_VIEW_ANY)) {
+            $query->where('user_id', $user->id);
+        } elseif ($request->boolean('mine')) {
+            $query->where('user_id', $user->id);
         }
 
         if ($search = $request->query('search')) {

@@ -164,20 +164,32 @@ class DashboardController extends Controller
             $myCompletedCount = SalesOrder::where('created_by', $user->id)->where('status', 'delivered')->count();
 
             return [
-                'role' => $user->role,
+                'role'       => $user->role,
                 'time_range' => $timeRange,
-                'kpis' => [
-                    'my_draft_pos' => $myDraftPos,
-                    'my_draft_sos' => $myDraftSos,
-                    'my_total_orders' => $myTotalOrders,
-                    'my_invoices_count' => $myInvoicesCount,
-                    'my_total_spent' => round($myTotalSpent, 2),
-                    'total_items_count' => $myTotalOrders,
-                    'completed_count' => $myCompletedCount,
-                    'in_progress_count' => $myDraftPos + $myDraftSos,
-                    'equalizer' => $this->generateEqualizerBars(),
+                'kpis'       => [
+                    'my_draft_pos'       => $myDraftPos,
+                    'my_draft_sos'       => $myDraftSos,
+                    'my_total_orders'    => $myTotalOrders,
+                    'my_invoices_count'  => $myInvoicesCount,
+                    'my_total_spent'     => round($myTotalSpent, 2),
+                    'total_items_count'  => $myTotalOrders,
+                    'completed_count'    => $myCompletedCount,
+                    'in_progress_count'  => $myDraftPos + $myDraftSos,
+                    'equalizer'          => $this->generateEqualizerBars(),
+                    // User-scoped order summary cards for ExcalidrawDashboardCards
+                    'sales_card' => [
+                        'all'       => SalesOrder::where('created_by', $user->id)->count(),
+                        'confirmed' => SalesOrder::where('created_by', $user->id)->whereIn('status', ['confirmed', 'approved', 'delivered'])->count(),
+                        'draft'     => SalesOrder::where('created_by', $user->id)->where('status', 'draft')->count(),
+                    ],
+                    'purchase_card' => [
+                        'all'       => PurchaseOrder::where('created_by', $user->id)->count(),
+                        'confirmed' => PurchaseOrder::where('created_by', $user->id)->whereIn('status', ['approved', 'received', 'submitted'])->count(),
+                        'draft'     => PurchaseOrder::where('created_by', $user->id)->where('status', 'draft')->count(),
+                    ],
                 ],
             ];
+
         });
 
         return response()->json($data);

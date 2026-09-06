@@ -10,25 +10,22 @@ class VendorPolicy
 {
     public function viewAny(User $user): bool
     {
+        // Admins/managers/accountants: full directory access
+        // Vendor/user roles: allowed to call index but receive scoped results (own records only)
         return $user->hasPermission(Rbac::PERMISSION_VENDORS_VIEW_ANY) ||
-               $user->isVendor() ||
-               $user->isStandardUser();
+               $user->hasPermission(Rbac::PERMISSION_VENDORS_VIEW_OWN);
     }
 
     public function view(User $user, Vendor $vendor): bool
     {
         return $user->hasPermission(Rbac::PERMISSION_VENDORS_VIEW_ANY) ||
-               $user->isVendor() ||
-               $user->isStandardUser() ||
                $vendor->created_by === $user->id ||
                $vendor->email === $user->email;
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPermission(Rbac::PERMISSION_VENDORS_CREATE) ||
-               $user->isVendor() ||
-               $user->isStandardUser();
+        return $user->hasPermission(Rbac::PERMISSION_VENDORS_CREATE);
     }
 
     public function update(User $user, Vendor $vendor): bool
@@ -37,10 +34,7 @@ class VendorPolicy
             return true;
         }
 
-        if ($user->isVendor() || $user->isStandardUser()) {
-            return true;
-        }
-
+        // Only allow update of own vendor record
         return $vendor->created_by === $user->id || $vendor->email === $user->email;
     }
 

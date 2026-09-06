@@ -15,6 +15,11 @@ export interface User {
   permissions?: string[];
   is_admin?: boolean;
   created_at?: string;
+  // Linked partner profile (resolved by email/created_by in /me endpoint)
+  customer_id?: number;
+  customer_name?: string;
+  vendor_id?: number;
+  vendor_name?: string;
 }
 
 interface AuthContextType {

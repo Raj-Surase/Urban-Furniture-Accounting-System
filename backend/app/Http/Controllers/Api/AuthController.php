@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -153,23 +155,38 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        // Resolve linked customer/vendor records by email or created_by
+        $linkedCustomer = Customer::where('email', $user->email)
+            ->orWhere('created_by', $user->id)
+            ->first();
+
+        $linkedVendor = Vendor::where('email', $user->email)
+            ->orWhere('created_by', $user->id)
+            ->first();
+
         return response()->json([
             'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'login_id' => $user->login_id,
-                'email' => $user->email,
-                'role' => $user->role,
-                'is_admin' => $user->isAdmin(),
-                'is_customer' => $user->isCustomer(),
-                'is_vendor' => $user->isVendor(),
-                'company_name' => $user->company_name,
-                'phone' => $user->phone,
-                'permissions' => $user->getPermissions(),
-                'created_at' => $user->created_at,
+                'id'            => $user->id,
+                'name'          => $user->name,
+                'login_id'      => $user->login_id,
+                'email'         => $user->email,
+                'role'          => $user->role,
+                'is_admin'      => $user->isAdmin(),
+                'is_customer'   => $user->isCustomer(),
+                'is_vendor'     => $user->isVendor(),
+                'company_name'  => $user->company_name,
+                'phone'         => $user->phone,
+                'permissions'   => $user->getPermissions(),
+                'created_at'    => $user->created_at,
+                // Linked partner profile IDs for form auto-fill
+                'customer_id'   => $linkedCustomer?->id,
+                'customer_name' => $linkedCustomer?->name,
+                'vendor_id'     => $linkedVendor?->id,
+                'vendor_name'   => $linkedVendor?->name,
             ]
         ]);
     }
+
 
     /**
      * Invalidate current Sanctum API token.

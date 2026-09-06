@@ -69,11 +69,11 @@ class CustomerVendorAccessControlTest extends TestCase
 
     public function test_standard_user_can_list_and_create_customers(): void
     {
-        // 1. List customers (the exact operation that produced 403 previously)
+        // 1. List customers (allowed, but scoped to own records)
         $listResponse = $this->actingAs($this->standardUser)->getJson('/api/customers');
         $listResponse->assertStatus(200);
 
-        // 2. Create a customer
+        // 2. Directory creation is restricted to elevated roles
         $createResponse = $this->actingAs($this->standardUser)->postJson('/api/customers', [
             'name' => 'Acme Corporation',
             'code' => 'CUST-ACME-01',
@@ -83,35 +83,16 @@ class CustomerVendorAccessControlTest extends TestCase
             'city' => 'Mumbai',
             'state' => 'Maharashtra',
         ]);
-        $createResponse->assertStatus(201)
-            ->assertJsonPath('data.name', 'Acme Corporation');
-
-        $customerId = $createResponse->json('data.id');
-
-        // 3. Show customer
-        $showResponse = $this->actingAs($this->standardUser)->getJson("/api/customers/{$customerId}");
-        $showResponse->assertStatus(200)
-            ->assertJsonPath('data.name', 'Acme Corporation');
-
-        // 4. Update customer
-        $updateResponse = $this->actingAs($this->standardUser)->putJson("/api/customers/{$customerId}", [
-            'name' => 'Acme Corporation Global',
-        ]);
-        $updateResponse->assertStatus(200)
-            ->assertJsonPath('data.name', 'Acme Corporation Global');
-
-        // 5. Delete customer (should be restricted to admin only)
-        $deleteResponse = $this->actingAs($this->standardUser)->deleteJson("/api/customers/{$customerId}");
-        $deleteResponse->assertStatus(403);
+        $createResponse->assertStatus(403);
     }
 
     public function test_standard_user_can_list_and_create_vendors(): void
     {
-        // 1. List vendors
+        // 1. List vendors (allowed, but scoped to own records)
         $listResponse = $this->actingAs($this->standardUser)->getJson('/api/vendors');
         $listResponse->assertStatus(200);
 
-        // 2. Create a vendor
+        // 2. Directory creation is restricted to elevated roles
         $createResponse = $this->actingAs($this->standardUser)->postJson('/api/vendors', [
             'name' => 'Timber Logistics Ltd',
             'code' => 'VEND-TIMBER-01',
@@ -121,26 +102,7 @@ class CustomerVendorAccessControlTest extends TestCase
             'city' => 'Pune',
             'state' => 'Maharashtra',
         ]);
-        $createResponse->assertStatus(201)
-            ->assertJsonPath('data.name', 'Timber Logistics Ltd');
-
-        $vendorId = $createResponse->json('data.id');
-
-        // 3. Show vendor
-        $showResponse = $this->actingAs($this->standardUser)->getJson("/api/vendors/{$vendorId}");
-        $showResponse->assertStatus(200)
-            ->assertJsonPath('data.name', 'Timber Logistics Ltd');
-
-        // 4. Update vendor
-        $updateResponse = $this->actingAs($this->standardUser)->putJson("/api/vendors/{$vendorId}", [
-            'name' => 'Timber Logistics Global Ltd',
-        ]);
-        $updateResponse->assertStatus(200)
-            ->assertJsonPath('data.name', 'Timber Logistics Global Ltd');
-
-        // 5. Delete vendor (should be restricted to admin only)
-        $deleteResponse = $this->actingAs($this->standardUser)->deleteJson("/api/vendors/{$vendorId}");
-        $deleteResponse->assertStatus(403);
+        $createResponse->assertStatus(403);
     }
 
     public function test_dual_partner_user_can_perform_both_customer_and_vendor_operations(): void
@@ -160,8 +122,8 @@ class CustomerVendorAccessControlTest extends TestCase
             ->assertJsonPath('user.is_vendor', true);
 
         $permissions = $meResponse->json('user.permissions');
-        $this->assertContains(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY, $permissions);
-        $this->assertContains(Rbac::PERMISSION_VENDORS_VIEW_ANY, $permissions);
+        $this->assertContains(Rbac::PERMISSION_CUSTOMERS_VIEW_OWN, $permissions);
+        $this->assertContains(Rbac::PERMISSION_VENDORS_VIEW_OWN, $permissions);
     }
 
     public function test_customer_role_user_has_customer_permissions(): void
@@ -175,8 +137,7 @@ class CustomerVendorAccessControlTest extends TestCase
             ->assertJsonPath('user.is_customer', true);
 
         $permissions = $meResponse->json('user.permissions');
-        $this->assertContains(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY, $permissions);
-        $this->assertContains(Rbac::PERMISSION_CUSTOMERS_CREATE, $permissions);
+        $this->assertContains(Rbac::PERMISSION_CUSTOMERS_VIEW_OWN, $permissions);
     }
 
     public function test_vendor_role_user_has_vendor_permissions(): void
@@ -190,7 +151,6 @@ class CustomerVendorAccessControlTest extends TestCase
             ->assertJsonPath('user.is_vendor', true);
 
         $permissions = $meResponse->json('user.permissions');
-        $this->assertContains(Rbac::PERMISSION_VENDORS_VIEW_ANY, $permissions);
-        $this->assertContains(Rbac::PERMISSION_VENDORS_CREATE, $permissions);
+        $this->assertContains(Rbac::PERMISSION_VENDORS_VIEW_OWN, $permissions);
     }
 }

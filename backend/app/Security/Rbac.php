@@ -14,6 +14,7 @@ class Rbac
 
     // Permissions: Items
     public const PERMISSION_ITEMS_VIEW_ANY = 'items:view_any';
+    public const PERMISSION_ITEMS_VIEW_OWN = 'items:view_own';
     public const PERMISSION_ITEMS_VIEW = 'items:view';
     public const PERMISSION_ITEMS_CREATE = 'items:create';
     public const PERMISSION_ITEMS_UPDATE_OWN = 'items:update_own';
@@ -37,12 +38,14 @@ class Rbac
 
     // Permissions: Customers
     public const PERMISSION_CUSTOMERS_VIEW_ANY = 'customers:view_any';
+    public const PERMISSION_CUSTOMERS_VIEW_OWN = 'customers:view_own';
     public const PERMISSION_CUSTOMERS_CREATE = 'customers:create';
     public const PERMISSION_CUSTOMERS_UPDATE = 'customers:update';
     public const PERMISSION_CUSTOMERS_DELETE = 'customers:delete';
 
     // Permissions: Vendors
     public const PERMISSION_VENDORS_VIEW_ANY = 'vendors:view_any';
+    public const PERMISSION_VENDORS_VIEW_OWN = 'vendors:view_own';
     public const PERMISSION_VENDORS_CREATE = 'vendors:create';
     public const PERMISSION_VENDORS_UPDATE = 'vendors:update';
     public const PERMISSION_VENDORS_DELETE = 'vendors:delete';
@@ -516,19 +519,15 @@ class Rbac
             self::ROLE_MANAGER => $managerFinancialPermissions,
             self::ROLE_ACCOUNTANT => $managerFinancialPermissions,
             self::ROLE_USER => [
-                self::PERMISSION_ITEMS_VIEW_ANY,
+                self::PERMISSION_ITEMS_VIEW_OWN,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
                 // Products & Catalog
                 self::PERMISSION_PRODUCTS_VIEW_ANY,
-                // Customers & Vendors
-                self::PERMISSION_CUSTOMERS_VIEW_ANY,
-                self::PERMISSION_CUSTOMERS_CREATE,
-                self::PERMISSION_CUSTOMERS_UPDATE,
-                self::PERMISSION_VENDORS_VIEW_ANY,
-                self::PERMISSION_VENDORS_CREATE,
-                self::PERMISSION_VENDORS_UPDATE,
+                // Customers & Vendors — view own records only
+                self::PERMISSION_CUSTOMERS_VIEW_OWN,
+                self::PERMISSION_VENDORS_VIEW_OWN,
                 // Purchase Orders
                 self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
                 self::PERMISSION_PURCHASE_ORDERS_CREATE,
@@ -546,14 +545,12 @@ class Rbac
                 self::PERMISSION_PAYMENTS_CREATE,
             ],
             self::ROLE_CUSTOMER => [
-                self::PERMISSION_ITEMS_VIEW_ANY,
+                self::PERMISSION_ITEMS_VIEW_OWN,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
                 self::PERMISSION_PRODUCTS_VIEW_ANY,
-                self::PERMISSION_CUSTOMERS_VIEW_ANY,
-                self::PERMISSION_CUSTOMERS_CREATE,
-                self::PERMISSION_CUSTOMERS_UPDATE,
+                self::PERMISSION_CUSTOMERS_VIEW_OWN,
                 self::PERMISSION_SALES_ORDERS_VIEW_OWN,
                 self::PERMISSION_SALES_ORDERS_CREATE,
                 self::PERMISSION_SALES_ORDERS_UPDATE_OWN,
@@ -564,14 +561,12 @@ class Rbac
                 self::PERMISSION_PAYMENTS_CREATE,
             ],
             self::ROLE_VENDOR => [
-                self::PERMISSION_ITEMS_VIEW_ANY,
+                self::PERMISSION_ITEMS_VIEW_OWN,
                 self::PERMISSION_ITEMS_VIEW,
                 self::PERMISSION_ITEMS_CREATE,
                 self::PERMISSION_ITEMS_UPDATE_OWN,
                 self::PERMISSION_PRODUCTS_VIEW_ANY,
-                self::PERMISSION_VENDORS_VIEW_ANY,
-                self::PERMISSION_VENDORS_CREATE,
-                self::PERMISSION_VENDORS_UPDATE,
+                self::PERMISSION_VENDORS_VIEW_OWN,
                 self::PERMISSION_PURCHASE_ORDERS_VIEW_OWN,
                 self::PERMISSION_PURCHASE_ORDERS_CREATE,
                 self::PERMISSION_PURCHASE_ORDERS_UPDATE_OWN,
