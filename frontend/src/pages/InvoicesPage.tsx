@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   FileText,
   Plus,
@@ -61,11 +61,10 @@ export const InvoicesPage: React.FC = () => {
   const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
 
-  const [invoices, setInvoices] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [originatingSoId, setOriginatingSoId] = useState<number | null>(null);
 
   // Filters
@@ -80,6 +79,7 @@ export const InvoicesPage: React.FC = () => {
 
   // Row Tap Invoice Detail Modal State
   const [detailInvoice, setDetailInvoice] = useState<any>(null);
+  const reloadInvoicesRef = useRef<() => void>(() => {});
 
   const handleViewPdf = (inv: any, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -148,43 +148,52 @@ export const InvoicesPage: React.FC = () => {
   const [payFieldErrors, setPayFieldErrors] = useState<Record<string, string>>({});
   const [payFormError, setPayFormError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
     try {
-      setLoading(true);
+      setLoadingAux(true);
       const canFetchPartners = isElevated || user?.role === 'user';
-      const [invRes, custRes, vendRes, prodRes] = await Promise.all([
-        invoicesApi.list(),
-        canFetchPartners ? customersApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        canFetchPartners ? vendorsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        productsApi.list(),
+      const [custRes, vendRes, prodRes] = await Promise.all([
+        canFetchPartners ? customersApi.list({ per_page: 'all' }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        canFetchPartners ? vendorsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        productsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
-      setInvoices(invRes.data || invRes || []);
       setCustomers(custRes.data || custRes || []);
       setVendors(vendRes.data || vendRes || []);
       setProducts(prodRes.data || prodRes || []);
+      auxLoadedRef.current = true;
     } catch (err) {
-      console.error('Failed to fetch invoice data:', err);
-      addToast({
-        type: 'error',
-        title: 'Error loading invoices',
-        message: 'Could not retrieve invoices and billing entities.',
-      });
+      console.error('Failed to fetch invoice auxiliary data:', err);
     } finally {
-      setLoading(false);
+      setLoadingAux(false);
     }
-  };
+  }, [isElevated, user?.role]);
+
+  const handleOpenCreateModal = useCallback((type: ContactType = ContactType.CUSTOMER) => {
+    setOriginatingSoId(null);
+    setCreateType(type);
+    setSelectedPartyId('');
+    setCreateFieldErrors({});
+    setCreateFormError(null);
+    ensureAuxiliaryData();
+    setIsCreateModalOpen(true);
+  }, [ensureAuxiliaryData]);
 
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    fetchData();
-
     const handleRoleUpdated = () => {
-      fetchData();
+      if (auxLoadedRef.current) {
+        auxLoadedRef.current = false;
+        ensureAuxiliaryData();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, [user?.id, user?.role]);
+  }, [ensureAuxiliaryData]);
 
   // Deep-link handling from Dashboard / Recent Transactions
   useEffect(() => {
@@ -193,15 +202,22 @@ export const InvoicesPage: React.FC = () => {
     if (searchParam) {
       setSearchQuery(searchParam);
     }
-    if (idParam && invoices.length > 0) {
-      const found = invoices.find(
-        (inv) => inv && (String(inv.id) === String(idParam) || String(inv.invoice_number) === String(idParam))
-      );
-      if (found) {
-        setDetailInvoice(found);
-      }
+    if (idParam) {
+      invoicesApi.get(Number(idParam)).then((res: any) => {
+        const inv = res?.data || res;
+        if (inv) {
+          const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
+          const party = isCust ? (inv.customer || inv.party) : (inv.vendor || inv.party);
+          const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
+          setDetailInvoice({
+            ...inv,
+            party_name: partyName,
+            is_customer: isCust,
+          });
+        }
+      }).catch(() => {});
     }
-  }, [searchParams, invoices]);
+  }, [searchParams]);
 
   // Deep link handling for from_so (Create Invoice from Sales Order)
   useEffect(() => {
@@ -210,6 +226,7 @@ export const InvoicesPage: React.FC = () => {
       const soId = parseInt(soIdParam, 10);
       setOriginatingSoId(soId);
       setCreateType(ContactType.CUSTOMER);
+      ensureAuxiliaryData();
       setIsCreateModalOpen(true);
       salesOrdersApi
         .get(soId)
@@ -361,7 +378,7 @@ export const InvoicesPage: React.FC = () => {
       setCreateFormError(null);
       // Reset form
       setLineItems([{ product_id: '', description: '', hsn_code: '9403', quantity: 1, unit_price: 0, gst_rate: 18 }]);
-      fetchData();
+      reloadInvoicesRef.current();
     } catch (err: any) {
       const formatted = formatApiError(err);
       setCreateFormError(formatted.message);
@@ -387,7 +404,7 @@ export const InvoicesPage: React.FC = () => {
         title: 'Approved & Auto-Posted to General Ledger',
         message: `Invoice approved! Balanced journal entry ${res.journal_entry_id ? `#${res.journal_entry_id}` : ''} created automatically.`,
       });
-      fetchData();
+      reloadInvoicesRef.current();
     } catch (err: any) {
       const formatted = formatApiError(err);
       addToast({
@@ -410,7 +427,7 @@ export const InvoicesPage: React.FC = () => {
         title: 'Invoice Voided',
         message: 'Invoice has been voided and reversing contra journal entry posted.',
       });
-      fetchData();
+      reloadInvoicesRef.current();
     } catch (err: any) {
       const formatted = formatApiError(err);
       addToast({
@@ -468,7 +485,7 @@ export const InvoicesPage: React.FC = () => {
             setPayInvoice(null);
             setPayAmount('');
             setIsPaying(false);
-            fetchData();
+            reloadInvoicesRef.current();
           },
           onError: (checkoutErr) => {
             addToast({
@@ -510,7 +527,7 @@ export const InvoicesPage: React.FC = () => {
       setPayAmount('');
       setPayFieldErrors({});
       setPayFormError(null);
-      fetchData();
+      reloadInvoicesRef.current();
     } catch (err: any) {
       const formatted = formatApiError(err);
       setPayFormError(formatted.message);
@@ -611,56 +628,112 @@ export const InvoicesPage: React.FC = () => {
     return merged;
   }, [activeFilters, columnFilters, statusFilter]);
 
-  const preparedInvoices = React.useMemo(() => {
-    return invoices.map((inv) => {
-      const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
-      const party = isCust ? inv.customer : inv.vendor;
-      const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
-      return {
-        ...inv,
-        party_name: partyName,
-        is_customer: isCust,
-      };
-    });
-  }, [invoices]);
+  const [invoiceSummary, setInvoiceSummary] = useState<{
+    total_receivables: number;
+    total_payables: number;
+    total_gst: number;
+    pending_approvals: number;
+  } | null>(null);
 
-  const filteredInvoices = React.useMemo(() => {
-    let list = preparedInvoices;
-    if (activeTab === 'customer') {
-      list = list.filter((i) => i.is_customer);
-    } else if (activeTab === 'vendor') {
-      list = list.filter((i) => !i.is_customer);
-    }
-    return filterItems(list, searchQuery, ['invoice_number', 'party_name', 'notes'], allActiveFilters);
-  }, [preparedInvoices, activeTab, searchQuery, allActiveFilters]);
+  const prepareInvoice = useCallback((inv: any) => {
+    const isCust = inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER;
+    const party = isCust ? (inv.customer || inv.party) : (inv.vendor || inv.party);
+    const partyName = party?.company_name || party?.name || inv.party?.name || (isCust ? 'Customer' : 'Vendor');
+    return {
+      ...inv,
+      party_name: partyName,
+      is_customer: isCust,
+    };
+  }, []);
+
+  const fetchInvoicesPage = useCallback(
+    async (pageNumber: number, batchSize: number) => {
+      const params: Record<string, any> = {
+        page: pageNumber,
+        per_page: batchSize,
+      };
+
+      if (activeTab === 'customer') {
+        params.type = 'receivable';
+      } else if (activeTab === 'vendor') {
+        params.type = 'payable';
+      }
+
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      if (columnFilters.invoice_number?.trim()) {
+        params.invoice_number = columnFilters.invoice_number.trim();
+      }
+      if (columnFilters.status && columnFilters.status !== 'all') {
+        params.status = columnFilters.status;
+      }
+      if (columnFilters.total_amount?.trim()) {
+        params.min_amount = columnFilters.total_amount.trim();
+      }
+
+      const res = await invoicesApi.list(params);
+      const rawList = res?.data || (Array.isArray(res) ? res : []);
+      const items = Array.isArray(rawList) ? rawList.map(prepareInvoice) : [];
+
+      if (res?.summary) {
+        setInvoiceSummary(res.summary);
+      }
+
+      return {
+        data: items,
+        total: typeof res?.total === 'number' ? res.total : items.length,
+        summary: res?.summary,
+      };
+    },
+    [activeTab, searchQuery, statusFilter, columnFilters, prepareInvoice]
+  );
 
   const {
     visibleItems: visibleInvoices,
     loadingMore,
     hasMore,
     totalCount,
+    isLoading: invoicesLoading,
     sentinelRef,
     loadMore,
-  } = useScrollPagination({
-    items: filteredInvoices,
+    reload: reloadInvoices,
+    setRecords: setVisibleInvoices,
+  } = useScrollPagination<any>({
+    fetchPage: fetchInvoicesPage,
     pageSize: 15,
-    isLoading: loading,
+    deps: [activeTab, searchQuery, statusFilter, columnFilters],
   });
 
-  // Calculate high level metrics
-  const totalReceivables = invoices
-    .filter((inv) => (inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
-    .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
+  reloadInvoicesRef.current = reloadInvoices;
 
-  const totalPayables = invoices
-    .filter((inv) => (inv.type === InvoiceType.PAYABLE || inv.party_type === ContactType.VENDOR || inv.type === ContactType.VENDOR) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
-    .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
+  // Calculate high level metrics (prefer backend aggregated summary, fallback to loaded items)
+  const totalReceivables =
+    invoiceSummary?.total_receivables ??
+    visibleInvoices
+      .filter((inv) => (inv.type === InvoiceType.RECEIVABLE || inv.party_type === ContactType.CUSTOMER || inv.type === ContactType.CUSTOMER) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
+      .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
-  const totalGst = invoices
-    .filter((inv) => inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.PAID)
-    .reduce((sum, inv) => sum + Number(inv.tax_amount || 0), 0);
+  const totalPayables =
+    invoiceSummary?.total_payables ??
+    visibleInvoices
+      .filter((inv) => (inv.type === InvoiceType.PAYABLE || inv.party_type === ContactType.VENDOR || inv.type === ContactType.VENDOR) && (inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.DRAFT))
+      .reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.total_amount), 0);
 
-  const pendingApprovals = invoices.filter((inv) => inv.status === InvoiceStatus.DRAFT).length;
+  const totalGst =
+    invoiceSummary?.total_gst ??
+    visibleInvoices
+      .filter((inv) => inv.status === InvoiceStatus.APPROVED || inv.status === InvoiceStatus.PAID)
+      .reduce((sum, inv) => sum + Number(inv.tax_amount || 0), 0);
+
+  const pendingApprovals =
+    invoiceSummary?.pending_approvals ??
+    visibleInvoices.filter((inv) => inv.status === InvoiceStatus.DRAFT).length;
 
   const currentTotals = calculateTotals();
 
@@ -690,14 +763,7 @@ export const InvoicesPage: React.FC = () => {
         {isElevated && (
           <div className="flex items-center gap-3">
             <Button
-              onClick={() => {
-                setOriginatingSoId(null);
-                setCreateType(ContactType.CUSTOMER);
-                setSelectedPartyId('');
-                setCreateFieldErrors({});
-                setCreateFormError(null);
-                setIsCreateModalOpen(true);
-              }}
+              onClick={() => handleOpenCreateModal(ContactType.CUSTOMER)}
               className="bg-purple-600 hover:bg-purple-500 text-white gap-2 shadow-lg shadow-purple-600/20 text-xs font-semibold"
             >
               <Plus className="w-4 h-4" />
@@ -706,14 +772,7 @@ export const InvoicesPage: React.FC = () => {
 
             <Button
               variant="outline"
-              onClick={() => {
-                setOriginatingSoId(null);
-                setCreateType(ContactType.VENDOR);
-                setSelectedPartyId('');
-                setCreateFieldErrors({});
-                setCreateFormError(null);
-                setIsCreateModalOpen(true);
-              }}
+              onClick={() => handleOpenCreateModal(ContactType.VENDOR)}
               className="border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 gap-2 text-xs font-semibold"
             >
               <Plus className="w-4 h-4" />
@@ -749,7 +808,7 @@ export const InvoicesPage: React.FC = () => {
       />
 
       {/* KPI Stats Section */}
-      {loading ? (
+      {invoicesLoading && !invoiceSummary ? (
         <StatCardSkeleton count={4} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -828,7 +887,7 @@ export const InvoicesPage: React.FC = () => {
           currentValue: activeTab,
           onChange: (val) => setActiveTab(val as any),
           options: [
-            { label: `All Invoices (${invoices.length})`, value: 'all' },
+            { label: totalCount > 0 ? `All Invoices (${totalCount})` : 'All Invoices', value: 'all' },
             { label: 'Customer Invoices (AR)', value: 'customer' },
             { label: 'Vendor Bills (AP)', value: 'vendor' },
           ],
@@ -861,16 +920,16 @@ export const InvoicesPage: React.FC = () => {
               )}
             </thead>
             <tbody className="divide-y divide-border/60 dark:divide-white/[0.04] text-xs">
-              {loading ? (
+              {invoicesLoading && visibleInvoices.length === 0 ? (
                 <TableSkeleton rows={6} cols={9} />
-              ) : filteredInvoices.length === 0 ? (
+              ) : visibleInvoices.length === 0 ? (
                 <EmptyState
                   icon={FileText}
                   colSpan={9}
                   title="No matching invoices found"
                   description="Try adjusting your filters or search query, or create a new invoice or vendor bill."
                   actionLabel="New Invoice"
-                  onAction={() => setIsCreateModalOpen(true)}
+                  onAction={() => handleOpenCreateModal(ContactType.CUSTOMER)}
                   secondaryActionLabel={searchQuery || activeFilters.length > 0 || activeTab !== 'all' || statusFilter !== 'all' ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');

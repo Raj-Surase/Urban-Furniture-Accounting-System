@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   CreditCard,
   Plus,
@@ -151,17 +151,19 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchPayments = async () => {
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    setLoadingAux(true);
     try {
-      setLoading(true);
-      const [payRes, custRes, vendRes, accRes, invRes] = await Promise.all([
-        paymentsApi.list(),
-        customersApi.list(),
-        vendorsApi.list(),
-        accountsApi.list().catch(() => ({ data: [] })),
-        invoicesApi.list().catch(() => ({ data: [] })),
+      const [custRes, vendRes, accRes, invRes] = await Promise.all([
+        customersApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        vendorsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        accountsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        invoicesApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
-      setPayments(payRes?.data || payRes || []);
       setCustomers(custRes?.data || custRes || []);
       setVendors(vendRes?.data || vendRes || []);
       const accList = accRes?.data || accRes || [];
@@ -175,6 +177,24 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
       if (defaultBank && !bankAccountId) {
         setBankAccountId(defaultBank.id);
       }
+      auxLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load payments auxiliary data:', err);
+    } finally {
+      setLoadingAux(false);
+    }
+  }, [bankAccountId]);
+
+  const handleOpenNewPayment = useCallback(() => {
+    ensureAuxiliaryData();
+    setIsNewOpen(true);
+  }, [ensureAuxiliaryData]);
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const payRes = await paymentsApi.list();
+      setPayments(payRes?.data || payRes || []);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load payments.' });
@@ -190,20 +210,22 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
 
     const handleRoleUpdated = () => {
       fetchPayments();
+      if (auxLoadedRef.current) {
+        auxLoadedRef.current = false;
+        ensureAuxiliaryData();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAuxiliaryData]);
 
-  // Deep linking and navigation support (Record Payment from Dashboard / Transactions / Invoices)
+  // Deep-link handling
   useEffect(() => {
     const typeParam = searchParams.get('type');
-    if (typeParam === 'receive' || typeParam === PaymentType.CUSTOMER_RECEIPT) {
+    if (typeParam === 'receive') {
       setPaymentType(PaymentType.CUSTOMER_RECEIPT);
-      setTypeFilter(PaymentType.CUSTOMER_RECEIPT);
-    } else if (typeParam === 'send' || typeParam === PaymentType.VENDOR_PAYMENT) {
+    } else if (typeParam === 'send') {
       setPaymentType(PaymentType.VENDOR_PAYMENT);
-      setTypeFilter(PaymentType.VENDOR_PAYMENT);
     }
 
     const tabParam = searchParams.get('tab');
@@ -214,7 +236,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     const invIdParam = searchParams.get('invoice_id');
     if (invIdParam) {
       setInvoiceId(Number(invIdParam));
-      setIsNewOpen(true);
+      handleOpenNewPayment();
     }
 
     const partyParam = searchParams.get('party_id');
@@ -228,7 +250,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
     }
 
     if (openNew || searchParams.get('new') === 'true') {
-      setIsNewOpen(true);
+      handleOpenNewPayment();
     }
     const searchParam = searchParams.get('search');
     if (searchParam) {
@@ -412,7 +434,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => setIsNewOpen(true)}
+            onClick={handleOpenNewPayment}
             className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 shadow-lg shadow-emerald-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -511,7 +533,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                     title="No payments found"
                     description="Record a customer receipt or vendor payment to begin tracking transactions."
                     actionLabel="Record Payment"
-                    onAction={() => setIsNewOpen(true)}
+                    onAction={handleOpenNewPayment}
                     secondaryActionLabel={searchQuery || typeFilter !== 'all' || activeFilters.length > 0 ? 'Clear Filters' : undefined}
                     onSecondaryAction={() => {
                       setSearchQuery('');

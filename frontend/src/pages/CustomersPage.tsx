@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -93,21 +93,35 @@ export const CustomersPage: React.FC = () => {
   // Customer Detail Modal State
   const [detailCustomer, setDetailCustomer] = useState<any>(null);
 
-  const fetchCustomers = async () => {
+  const accountsLoadedRef = useRef(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+  const ensureAccounts = useCallback(async () => {
+    if (accountsLoadedRef.current) return;
+    setLoadingAccounts(true);
     try {
-      setLoading(true);
-      const [custRes, accRes] = await Promise.all([
-        customersApi.list(),
-        accountsApi.list().catch(() => ({ data: [] })),
-      ]);
-      const list = custRes?.data || custRes || [];
-      setCustomers(Array.isArray(list) ? list : []);
+      const accRes = await accountsApi.list({ per_page: 'all' }).catch(() => ({ data: [] }));
       const accList = accRes?.data || accRes || [];
-      setAccounts(Array.isArray(accList) ? accList : []);
-      const defaultAr = (Array.isArray(accList) ? accList : []).find((a: any) => a.code === '1120');
+      const validList = Array.isArray(accList) ? accList : [];
+      setAccounts(validList);
+      const defaultAr = validList.find((a: any) => a.code === '1120');
       if (defaultAr && !receivableAccountId) {
         setReceivableAccountId(defaultAr.id);
       }
+      accountsLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load accounts for customers:', err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [receivableAccountId]);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const custRes = await customersApi.list();
+      const list = custRes?.data || custRes || [];
+      setCustomers(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load customers.' });
@@ -121,10 +135,14 @@ export const CustomersPage: React.FC = () => {
 
     const handleRoleUpdated = () => {
       fetchCustomers();
+      if (accountsLoadedRef.current) {
+        accountsLoadedRef.current = false;
+        ensureAccounts();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAccounts]);
 
   const resetForm = () => {
     setName('');
@@ -146,6 +164,7 @@ export const CustomersPage: React.FC = () => {
   };
 
   const handleOpenModal = () => {
+    ensureAccounts();
     resetForm();
     setIsModalOpen(true);
   };
@@ -531,7 +550,7 @@ export const CustomersPage: React.FC = () => {
                       : 'Add your first commercial or retail customer account to get started.'
                   }
                   actionLabel={isAdmin || isManager ? 'Add Customer Account' : undefined}
-                  onAction={isAdmin || isManager ? () => setIsModalOpen(true) : undefined}
+                  onAction={isAdmin || isManager ? handleOpenModal : undefined}
                   secondaryActionLabel={searchQuery || activeFilters.length > 0 ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');

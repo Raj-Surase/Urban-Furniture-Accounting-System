@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Truck,
@@ -87,17 +87,32 @@ export const SalesOrdersPage: React.FC = () => {
     }
   };
 
-  const fetchData = async () => {
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    setLoadingAux(true);
     try {
-      setLoading(true);
-      const [orderRes, custRes, prodRes] = await Promise.all([
-        salesOrdersApi.list(),
-        customersApi.list(),
-        productsApi.list(),
+      const [custRes, prodRes] = await Promise.all([
+        customersApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        productsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
-      setOrders(orderRes.data || orderRes || []);
       setCustomers(custRes.data || custRes || []);
       setProducts(prodRes.data || prodRes || []);
+      auxLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load SO auxiliary data:', err);
+    } finally {
+      setLoadingAux(false);
+    }
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const orderRes = await salesOrdersApi.list();
+      setOrders(orderRes.data || orderRes || []);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load sales orders.' });
@@ -107,16 +122,21 @@ export const SalesOrdersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchOrders();
 
     const handleRoleUpdated = () => {
-      fetchData();
+      fetchOrders();
+      if (auxLoadedRef.current) {
+        auxLoadedRef.current = false;
+        ensureAuxiliaryData();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAuxiliaryData]);
 
   const handleOpenCreateModal = () => {
+    ensureAuxiliaryData();
     if (!isElevated && customers.length > 0) {
       const matched = (user?.customer_id && customers.find((c) => c.id === user.customer_id)) || customers[0];
       if (matched) {
@@ -133,6 +153,7 @@ export const SalesOrdersPage: React.FC = () => {
   // Auto-open create modal when ?new=true is in URL (e.g., from Dashboard card or 3D studio)
   useEffect(() => {
     if (searchParams.get('new') === 'true') {
+      ensureAuxiliaryData();
       if (!isElevated && customers.length > 0) {
         const matched = (user?.customer_id && customers.find((c) => c.id === user.customer_id)) || customers[0];
         if (matched) {
@@ -146,7 +167,7 @@ export const SalesOrdersPage: React.FC = () => {
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
       setIsCreateOpen(true);
     }
-  }, [searchParams, isElevated, customers, user?.customer_id]);
+  }, [searchParams, isElevated, customers, user?.customer_id, ensureAuxiliaryData]);
 
   const handleProductChange = (index: number, productId: number) => {
     const prod = products.find((p) => p.id === productId);
@@ -211,7 +232,7 @@ export const SalesOrdersPage: React.FC = () => {
       setCustomerId('');
       setPaymentTermsDays(15);
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Creation Failed', message: err.response?.data?.message || 'Error' });
     } finally {
@@ -223,7 +244,7 @@ export const SalesOrdersPage: React.FC = () => {
     try {
       await salesOrdersApi.confirm(id);
       addToast({ type: 'success', title: 'SO Confirmed', message: 'Sales order confirmed.' });
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Error', message: err.response?.data?.message });
     }
@@ -233,7 +254,7 @@ export const SalesOrdersPage: React.FC = () => {
     try {
       await salesOrdersApi.approve(id);
       addToast({ type: 'success', title: 'SO Approved', message: 'Sales order approved by manager.' });
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Error', message: err.response?.data?.message });
     }
@@ -260,7 +281,7 @@ export const SalesOrdersPage: React.FC = () => {
       });
       setIsDeliverOpen(false);
       setSelectedOrder(null);
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Delivery Failed', message: err.response?.data?.message || 'Error' });
     } finally {
@@ -456,7 +477,7 @@ export const SalesOrdersPage: React.FC = () => {
                   title="No matching sales orders found"
                   description="Try adjusting your filters or search query, or create a new quotation/sales order."
                   actionLabel="New Sales Order"
-                  onAction={() => setIsCreateOpen(true)}
+                  onAction={handleOpenCreateModal}
                   secondaryActionLabel={searchQuery || activeFilters.length > 0 || statusFilter !== 'all' ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');

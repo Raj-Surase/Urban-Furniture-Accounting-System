@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Layers,
   Plus,
@@ -138,13 +138,28 @@ export const ProductsPage: React.FC = () => {
   // Detail Product Modal
   const [detailProduct, setDetailProduct] = useState<any>(null);
 
+  const accountsLoadedRef = useRef(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+  const ensureAccounts = useCallback(async () => {
+    if (accountsLoadedRef.current) return;
+    setLoadingAccounts(true);
+    try {
+      const accRes = isElevated ? await accountsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })) : { data: [] };
+      const accList = Array.isArray(accRes?.data) ? accRes.data : Array.isArray(accRes) ? accRes : [];
+      setAccounts(accList);
+      accountsLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load accounts for products:', err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [isElevated]);
+
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const [prodRes, accRes] = await Promise.all([
-        productsApi.list(),
-        isElevated ? accountsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-      ]);
+      const prodRes = await productsApi.list();
       const list = Array.isArray(prodRes?.data) ? prodRes.data : Array.isArray(prodRes) ? prodRes : [];
       const normalized = list.filter(Boolean).map((p: any) => {
         const unitPrice = p.unit_price != null ? Number(p.unit_price) : (p.price != null ? Number(p.price) : 0);
@@ -162,11 +177,9 @@ export const ProductsPage: React.FC = () => {
         };
       });
       setProducts(normalized);
-      const accList = Array.isArray(accRes?.data) ? accRes.data : Array.isArray(accRes) ? accRes : [];
-      setAccounts(accList);
     } catch (err) {
       console.error(err);
-      addToast({ type: 'error', title: 'Error', message: 'Failed to load products and accounts.' });
+      addToast({ type: 'error', title: 'Error', message: 'Failed to load products.' });
     } finally {
       setLoading(false);
     }
@@ -177,12 +190,17 @@ export const ProductsPage: React.FC = () => {
 
     const handleRoleUpdated = () => {
       fetchProducts();
+      if (accountsLoadedRef.current) {
+        accountsLoadedRef.current = false;
+        ensureAccounts();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAccounts]);
 
   const handleOpenNewModal = () => {
+    ensureAccounts();
     setCreateFieldErrors({});
     setCreateFormError(null);
     setNewSku('');

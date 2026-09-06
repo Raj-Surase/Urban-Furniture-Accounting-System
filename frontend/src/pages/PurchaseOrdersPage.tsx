@@ -215,17 +215,32 @@ export const PurchaseOrdersPage: React.FC = () => {
     }
   };
 
-  const fetchData = async () => {
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    setLoadingAux(true);
     try {
-      setLoading(true);
-      const [orderRes, vendRes, prodRes] = await Promise.all([
-        purchaseOrdersApi.list(),
-        vendorsApi.list(),
-        productsApi.list(),
+      const [vendRes, prodRes] = await Promise.all([
+        vendorsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        productsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
-      setOrders(orderRes.data || orderRes || []);
       setVendors(vendRes.data || vendRes || []);
       setProducts(prodRes.data || prodRes || []);
+      auxLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load PO auxiliary data:', err);
+    } finally {
+      setLoadingAux(false);
+    }
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const orderRes = await purchaseOrdersApi.list();
+      setOrders(orderRes.data || orderRes || []);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load purchase orders.' });
@@ -235,14 +250,18 @@ export const PurchaseOrdersPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchOrders();
 
     const handleRoleUpdated = () => {
-      fetchData();
+      fetchOrders();
+      if (auxLoadedRef.current) {
+        auxLoadedRef.current = false;
+        ensureAuxiliaryData();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAuxiliaryData]);
 
   const handleVendorSelect = (id: number | '') => {
     setVendorId(id);
@@ -297,6 +316,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   }, [clearCustomUrlParams]);
 
   const handleOpenCreateModal = () => {
+    ensureAuxiliaryData();
     setIsCustomCreate(false);
     setCustomSpecs(null);
     setNotes('Urban Furniture Purchase Order. Procurement of wooden furniture & raw timber from vendor.');
@@ -323,6 +343,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     }
 
     // Wait until initial catalog data finishes loading to match products and vendors
+    ensureAuxiliaryData();
     if (loading) {
       return;
     }
@@ -494,7 +515,7 @@ export const PurchaseOrdersPage: React.FC = () => {
       addToast({ type: 'success', title: 'PO Created', message: 'Draft purchase order created.' });
       handleCloseCreateModal();
       setItems([{ product_id: '', quantity: 1, unit_price: 0, gst_rate: 18 }]);
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Creation Failed', message: err.response?.data?.message || 'Error' });
     } finally {
@@ -506,7 +527,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     try {
       await purchaseOrdersApi.submit(id);
       addToast({ type: 'success', title: 'PO Submitted', message: 'Purchase order submitted for approval.' });
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Error', message: err.response?.data?.message });
     }
@@ -516,7 +537,7 @@ export const PurchaseOrdersPage: React.FC = () => {
     try {
       await purchaseOrdersApi.approve(id);
       addToast({ type: 'success', title: 'PO Approved', message: 'Purchase order approved by manager.' });
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Error', message: err.response?.data?.message });
     }
@@ -543,7 +564,7 @@ export const PurchaseOrdersPage: React.FC = () => {
       });
       setIsReceiveOpen(false);
       setSelectedOrder(null);
-      fetchData();
+      fetchOrders();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Receive Failed', message: err.response?.data?.message || 'Error' });
     } finally {

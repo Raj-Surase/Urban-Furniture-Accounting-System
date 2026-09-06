@@ -43,6 +43,8 @@ class InvoiceController extends Controller
             $query->where('created_by', $request->user()->id);
         }
 
+        $baseQuery = clone $query;
+
         if ($type = $request->query('type')) {
             $query->where('type', $type);
         }
@@ -58,6 +60,10 @@ class InvoiceController extends Controller
 
         if ($invNumber = $request->query('invoice_number')) {
             $query->where('invoice_number', 'like', "%{$invNumber}%");
+        }
+
+        if ($partyType = $request->query('party_type')) {
+            $query->where('party_type', $partyType);
         }
 
         if ($partyId = $request->query('party_id')) {
@@ -80,16 +86,28 @@ class InvoiceController extends Controller
             $query->where('total_amount', '<=', $maxAmount);
         }
 
+        if ($notes = $request->query('notes')) {
+            $query->where('notes', 'like', "%{$notes}%");
+        }
+
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%")
                   ->orWhereHas('party', function ($pq) use ($search) {
                       $pq->where('name', 'like', "%{$search}%");
                   });
             });
         }
 
-        $perPage = $request->query('per_page', 'all');
+        $stats = [
+            'total_receivables' => (float) (clone $baseQuery)->where('type', 'receivable')->whereIn('status', ['approved', 'draft'])->sum(DB::raw('COALESCE(balance_due, total_amount)')),
+            'total_payables' => (float) (clone $baseQuery)->where('type', 'payable')->whereIn('status', ['approved', 'draft'])->sum(DB::raw('COALESCE(balance_due, total_amount)')),
+            'total_gst' => (float) (clone $baseQuery)->whereIn('status', ['approved', 'paid'])->sum('tax_amount'),
+            'pending_approvals' => (int) (clone $baseQuery)->where('status', 'draft')->count(),
+        ];
+
+        $perPage = $request->query('per_page', 15);
         if ($perPage === 'all' || $perPage === '-1') {
             $invoices = $query->get()->map(function ($inv) {
                 $inv->party = $inv->party;
@@ -103,10 +121,11 @@ class InvoiceController extends Controller
             return response()->json([
                 'data' => $invoices,
                 'total' => $invoices->count(),
+                'summary' => $stats,
             ]);
         }
 
-        $invoices = $query->paginate(is_numeric($perPage) ? (int)$perPage : 20);
+        $invoices = $query->paginate(is_numeric($perPage) ? (int)$perPage : 15);
 
         // Attach party metadata
         $invoices->getCollection()->transform(function ($inv) {
@@ -119,7 +138,10 @@ class InvoiceController extends Controller
             return $inv;
         });
 
-        return response()->json($invoices);
+        $response = $invoices->toArray();
+        $response['summary'] = $stats;
+
+        return response()->json($response);
     }
 
     /**

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, Link, useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -154,29 +154,41 @@ export const BudgetsPage: React.FC = () => {
     }
   }, [successMessage]);
 
-  const fetchInitialData = async () => {
+  const auxLoadedRef = useRef(false);
+
+  const fetchBudgets = useCallback(async () => {
     setLoading(true);
     try {
-      const [bRes, aRes, cRes] = await Promise.all([
-        budgetsApi.list({ per_page: 'all' }),
-        analyticAccountsApi.list({ per_page: 'all' }),
-        contactsApi.list({ per_page: 'all' }),
-      ]);
+      const bRes = await budgetsApi.list({ per_page: 'all' });
       setBudgets(bRes?.data || []);
-      setAnalytics(aRes?.data || []);
-      setContacts(cRes?.data || []);
     } catch (err) {
       console.error('Failed to fetch budgets data:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchInitialData();
   }, []);
 
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    try {
+      const [aRes, cRes] = await Promise.all([
+        analyticAccountsApi.list({ per_page: 'all' }),
+        contactsApi.list({ per_page: 'all' }),
+      ]);
+      setAnalytics(aRes?.data || []);
+      setContacts(cRes?.data || []);
+      auxLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load auxiliary data:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBudgets();
+  }, [fetchBudgets]);
+
   const handleOpenForm = async (budgetId?: number) => {
+    ensureAuxiliaryData();
     setError(null);
     setSuccessMessage(null);
     if (budgetId) {
@@ -242,7 +254,6 @@ export const BudgetsPage: React.FC = () => {
     }
   }, [paramId, searchParams, loading]);
 
-  // If opening new form before analytics finished loading, sync initial line when analytics arrive
   useEffect(() => {
     if (viewMode === 'form' && !activeBudget && lines.length === 0 && analytics.length > 0) {
       const first = analytics[0];
@@ -255,6 +266,12 @@ export const BudgetsPage: React.FC = () => {
       ]);
     }
   }, [viewMode, activeBudget, lines.length, analytics]);
+
+  useEffect(() => {
+    if (viewMode === 'form' && !activeBudget && !responsibleValue && contacts.length > 0) {
+      setResponsibleValue(`${contacts[0].contact_type || ContactType.CUSTOMER}:${contacts[0].id}`);
+    }
+  }, [viewMode, activeBudget, responsibleValue, contacts]);
 
   const handleAddLine = () => {
     if (analytics.length === 0) return;
@@ -383,7 +400,7 @@ export const BudgetsPage: React.FC = () => {
         setSuccessMessage('Budget created in Draft state.');
       }
 
-      await fetchInitialData();
+      await fetchBudgets();
       setViewMode('list');
     } catch (err: any) {
       console.error('Failed to save budget:', err);
@@ -401,7 +418,7 @@ export const BudgetsPage: React.FC = () => {
       const res = await budgetsApi.confirm(activeBudget.id);
       setActiveBudget(res.data);
       setSuccessMessage('Budget confirmed successfully.');
-      await fetchInitialData();
+      await fetchBudgets();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to confirm budget.');
     } finally {
@@ -416,7 +433,7 @@ export const BudgetsPage: React.FC = () => {
     try {
       const res = await budgetsApi.revise(activeBudget.id);
       setSuccessMessage('Revision created in Draft state.');
-      await fetchInitialData();
+      await fetchBudgets();
       // Open the newly created revised budget
       const newId = res.data?.id;
       if (newId) {
@@ -442,7 +459,7 @@ export const BudgetsPage: React.FC = () => {
       const res = await budgetsApi.cancel(activeBudget.id);
       setActiveBudget(res.data);
       setSuccessMessage('Budget marked as cancelled.');
-      await fetchInitialData();
+      await fetchBudgets();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to cancel budget.');
     } finally {
@@ -458,7 +475,7 @@ export const BudgetsPage: React.FC = () => {
     try {
       await budgetsApi.delete(activeBudget.id);
       setSuccessMessage('Budget deleted successfully.');
-      await fetchInitialData();
+      await fetchBudgets();
       handleBackToList();
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to delete budget.');

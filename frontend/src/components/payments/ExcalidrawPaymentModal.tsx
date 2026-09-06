@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText, Zap, Printer, Mail } from 'lucide-react';
 import { paymentsApi, razorpayApi } from '../../lib/api';
 import { openRazorpayCheckout } from '../../lib/razorpay';
 import { ContactType, PaymentType, PaymentMethod, InvoiceType } from '../../types';
+import { PortalModal } from '../common/PortalModal';
 
 export interface ExcalidrawPaymentModalProps {
   isOpen: boolean;
@@ -178,34 +178,28 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="w-full max-w-lg bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418]">
-            <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
-                {mode === InvoiceType.BILL ? 'Bill Payment' : 'Invoice Payment'}
-              </h2>
-              <p className="text-xs text-[#8a8a9a]">
-                {mode === InvoiceType.BILL ? 'Send funds to vendor' : 'Receive settlement from customer'}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 rounded-lg text-[#8a8a9a] hover:text-white hover:bg-white/[0.06] transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg" zIndex="z-[65]">
+      <div className="w-full bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-white">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418] shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              {mode === InvoiceType.BILL ? 'Bill Payment' : 'Invoice Payment'}
+            </h2>
+            <p className="text-xs text-[#8a8a9a]">
+              {mode === InvoiceType.BILL ? 'Send funds to vendor' : 'Receive settlement from customer'}
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-[#8a8a9a] hover:text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto overscroll-contain">
             {error && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
                 {error}
@@ -480,8 +474,7 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
             </div>
 
           </form>
-        </motion.div>
       </div>
-    </AnimatePresence>
+    </PortalModal>
   );
 };

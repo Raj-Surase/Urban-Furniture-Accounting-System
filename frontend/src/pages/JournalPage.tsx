@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   FileCode2,
   Plus,
@@ -147,22 +147,42 @@ export const JournalPage: React.FC = () => {
   // Detail Entry Modal
   const [detailEntry, setDetailEntry] = useState<any>(null);
 
-  const fetchEntries = async () => {
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    setLoadingAux(true);
     try {
-      setLoading(true);
-      const [jRes, accRes, journalsRes, contactsRes] = await Promise.all([
-        journalApi.list({ per_page: 'all' }),
-        accountsApi.list({ per_page: 'all' }),
+      const [accRes, journalsRes, contactsRes] = await Promise.all([
+        accountsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
         journalsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
         contactsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
-      const entryList = Array.isArray(jRes?.data) ? jRes.data : Array.isArray(jRes) ? jRes : [];
-      setEntries(entryList);
       setAccounts(accRes.data || accRes || []);
       const jList = Array.isArray(journalsRes?.data) ? journalsRes.data : Array.isArray(journalsRes) ? journalsRes : [];
       setJournals(jList);
       const cList = Array.isArray(contactsRes?.data) ? contactsRes.data : Array.isArray(contactsRes) ? contactsRes : [];
       setContacts(cList);
+      auxLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load journal auxiliary data:', err);
+    } finally {
+      setLoadingAux(false);
+    }
+  }, []);
+
+  const handleOpenNewModal = useCallback(() => {
+    ensureAuxiliaryData();
+    setIsNewOpen(true);
+  }, [ensureAuxiliaryData]);
+
+  const fetchEntries = async () => {
+    try {
+      setLoading(true);
+      const jRes = await journalApi.list({ per_page: 'all' });
+      const entryList = Array.isArray(jRes?.data) ? jRes.data : Array.isArray(jRes) ? jRes : [];
+      setEntries(entryList);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load journal entries.' });
@@ -176,10 +196,14 @@ export const JournalPage: React.FC = () => {
 
     const handleRoleUpdated = () => {
       fetchEntries();
+      if (auxLoadedRef.current) {
+        auxLoadedRef.current = false;
+        ensureAuxiliaryData();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAuxiliaryData]);
 
   const toggleExpand = (id: number) => {
     setExpandedEntries((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -407,7 +431,7 @@ export const JournalPage: React.FC = () => {
 
         {(isAdmin || isManager) && (
           <Button
-            onClick={() => setIsNewOpen(true)}
+            onClick={handleOpenNewModal}
             className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 shadow-lg shadow-indigo-600/20 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
@@ -503,7 +527,7 @@ export const JournalPage: React.FC = () => {
                       : 'Post manual journal entries or generate operational transactions to populate the ledger.'
                   }
                   actionLabel={isAdmin || isManager ? 'Post Journal Entry' : undefined}
-                  onAction={isAdmin || isManager ? () => setIsNewOpen(true) : undefined}
+                  onAction={isAdmin || isManager ? handleOpenNewModal : undefined}
                 />
               ) : (
                 visibleEntries.map((je) => {

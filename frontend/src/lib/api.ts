@@ -180,7 +180,7 @@ export const salesOrdersApi = {
 };
 
 export const invoicesApi = {
-  list: (params?: Record<string, any>) => api.get('/invoices', { params: { per_page: 'all', ...params } }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/invoices', { params: { per_page: 15, ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/invoices/${id}`).then(res => res.data),
   create: (data: any) => api.post('/invoices', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/invoices/${id}`, data).then(res => res.data),

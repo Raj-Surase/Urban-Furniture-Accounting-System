@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   FileText,
@@ -76,13 +76,12 @@ export const VendorBillsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { user, isAdmin, isManager, isAccountant } = useAuth();
   const isElevated = isAdmin || isManager || isAccountant;
-  const [bills, setBills] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'form'>('list');
   const [search, setSearch] = useState<string>('');
   const [activeFilters, setActiveFilters] = useState<ActiveFieldFilter[]>([]);
@@ -110,35 +109,37 @@ export const VendorBillsPage: React.FC = () => {
     a.name.toLowerCase().includes('purchase') || a.code === '5001' || a.code === '5100'
   );
 
-  const fetchData = async () => {
-    setLoading(true);
+  const auxLoadedRef = useRef(false);
+  const [loadingAux, setLoadingAux] = useState(false);
+
+  const ensureAuxiliaryData = useCallback(async () => {
+    if (auxLoadedRef.current) return;
+    setLoadingAux(true);
     try {
-      const [bRes, vRes, pRes, aRes, anRes, bgRes] = await Promise.all([
-        invoicesApi.list({ type: InvoiceType.PAYABLE, search: search || undefined }),
-        vendorsApi.list(),
-        productsApi.list(),
-        accountsApi.list(),
+      const [vRes, pRes, aRes, anRes, bgRes] = await Promise.all([
+        vendorsApi.list({ per_page: 'all' }),
+        productsApi.list({ per_page: 'all' }),
+        accountsApi.list({ per_page: 'all' }),
         analyticAccountsApi.list(),
         budgetsApi.list().catch(() => ({ data: [] })),
       ]);
-      setBills(bRes?.data || []);
-      setVendors(vRes?.data || []);
-      setProducts(pRes?.data || []);
-      setAccounts(aRes?.data || []);
-      setAnalytics(anRes?.data || []);
-      setBudgets(bgRes?.data || []);
+      setVendors(vRes?.data || vRes || []);
+      setProducts(pRes?.data || pRes || []);
+      setAccounts(aRes?.data || aRes || []);
+      setAnalytics(anRes?.data || anRes || []);
+      setBudgets(bgRes?.data || bgRes || []);
+      auxLoadedRef.current = true;
     } catch (err) {
-      console.error('Failed to load vendor bills data:', err);
+      console.error('Failed to load vendor bills auxiliary data:', err);
     } finally {
-      setLoading(false);
+      setLoadingAux(false);
     }
-  };
+  }, []);
 
   // Dynamically calculate budget limit exceedances for current bill lines
   const exceededBillBudgets = React.useMemo(() => {
     if (!budgets.length || !lines.length) return [];
 
-    // Sum proposed line costs by analytic_account_id
     const proposedPerAnalytic: Record<number, number> = {};
     lines.forEach((l) => {
       if (!l.analytic_account_id) return;
@@ -198,14 +199,11 @@ export const VendorBillsPage: React.FC = () => {
     return new Set(exceededBillBudgets.map((eb) => eb.analyticId));
   }, [exceededBillBudgets]);
 
-  useEffect(() => {
-    fetchData();
-  }, [search]);
-
   // Check URL params for prefilling from a Purchase Order
   useEffect(() => {
     const poIdParam = searchParams.get('from_po');
     if (poIdParam) {
+      ensureAuxiliaryData();
       const vId = searchParams.get('vendor_id') || '';
       const ref = searchParams.get('po_number') || '';
       setOriginatingPoId(parseInt(poIdParam, 10));
@@ -229,9 +227,10 @@ export const VendorBillsPage: React.FC = () => {
         }
       }).catch((err) => console.error('Failed to prefill bill lines from PO:', err));
     }
-  }, [searchParams, defaultPurchaseAccount?.id]);
+  }, [searchParams, defaultPurchaseAccount?.id, ensureAuxiliaryData]);
 
   const handleOpenForm = (bill?: any) => {
+    ensureAuxiliaryData();
     setError(null);
     if (bill) {
       setActiveBill(bill);
@@ -350,7 +349,7 @@ export const VendorBillsPage: React.FC = () => {
 
       const res = await invoicesApi.create(payload);
       setActiveBill(res.data);
-      await fetchData();
+      reloadBillsRef.current();
       setViewMode('list');
     } catch (err: any) {
       console.error('Failed to save vendor bill:', err);
@@ -365,7 +364,7 @@ export const VendorBillsPage: React.FC = () => {
     setSaving(true);
     try {
       await invoicesApi.approve(activeBill.id);
-      await fetchData();
+      reloadBillsRef.current();
       const updated = await invoicesApi.get(activeBill.id);
       setActiveBill(updated.data);
     } catch (err: any) {
@@ -375,46 +374,73 @@ export const VendorBillsPage: React.FC = () => {
     }
   };
 
-  const allActiveFilters = React.useMemo(() => {
-    const merged = [...activeFilters];
-    Object.entries(columnFilters).forEach(([key, val]) => {
-      if (val.trim()) {
-        const cfg = billFilterConfigs.find((c) => c.key === key);
-        merged.push({
-          id: `col-${key}`,
-          field: key,
-          operator: cfg?.type === 'number' || cfg?.type === 'date' ? 'gte' : cfg?.type === 'select' ? 'equals' : 'contains',
-          value: val.trim(),
-        });
-      }
-    });
-    if (statusFilter !== 'all') {
-      merged.push({
-        id: 'quick-status',
-        field: 'status',
-        operator: 'equals',
-        value: statusFilter,
-      });
-    }
-    return merged;
-  }, [activeFilters, columnFilters, statusFilter]);
+  const reloadBillsRef = useRef<() => void>(() => {});
 
-  const filteredBills = React.useMemo(() => {
-    return filterItems(bills, search, ['invoice_number', 'vendor.name', 'notes'], allActiveFilters);
-  }, [bills, search, allActiveFilters]);
+  const fetchBillsPage = useCallback(
+    async (pageNumber: number, batchSize: number) => {
+      const params: Record<string, any> = {
+        type: InvoiceType.PAYABLE,
+        page: pageNumber,
+        per_page: batchSize,
+      };
+
+      if (search.trim()) {
+        params.search = search.trim();
+      }
+
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+
+      if (columnFilters.invoice_number?.trim()) {
+        params.invoice_number = columnFilters.invoice_number.trim();
+      }
+      if (columnFilters.status && columnFilters.status !== 'all') {
+        params.status = columnFilters.status;
+      }
+      if (columnFilters.total_amount?.trim()) {
+        params.min_amount = columnFilters.total_amount.trim();
+      }
+      if (columnFilters.notes?.trim()) {
+        params.notes = columnFilters.notes.trim();
+      }
+
+      activeFilters.forEach((f) => {
+        if (!f.value) return;
+        if (f.field === 'invoice_number') params.invoice_number = f.value;
+        if (f.field === 'notes') params.notes = f.value;
+        if (f.field === 'status') params.status = f.value;
+        if (f.field === 'invoice_date') params.from_date = f.value;
+        if (f.field === 'total_amount') params.min_amount = f.value;
+      });
+
+      const res = await invoicesApi.list(params);
+      const items = res?.data || (Array.isArray(res) ? res : []);
+
+      return {
+        data: items,
+        total: typeof res?.total === 'number' ? res.total : items.length,
+      };
+    },
+    [search, statusFilter, columnFilters, activeFilters]
+  );
 
   const {
     visibleItems: visibleBills,
     loadingMore,
     hasMore,
     totalCount,
+    isLoading: billsLoading,
     sentinelRef,
     loadMore,
-  } = useScrollPagination({
-    items: filteredBills,
+    reload: reloadBills,
+  } = useScrollPagination<any>({
+    fetchPage: fetchBillsPage,
     pageSize: 15,
-    isLoading: loading,
+    deps: [search, statusFilter, columnFilters, activeFilters],
   });
+
+  reloadBillsRef.current = reloadBills;
 
   const vendorName = vendors.find((v) => v.id === parseInt(vendorId, 10))?.name || activeBill?.vendor?.name || 'Vendor';
   const totalAmount = activeBill ? Number(activeBill.total_amount) : calculateTotal();
@@ -928,7 +954,7 @@ export const VendorBillsPage: React.FC = () => {
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {loading && visibleBills.length === 0 ? (
+                  {billsLoading && visibleBills.length === 0 ? (
                     <TableSkeleton columns={7} rows={6} />
                   ) : (
                     visibleBills.map((b) => (
@@ -979,7 +1005,7 @@ export const VendorBillsPage: React.FC = () => {
                   {loadingMore && (
                     <TableSkeleton isPaginationLoader columns={7} rows={3} />
                   )}
-                  {visibleBills.length === 0 && !loading && (
+                  {visibleBills.length === 0 && !billsLoading && (
                     <tr>
                       <td colSpan={7} className="text-center py-8 text-[#707080]">
                         No vendor bills found matching your criteria. Click "+ New" to create one.
@@ -1008,7 +1034,7 @@ export const VendorBillsPage: React.FC = () => {
           isOpen={payModalOpen}
           onClose={() => setPayModalOpen(false)}
           onSuccess={async () => {
-            await fetchData();
+            reloadBillsRef.current();
             const updated = await invoicesApi.get(activeBill.id);
             setActiveBill(updated.data);
           }}

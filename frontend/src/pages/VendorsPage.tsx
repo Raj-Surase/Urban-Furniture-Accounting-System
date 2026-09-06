@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Truck,
@@ -88,21 +88,35 @@ export const VendorsPage: React.FC = () => {
   // Vendor Detail Modal State
   const [detailVendor, setDetailVendor] = useState<any>(null);
 
-  const fetchVendors = async () => {
+  const accountsLoadedRef = useRef(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+  const ensureAccounts = useCallback(async () => {
+    if (accountsLoadedRef.current) return;
+    setLoadingAccounts(true);
     try {
-      setLoading(true);
-      const [venRes, accRes] = await Promise.all([
-        vendorsApi.list(),
-        accountsApi.list().catch(() => ({ data: [] })),
-      ]);
-      const list = venRes?.data || venRes || [];
-      setVendors(Array.isArray(list) ? list : []);
+      const accRes = await accountsApi.list({ per_page: 'all' }).catch(() => ({ data: [] }));
       const accList = accRes?.data || accRes || [];
-      setAccounts(Array.isArray(accList) ? accList : []);
-      const defaultAp = (Array.isArray(accList) ? accList : []).find((a: any) => a.code === '2110');
+      const validList = Array.isArray(accList) ? accList : [];
+      setAccounts(validList);
+      const defaultAp = validList.find((a: any) => a.code === '2110');
       if (defaultAp && !payableAccountId) {
         setPayableAccountId(defaultAp.id);
       }
+      accountsLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load accounts for vendors:', err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [payableAccountId]);
+
+  const fetchVendors = async () => {
+    try {
+      setLoading(true);
+      const venRes = await vendorsApi.list();
+      const list = venRes?.data || venRes || [];
+      setVendors(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load vendors.' });
@@ -116,10 +130,14 @@ export const VendorsPage: React.FC = () => {
 
     const handleRoleUpdated = () => {
       fetchVendors();
+      if (accountsLoadedRef.current) {
+        accountsLoadedRef.current = false;
+        ensureAccounts();
+      }
     };
     window.addEventListener('auth:role-updated', handleRoleUpdated);
     return () => window.removeEventListener('auth:role-updated', handleRoleUpdated);
-  }, []);
+  }, [ensureAccounts]);
 
   const resetForm = () => {
     setName('');
@@ -138,6 +156,7 @@ export const VendorsPage: React.FC = () => {
   };
 
   const handleOpenModal = () => {
+    ensureAccounts();
     resetForm();
     setIsModalOpen(true);
   };
@@ -513,7 +532,7 @@ export const VendorsPage: React.FC = () => {
                       : 'Add your raw material suppliers, timber mills, and hardware vendors.'
                   }
                   actionLabel={isAdmin || isManager ? 'Add Supplier / Vendor' : undefined}
-                  onAction={isAdmin || isManager ? () => setIsModalOpen(true) : undefined}
+                  onAction={isAdmin || isManager ? handleOpenModal : undefined}
                   secondaryActionLabel={searchQuery || activeFilters.length > 0 ? 'Clear Filters' : undefined}
                   onSecondaryAction={() => {
                     setSearchQuery('');

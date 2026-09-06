@@ -5,6 +5,7 @@ import { Header } from './Header';
 import { GlobalSearchModal } from '../common/GlobalSearchModal';
 import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { forceResetBodyScroll } from '../common/PortalModal';
 
 export const AppLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -12,8 +13,10 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
 
-  // Scroll to top on route change
+  // Scroll to top on route change & force reset any stuck scroll locks
   useEffect(() => {
+    forceResetBodyScroll();
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     if (mainRef.current) {
       mainRef.current.scrollTop = 0;
     }
@@ -37,7 +40,7 @@ export const AppLayout: React.FC = () => {
           />
 
           {/* Dynamic page content */}
-          <main ref={mainRef} className="flex-1 w-full px-4 sm:px-6 md:px-8 lg:px-10 py-6 overflow-y-auto">
+          <main ref={mainRef} className="flex-1 w-full px-4 sm:px-6 md:px-8 lg:px-10 py-6 min-w-0">
             <ErrorBoundary componentName={`Route (${location.pathname})`}>
               <Outlet />
             </ErrorBoundary>

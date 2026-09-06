@@ -238,4 +238,35 @@ class InvoiceAccessControlTest extends TestCase
         $this->assertNotContains('INV-2026-0001', $invoiceNumbers);
         $this->assertNotContains('INV-2026-0002', $invoiceNumbers);
     }
+
+    public function test_invoices_index_defaults_to_paginated_response_with_summary(): void
+    {
+        $response = $this->actingAs($this->admin)->getJson('/api/invoices');
+        $response->assertStatus(200);
+
+        // Check pagination structure
+        $this->assertArrayHasKey('data', $response->json());
+        $this->assertArrayHasKey('total', $response->json());
+        $this->assertArrayHasKey('current_page', $response->json());
+        $this->assertArrayHasKey('per_page', $response->json());
+        $this->assertEquals(15, $response->json('per_page'));
+
+        // Check summary structure for KPI cards
+        $this->assertArrayHasKey('summary', $response->json());
+        $this->assertArrayHasKey('total_receivables', $response->json('summary'));
+        $this->assertArrayHasKey('total_payables', $response->json('summary'));
+        $this->assertArrayHasKey('total_gst', $response->json('summary'));
+        $this->assertArrayHasKey('pending_approvals', $response->json('summary'));
+    }
+
+    public function test_invoices_index_supports_per_page_all(): void
+    {
+        $response = $this->actingAs($this->admin)->getJson('/api/invoices?per_page=all');
+        $response->assertStatus(200);
+
+        $this->assertArrayHasKey('data', $response->json());
+        $this->assertArrayHasKey('total', $response->json());
+        $this->assertArrayHasKey('summary', $response->json());
+        $this->assertCount(3, $response->json('data'));
+    }
 }

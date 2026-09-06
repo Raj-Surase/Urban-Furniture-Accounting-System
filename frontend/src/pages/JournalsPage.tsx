@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Plus, Check, ArrowLeft, Building2 } from 'lucide-react';
@@ -83,27 +83,37 @@ export const JournalsPage: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const accountsLoadedRef = useRef(false);
+
+  const fetchJournals = useCallback(async () => {
     setLoading(true);
     try {
-      const [jRes, aRes] = await Promise.all([
-        journalsApi.list({ per_page: 'all' }),
-        accountsApi.list({ per_page: 'all' }),
-      ]);
-      setJournals(jRes?.data || []);
-      setAccounts(aRes?.data || []);
+      const res = await journalsApi.list({ per_page: 'all' });
+      setJournals(res?.data || []);
     } catch (err) {
-      console.error('Failed to load journals or accounts:', err);
+      console.error('Failed to load journals:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
 
+  const ensureAccounts = useCallback(async () => {
+    if (accountsLoadedRef.current) return;
+    try {
+      const aRes = await accountsApi.list({ per_page: 'all' });
+      setAccounts(aRes?.data || []);
+      accountsLoadedRef.current = true;
+    } catch (err) {
+      console.error('Failed to load accounts:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJournals();
+  }, [fetchJournals]);
+
   const handleOpenForm = (journal?: Journal) => {
+    ensureAccounts();
     if (journal) {
       setActiveJournal(journal);
       setName(journal.name);
@@ -146,7 +156,7 @@ export const JournalsPage: React.FC = () => {
         await journalsApi.create(payload);
       }
 
-      await fetchData();
+      await fetchJournals();
       setViewMode('list');
     } catch (err: any) {
       console.error('Save failed:', err);

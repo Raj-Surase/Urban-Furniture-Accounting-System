@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Mail, Key, Shield, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, User, CheckCircle2, AlertCircle } from 'lucide-react';
 import { usersApi } from '../../lib/api';
 import { UserRole } from '../../types';
+import { PortalModal } from '../common/PortalModal';
 
 export interface CreateUserModalProps {
   isOpen: boolean;
@@ -19,8 +19,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   const [reEnterPassword, setReEnterPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,16 +68,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="w-full max-w-lg bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418]">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg" zIndex="z-[65]">
+      <div className="w-full bg-[#18181f] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden flex flex-col text-white">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#141418] shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/30 text-[#c084fc]">
                 <User className="w-5 h-5" />
@@ -97,7 +89,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto overscroll-contain">
             {error && (
               <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -234,8 +226,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClos
               </button>
             </div>
           </form>
-        </motion.div>
       </div>
-    </AnimatePresence>
+    </PortalModal>
   );
 };
