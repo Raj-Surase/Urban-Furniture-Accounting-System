@@ -19,7 +19,11 @@ class VendorController extends Controller
         Gate::authorize('viewAny', Vendor::class);
 
         $user = $request->user();
-        $query = Vendor::with('payableAccount')->orderBy('name', 'asc');
+        $query = Vendor::with('payableAccount')
+            ->withSum(['invoices as outstanding_balance' => function ($q) {
+                $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+            }], 'balance_due')
+            ->orderBy('name', 'asc');
 
         // Non-admin/manager/accountant users: scope to own records only
         if (!$user->hasPermission(Rbac::PERMISSION_VENDORS_VIEW_ANY)) {
@@ -110,6 +114,9 @@ class VendorController extends Controller
         ]));
 
         $vendor->load('payableAccount');
+        $vendor->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         RealtimeService::broadcast('vendor:created', $vendor->toArray(), 'vendors');
 
@@ -126,6 +133,10 @@ class VendorController extends Controller
         $vendor->load(['payableAccount', 'purchaseOrders' => function ($q) {
             $q->latest()->limit(10);
         }]);
+
+        $vendor->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         return response()->json([
             'data' => $vendor,
@@ -155,6 +166,9 @@ class VendorController extends Controller
 
         $vendor->update($validated);
         $vendor->load('payableAccount');
+        $vendor->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         RealtimeService::broadcast('vendor:updated', $vendor->toArray(), 'vendors');
 

@@ -12,7 +12,6 @@ import {
   Truck,
   BookOpen,
   CreditCard,
-  FileSpreadsheet,
   Users,
   Store,
   Receipt,
@@ -223,7 +222,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             { name: 'Balancesheet', path: '/reports/balance-sheet', icon: BarChart3 },
             { name: 'Profit and Loss', path: '/reports/profit-loss', icon: TrendingUp },
             { name: 'Budget Report', path: '/reports/budget', icon: PieChart },
-            { name: 'Reports Hub', path: '/reports', icon: FileSpreadsheet },
           ],
         },
         {
@@ -263,10 +261,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     // Prevent generic payments link from highlighting when sub-types are active
     if (path === '/payments' && (location.search.includes('type=receive') || location.search.includes('type=send'))) {
       return false;
-    }
-    // Prevent reports hub from staying active on deep sub-reports
-    if (path === '/reports') {
-      return location.pathname === '/reports';
     }
     return location.pathname === path || (location.pathname.startsWith(path + '/') && path !== '/');
   };

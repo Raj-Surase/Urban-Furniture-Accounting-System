@@ -2245,6 +2245,47 @@ class DatabaseSeeder extends Seeder
         JournalEntryLine::create(['journal_entry_id' => $billJE6->id, 'account_id' => $accountMap['2132']->id, 'account_code' => '2132', 'account_name' => 'SGST Input Tax Credit (9%)', 'debit' => $sgstBill6, 'credit' => 0.00, 'description' => '9% State GST Input Credit', 'reference' => 'BILL-2026-0006']);
         JournalEntryLine::create(['journal_entry_id' => $billJE6->id, 'account_id' => $accountMap['2110']->id, 'account_code' => '2110', 'account_name' => 'Accounts Payable', 'debit' => 0.00, 'credit' => $totalBill6, 'description' => 'AP liability for BILL-2026-0006', 'reference' => 'BILL-2026-0006']);
 
+        // JE-2026-0024: Commercial Early Settlement Discount Allowed (Contra-Revenue)
+        $discJE = JournalEntry::updateOrCreate(
+            ['entry_number' => 'JE-2026-0024'],
+            [
+                'type' => 'manual',
+                'description' => 'Commercial settlement discount allowed on corporate deliveries',
+                'posting_date' => '2026-07-15',
+                'fiscal_year' => 2026,
+                'period' => 7,
+                'status' => 'posted',
+                'posted_by' => $admin->id,
+                'posted_at' => '2026-07-15 14:00:00',
+                'created_by' => $admin->id,
+            ]
+        );
+        JournalEntryLine::where('journal_entry_id', $discJE->id)->delete();
+        JournalEntryLine::create(['journal_entry_id' => $discJE->id, 'account_id' => $accountMap['4300']->id, 'account_code' => '4300', 'account_name' => 'Discounts Allowed', 'debit' => 12500.00, 'credit' => 0.00, 'description' => 'Volume customer early payment discount', 'reference' => 'DISC-2026-0001']);
+        JournalEntryLine::create(['journal_entry_id' => $discJE->id, 'account_id' => $accountMap['1120']->id, 'account_code' => '1120', 'account_name' => 'Accounts Receivable', 'debit' => 0.00, 'credit' => 12500.00, 'description' => 'Receivable reduction for early settlement discount', 'reference' => 'DISC-2026-0001']);
+
+        // JE-2026-0025: Miscellaneous Operating & Incidental Workshop Costs
+        $otherExpAcc = Account::where('code', '5002')->first();
+        if ($otherExpAcc) {
+            $miscJE = JournalEntry::updateOrCreate(
+                ['entry_number' => 'JE-2026-0025'],
+                [
+                    'type' => 'manual',
+                    'description' => 'Incidental fabrication plant consumables and safety gear',
+                    'posting_date' => '2026-07-20',
+                    'fiscal_year' => 2026,
+                    'period' => 7,
+                    'status' => 'posted',
+                    'posted_by' => $admin->id,
+                    'posted_at' => '2026-07-20 16:00:00',
+                    'created_by' => $admin->id,
+                ]
+            );
+            JournalEntryLine::where('journal_entry_id', $miscJE->id)->delete();
+            JournalEntryLine::create(['journal_entry_id' => $miscJE->id, 'account_id' => $otherExpAcc->id, 'account_code' => '5002', 'account_name' => 'Other Expense A/c', 'debit' => 18000.00, 'credit' => 0.00, 'description' => 'Workshop safety equipment and consumables', 'reference' => 'MISC-2026-0001']);
+            JournalEntryLine::create(['journal_entry_id' => $miscJE->id, 'account_id' => $accountMap['1110']->id, 'account_code' => '1110', 'account_name' => 'Cash & Bank Accounts', 'debit' => 0.00, 'credit' => 18000.00, 'description' => 'Direct payment from checking account', 'reference' => 'MISC-2026-0001']);
+        }
+
         // =========================================================================
         // 14. Seed Idempotent Inventory Movements across All 7 Master Products
         // =========================================================================

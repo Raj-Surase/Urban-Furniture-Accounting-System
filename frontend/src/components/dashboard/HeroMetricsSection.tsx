@@ -163,7 +163,7 @@ export const HeroMetricsSection: React.FC<HeroMetricsSectionProps> = ({
                 </button>
 
                 <button
-                  onClick={() => navigate('/reports')}
+                  onClick={() => navigate('/reports/profit-loss')}
                   className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-[#24242e] dark:text-white flex items-center justify-center dark:hover:bg-[#2e2e3a] text-xs active:scale-95 transition-all border border-slate-200 dark:border-white/[0.04] cursor-pointer"
                   aria-label="Financial Reports"
                   title="Financial Reports"

@@ -36,6 +36,24 @@ class Vendor extends Model
         "payment_terms_days" => "integer",
     ];
 
+    protected $appends = [
+        "outstanding_balance",
+    ];
+
+    /**
+     * Outstanding accounts payable balance (sum of balance_due on active approved, partially_paid, or overdue bills).
+     */
+    public function getOutstandingBalanceAttribute(): float
+    {
+        if (array_key_exists('outstanding_balance', $this->attributes) && $this->attributes['outstanding_balance'] !== null) {
+            return (float) $this->attributes['outstanding_balance'];
+        }
+
+        return (float) ($this->invoices()
+            ->whereIn('status', ['approved', 'partially_paid', 'overdue'])
+            ->sum('balance_due') ?? 0.00);
+    }
+
     public function payableAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, "payable_account_id");

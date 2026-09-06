@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,6 +12,10 @@ import {
   TrendingUp,
   TrendingDown,
   BarChart3,
+  Search,
+  Filter,
+  RotateCcw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { budgetsApi } from '../lib/api';
 import { BudgetLineType } from '../types';
@@ -145,16 +149,24 @@ const PieModal: React.FC<PieModalProps> = ({ budget, onClose }) => {
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
               <circle cx={center} cy={center} r={r} fill="none" stroke="#2a2a3a" strokeWidth={strokeWidth} />
               <circle
-                cx={center} cy={center} r={r} fill="none"
-                stroke={color} strokeWidth={strokeWidth}
+                cx={center}
+                cy={center}
+                r={r}
+                fill="none"
+                stroke={color}
+                strokeWidth={strokeWidth}
                 strokeDasharray={`${achievedDash} ${circ - achievedDash}`}
                 strokeDashoffset={circ * 0.25}
                 strokeLinecap="round"
               />
               {remaining > 0 && achievedDash < circ && (
                 <circle
-                  cx={center} cy={center} r={r} fill="none"
-                  stroke="#f43f5e40" strokeWidth={strokeWidth}
+                  cx={center}
+                  cy={center}
+                  r={r}
+                  fill="none"
+                  stroke="#f43f5e40"
+                  strokeWidth={strokeWidth}
                   strokeDasharray={`${circ - achievedDash} ${achievedDash}`}
                   strokeDashoffset={circ * 0.25 - achievedDash}
                   strokeLinecap="round"
@@ -219,6 +231,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+type PerformanceTier = 'all' | 'over' | 'warning' | 'ontrack';
+type SortOption = 'committed_desc' | 'achieved_desc' | 'progress_desc' | 'name_asc';
+
 // ── Main Page ───────────────────────────────────────────────────────────────────
 export const BudgetReportPage: React.FC = () => {
   const navigate = useNavigate();
@@ -226,8 +241,13 @@ export const BudgetReportPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [pieModalBudget, setPieModalBudget] = useState<any | null>(null);
+
+  // Filter Operations State
   const [fiscalYear, setFiscalYear] = useState('2026');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [performanceFilter, setPerformanceFilter] = useState<PerformanceTier>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('committed_desc');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchBudgets = useCallback(async () => {
@@ -247,19 +267,74 @@ export const BudgetReportPage: React.FC = () => {
     fetchBudgets();
   }, [fetchBudgets]);
 
-  const filtered = budgets.filter((b) => {
-    const yearMatch =
-      !fiscalYear ||
-      b.start_date?.startsWith(fiscalYear) ||
-      b.end_date?.startsWith(fiscalYear);
-    const statusMatch = statusFilter === 'all' || b.status === statusFilter;
-    return yearMatch && statusMatch;
-  });
+  const handleResetFilters = () => {
+    setFiscalYear('all');
+    setStatusFilter('all');
+    setPerformanceFilter('all');
+    setSearchQuery('');
+    setSortBy('committed_desc');
+  };
+
+  const filtered = useMemo(() => {
+    return budgets
+      .filter((b) => {
+        // Year filter
+        const yearMatch =
+          fiscalYear === 'all' ||
+          !fiscalYear ||
+          b.start_date?.startsWith(fiscalYear) ||
+          b.end_date?.startsWith(fiscalYear);
+
+        // Status filter
+        const statusMatch = statusFilter === 'all' || b.status === statusFilter;
+
+        // Performance Tier filter
+        const pct = b.progress_percent ?? 0;
+        let perfMatch = true;
+        if (performanceFilter === 'over') {
+          perfMatch = pct >= 100;
+        } else if (performanceFilter === 'warning') {
+          perfMatch = pct >= 80 && pct < 100;
+        } else if (performanceFilter === 'ontrack') {
+          perfMatch = pct < 80;
+        }
+
+        // Live search filter
+        let searchMatch = true;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const nameMatch = b.name?.toLowerCase().includes(q);
+          const userMatch = b.responsible?.name?.toLowerCase().includes(q);
+          const lineMatch = (b.computed_lines || []).some((l: any) =>
+            l.analytic_account_name?.toLowerCase().includes(q)
+          );
+          searchMatch = Boolean(nameMatch || userMatch || lineMatch);
+        }
+
+        return yearMatch && statusMatch && perfMatch && searchMatch;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'committed_desc') {
+          return (b.total_committed ?? 0) - (a.total_committed ?? 0);
+        } else if (sortBy === 'achieved_desc') {
+          return (b.total_achieved ?? 0) - (a.total_achieved ?? 0);
+        } else if (sortBy === 'progress_desc') {
+          return (b.progress_percent ?? 0) - (a.progress_percent ?? 0);
+        } else if (sortBy === 'name_asc') {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return 0;
+      });
+  }, [budgets, fiscalYear, statusFilter, performanceFilter, searchQuery, sortBy]);
 
   const fmt = (v: number | undefined) =>
     '₹' + Math.round(v ?? 0).toLocaleString('en-IN');
 
   const variance = (b: any) => (b.total_achieved ?? 0) - (b.total_committed ?? 0);
+
+  const totalCommittedSum = filtered.reduce((s, b) => s + (b.total_committed ?? 0), 0);
+  const totalAchievedSum = filtered.reduce((s, b) => s + (b.total_achieved ?? 0), 0);
+  const overallRate = totalCommittedSum > 0 ? Math.round((totalAchievedSum / totalCommittedSum) * 100) : 0;
 
   return (
     <>
@@ -274,121 +349,191 @@ export const BudgetReportPage: React.FC = () => {
       </AnimatePresence>
 
       <div className="space-y-6 max-w-6xl mx-auto pb-12 print:pb-0">
-        {/* ── Header Controls ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#18181f]/90 border border-white/[0.08] p-5 rounded-2xl shadow-obsidian-card print:hidden">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
-              title="Back"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-[#7042f4]" />
-                Budget Report
-              </h1>
-              <p className="text-xs text-[#8a8a9a] mt-0.5">
-                Analytical budget vs actual performance analysis
-              </p>
+        {/* ── Top Header Controls & Actions ── */}
+        <div className="bg-[#18181f]/90 border border-white/[0.08] p-5 rounded-2xl shadow-obsidian-card print:hidden space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
+                title="Back"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-[#7042f4]" />
+                  Budget Performance Report
+                </h1>
+                <p className="text-xs text-[#8a8a9a] mt-0.5">
+                  Analytical budget vs. actual expenditure telemetry & cost-center analytics
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Refresh */}
+              <button
+                onClick={() => setRefreshKey((k) => k + 1)}
+                className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
+                title="Refresh Report Data"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#7042f4]' : ''}`} />
+              </button>
+
+              {/* Print */}
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold border border-white/[0.08] transition-all cursor-pointer"
+                title="Print Report"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print PDF</span>
+              </button>
+
+              {/* New Budget */}
+              <button
+                onClick={() => navigate('/budgets?new=true')}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-lg shadow-[#7042f4]/25 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Budget</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Fiscal Year */}
-            <select
-              value={fiscalYear}
-              onChange={(e) => setFiscalYear(e.target.value)}
-              className="bg-[#121216] border border-white/[0.08] text-white text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:border-[#7042f4]/60 cursor-pointer"
-            >
-              <option value="2024">FY 2024</option>
-              <option value="2025">FY 2025</option>
-              <option value="2026">FY 2026</option>
-              <option value="2027">FY 2027</option>
-            </select>
+          {/* ── Independent Filters Operations Bar ── */}
+          <div className="pt-3 border-t border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            {/* Fiscal Year & Status Selectors */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Fiscal Year */}
+              <div className="flex items-center gap-1 bg-[#121216] px-2.5 py-1.5 rounded-xl border border-white/[0.08]">
+                <span className="text-[10px] uppercase text-[#707080] font-semibold">Year:</span>
+                <select
+                  value={fiscalYear}
+                  onChange={(e) => setFiscalYear(e.target.value)}
+                  className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="all" className="bg-[#18181f]">All Years</option>
+                  <option value="2024" className="bg-[#18181f]">FY 2024</option>
+                  <option value="2025" className="bg-[#18181f]">FY 2025</option>
+                  <option value="2026" className="bg-[#18181f]">FY 2026</option>
+                  <option value="2027" className="bg-[#18181f]">FY 2027</option>
+                  <option value="2028" className="bg-[#18181f]">FY 2028</option>
+                </select>
+              </div>
 
-            {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#121216] border border-white/[0.08] text-white text-xs font-semibold px-3 py-2 rounded-xl focus:outline-none focus:border-[#7042f4]/60 cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="confirm">Confirmed</option>
-              <option value="revised">Revised</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+              {/* Status Filter */}
+              <div className="flex items-center gap-1 bg-[#121216] px-2.5 py-1.5 rounded-xl border border-white/[0.08]">
+                <span className="text-[10px] uppercase text-[#707080] font-semibold">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="all" className="bg-[#18181f]">All Statuses</option>
+                  <option value="confirm" className="bg-[#18181f]">Confirmed</option>
+                  <option value="revised" className="bg-[#18181f]">Revised</option>
+                  <option value="draft" className="bg-[#18181f]">Draft</option>
+                  <option value="cancelled" className="bg-[#18181f]">Cancelled</option>
+                </select>
+              </div>
 
-            {/* Refresh */}
-            <button
-              onClick={() => setRefreshKey((k) => k + 1)}
-              className="p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-[#9090a0] hover:text-white transition-all border border-white/[0.06]"
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+              {/* Performance Tier Filter Pills */}
+              <div className="flex items-center bg-[#121216] p-0.5 rounded-xl border border-white/[0.08]">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'over', label: 'Over Budget' },
+                  { key: 'warning', label: 'Near Limit' },
+                  { key: 'ontrack', label: 'On Track' },
+                ].map((tier) => (
+                  <button
+                    key={tier.key}
+                    onClick={() => setPerformanceFilter(tier.key as PerformanceTier)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                      performanceFilter === tier.key
+                        ? 'bg-[#7042f4]/30 text-purple-300 font-semibold border border-[#7042f4]/40'
+                        : 'text-[#8a8a9a] hover:text-white'
+                    }`}
+                  >
+                    {tier.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            {/* Print */}
-            <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#2a2a3a] hover:bg-[#33333f] text-white text-xs font-semibold border border-white/[0.06] transition-all"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print PDF
-            </button>
+            {/* Live Search & Sort Operations */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-3 h-3 text-[#707080] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search budget / cost center..."
+                  className="bg-[#121216] border border-white/[0.08] text-white text-xs pl-7 pr-3 py-1.5 rounded-xl focus:outline-none focus:border-[#7042f4]/60 w-44 sm:w-52 placeholder:text-[#555566]"
+                />
+              </div>
 
-            {/* New Budget */}
-            <button
-              onClick={() => navigate('/budgets?new=true')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-lg shadow-[#7042f4]/25 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Budget
-            </button>
+              {/* Sort By */}
+              <div className="flex items-center gap-1 bg-[#121216] px-2.5 py-1.5 rounded-xl border border-white/[0.08]">
+                <SlidersHorizontal className="w-3 h-3 text-[#707080]" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="bg-transparent text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="committed_desc" className="bg-[#18181f]">Highest Committed</option>
+                  <option value="achieved_desc" className="bg-[#18181f]">Highest Achieved</option>
+                  <option value="progress_desc" className="bg-[#18181f]">Highest %</option>
+                  <option value="name_asc" className="bg-[#18181f]">Name (A-Z)</option>
+                </select>
+              </div>
+
+              {/* Reset Filters */}
+              {(fiscalYear !== '2026' || statusFilter !== 'all' || performanceFilter !== 'all' || searchQuery || sortBy !== 'committed_desc') && (
+                <button
+                  onClick={handleResetFilters}
+                  className="flex items-center gap-1 text-[11px] text-[#8a8a9a] hover:text-rose-400 px-2 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors"
+                  title="Reset all filters"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ── Summary KPI Row ── */}
         {!loading && filtered.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
-            {[
-              {
-                label: 'Total Budgets',
-                value: filtered.length,
-                mono: false,
-                color: 'text-white',
-              },
-              {
-                label: 'Total Committed',
-                value: fmt(filtered.reduce((s, b) => s + (b.total_committed ?? 0), 0)),
-                mono: true,
-                color: 'text-indigo-400',
-              },
-              {
-                label: 'Total Achieved',
-                value: fmt(filtered.reduce((s, b) => s + (b.total_achieved ?? 0), 0)),
-                mono: true,
-                color: 'text-emerald-400',
-              },
-              {
-                label: 'Avg Achievement',
-                value: `${Math.round(filtered.reduce((s, b) => s + (b.progress_percent ?? 0), 0) / filtered.length)}%`,
-                mono: true,
-                color: 'text-amber-400',
-              },
-            ].map((kpi) => (
-              <div
-                key={kpi.label}
-                className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4"
-              >
-                <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">{kpi.label}</p>
-                <p className={`text-xl font-bold mt-1 ${kpi.mono ? 'font-mono' : ''} ${kpi.color}`}>
-                  {kpi.value}
-                </p>
-              </div>
-            ))}
+            <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4">
+              <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">Filtered Budgets</p>
+              <p className="text-xl font-bold mt-1 text-white">{filtered.length}</p>
+              <p className="text-[10px] text-[#707080] mt-0.5">of {budgets.length} total registered</p>
+            </div>
+
+            <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4">
+              <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">Total Committed</p>
+              <p className="text-xl font-bold mt-1 font-mono text-indigo-400">{fmt(totalCommittedSum)}</p>
+              <p className="text-[10px] text-[#707080] mt-0.5">Approved fiscal envelope</p>
+            </div>
+
+            <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4">
+              <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">Total Achieved</p>
+              <p className="text-xl font-bold mt-1 font-mono text-emerald-400">{fmt(totalAchievedSum)}</p>
+              <p className="text-[10px] text-[#707080] mt-0.5">Realized GL expenditures</p>
+            </div>
+
+            <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4">
+              <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">Overall Achievement</p>
+              <p className={`text-xl font-bold mt-1 font-mono ${overallRate >= 100 ? 'text-rose-400' : overallRate >= 80 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {overallRate}%
+              </p>
+              <p className="text-[10px] text-[#707080] mt-0.5">Aggregate spend ratio</p>
+            </div>
           </div>
         )}
 
@@ -409,20 +554,20 @@ export const BudgetReportPage: React.FC = () => {
 
           {loading ? (
             <div className="flex items-center justify-center py-16 text-[#6a6a7a]">
-              <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-              Loading budgets…
+              <RefreshCw className="w-5 h-5 animate-spin mr-2 text-[#7042f4]" />
+              Loading budget data…
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-[#6a6a7a]">
               <BarChart3 className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm font-semibold">No budgets found</p>
-              <p className="text-xs mt-1">Try changing the year or status filter</p>
+              <p className="text-sm font-semibold text-white">No budgets matching active filters</p>
+              <p className="text-xs mt-1">Try resetting the fiscal year, status, or search query</p>
               <button
-                onClick={() => navigate('/budgets?new=true')}
-                className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold transition-all"
+                onClick={handleResetFilters}
+                className="mt-4 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white text-xs font-semibold transition-all"
               >
-                <Plus className="w-3.5 h-3.5" />
-                Create First Budget
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset All Filters
               </button>
             </div>
           ) : (

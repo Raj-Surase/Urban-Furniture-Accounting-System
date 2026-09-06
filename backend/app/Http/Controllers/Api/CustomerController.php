@@ -19,7 +19,11 @@ class CustomerController extends Controller
         Gate::authorize('viewAny', Customer::class);
 
         $user = $request->user();
-        $query = Customer::with('receivableAccount')->orderBy('name', 'asc');
+        $query = Customer::with('receivableAccount')
+            ->withSum(['invoices as outstanding_balance' => function ($q) {
+                $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+            }], 'balance_due')
+            ->orderBy('name', 'asc');
 
         // Non-admin/manager/accountant users: scope to own records only
         if (!$user->hasPermission(Rbac::PERMISSION_CUSTOMERS_VIEW_ANY)) {
@@ -112,6 +116,9 @@ class CustomerController extends Controller
         ]));
 
         $customer->load('receivableAccount');
+        $customer->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         RealtimeService::broadcast('customer:created', $customer->toArray(), 'customers');
 
@@ -128,6 +135,10 @@ class CustomerController extends Controller
         $customer->load(['receivableAccount', 'salesOrders' => function ($q) {
             $q->latest()->limit(10);
         }]);
+
+        $customer->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         return response()->json([
             'data' => $customer,
@@ -158,6 +169,9 @@ class CustomerController extends Controller
 
         $customer->update($validated);
         $customer->load('receivableAccount');
+        $customer->loadSum(['invoices as outstanding_balance' => function ($q) {
+            $q->whereIn('status', ['approved', 'partially_paid', 'overdue']);
+        }], 'balance_due');
 
         RealtimeService::broadcast('customer:updated', $customer->toArray(), 'customers');
 

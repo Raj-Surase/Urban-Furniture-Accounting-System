@@ -124,6 +124,8 @@ class ReportController extends Controller
         $cogsTotal = 0.00;
         $operatingExpenses = 0.00;
 
+        $includeZero = $request->boolean('include_zero', false);
+
         foreach ($accounts as $acc) {
             $debits = (float) $acc->journalLines->sum('debit');
             $credits = (float) $acc->journalLines->sum('credit');
@@ -131,12 +133,14 @@ class ReportController extends Controller
             if ($acc->type === 'revenue') {
                 $bal = $credits - $debits;
                 $totalRevenue += $bal;
-                $revenues[] = [
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'sub_type' => $acc->sub_type,
-                    'amount' => round($bal, 2),
-                ];
+                if ($includeZero || abs($bal) > 0.001) {
+                    $revenues[] = [
+                        'code' => $acc->code,
+                        'name' => $acc->name,
+                        'sub_type' => $acc->sub_type,
+                        'amount' => round($bal, 2),
+                    ];
+                }
             } else {
                 $bal = $debits - $credits;
                 if ($acc->code === '5100') {
@@ -144,12 +148,14 @@ class ReportController extends Controller
                 } else {
                     $operatingExpenses += $bal;
                 }
-                $expenses[] = [
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'sub_type' => $acc->sub_type,
-                    'amount' => round($bal, 2),
-                ];
+                if ($includeZero || abs($bal) > 0.001) {
+                    $expenses[] = [
+                        'code' => $acc->code,
+                        'name' => $acc->name,
+                        'sub_type' => $acc->sub_type,
+                        'amount' => round($bal, 2),
+                    ];
+                }
             }
         }
 
@@ -210,6 +216,8 @@ class ReportController extends Controller
         $totalLiabilities = 0.00;
         $totalEquity = 0.00;
 
+        $includeZero = $request->boolean('include_zero', false);
+
         foreach ($accounts as $acc) {
             $debits = (float) $acc->journalLines->sum('debit');
             $credits = (float) $acc->journalLines->sum('credit');
@@ -226,30 +234,36 @@ class ReportController extends Controller
             if ($acc->type === 'asset') {
                 $bal = ($acc->normal_balance === 'debit') ? ($debits - $credits) : ($credits - $debits);
                 $totalAssets += ($acc->normal_balance === 'debit') ? $bal : -$bal;
-                $assets[] = [
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'sub_type' => $acc->sub_type,
-                    'amount' => round($bal, 2),
-                ];
+                if ($includeZero || abs($bal) > 0.001) {
+                    $assets[] = [
+                        'code' => $acc->code,
+                        'name' => $acc->name,
+                        'sub_type' => $acc->sub_type,
+                        'amount' => round($bal, 2),
+                    ];
+                }
             } elseif ($acc->type === 'liability') {
                 $bal = $credits - $debits;
                 $totalLiabilities += $bal;
-                $liabilities[] = [
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'sub_type' => $acc->sub_type,
-                    'amount' => round($bal, 2),
-                ];
+                if ($includeZero || abs($bal) > 0.001) {
+                    $liabilities[] = [
+                        'code' => $acc->code,
+                        'name' => $acc->name,
+                        'sub_type' => $acc->sub_type,
+                        'amount' => round($bal, 2),
+                    ];
+                }
             } else {
                 $bal = $credits - $debits;
                 $totalEquity += $bal;
-                $equity[] = [
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'sub_type' => $acc->sub_type,
-                    'amount' => round($bal, 2),
-                ];
+                if ($includeZero || abs($bal) > 0.001) {
+                    $equity[] = [
+                        'code' => $acc->code,
+                        'name' => $acc->name,
+                        'sub_type' => $acc->sub_type,
+                        'amount' => round($bal, 2),
+                    ];
+                }
             }
         }
 

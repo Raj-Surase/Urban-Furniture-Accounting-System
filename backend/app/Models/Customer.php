@@ -38,6 +38,24 @@ class Customer extends Model
         "payment_terms_days" => "integer",
     ];
 
+    protected $appends = [
+        "outstanding_balance",
+    ];
+
+    /**
+     * Outstanding accounts receivable balance (sum of balance_due on active approved, partially_paid, or overdue invoices).
+     */
+    public function getOutstandingBalanceAttribute(): float
+    {
+        if (array_key_exists('outstanding_balance', $this->attributes) && $this->attributes['outstanding_balance'] !== null) {
+            return (float) $this->attributes['outstanding_balance'];
+        }
+
+        return (float) ($this->invoices()
+            ->whereIn('status', ['approved', 'partially_paid', 'overdue'])
+            ->sum('balance_due') ?? 0.00);
+    }
+
     public function receivableAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, "receivable_account_id");

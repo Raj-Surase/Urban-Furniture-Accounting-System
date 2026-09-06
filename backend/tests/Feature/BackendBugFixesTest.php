@@ -434,4 +434,80 @@ class BackendBugFixesTest extends TestCase
         $this->assertEquals(13000.00, (float) $data[0]['running_balance']); // 10000 + 5000 - 2000 = 13000
         $this->assertEquals(15000.00, (float) $data[1]['running_balance']); // 10000 + 5000 = 15000
     }
+
+    public function test_profit_and_loss_excludes_zero_balance_accounts_by_default(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        // Account with activity
+        $activeRev = Account::create([
+            'code' => '4901',
+            'name' => 'Active Consulting Revenue',
+            'type' => 'revenue',
+            'sub_type' => 'operating_revenue',
+            'normal_balance' => 'credit',
+            'opening_balance' => 0.00,
+            'is_active' => true,
+        ]);
+
+        // Account with ZERO activity
+        $zeroRev = Account::create([
+            'code' => '4902',
+            'name' => 'Dormant Revenue Subledger',
+            'type' => 'revenue',
+            'sub_type' => 'operating_revenue',
+            'normal_balance' => 'credit',
+            'opening_balance' => 0.00,
+            'is_active' => true,
+        ]);
+
+        $bank = Account::where('code', '1110')->first();
+        $journal = \App\Models\Journal::firstOrCreate(
+            ['name' => 'General Sales'],
+            ['type' => 'sales', 'is_active' => true]
+        );
+
+        $entry = \App\Models\JournalEntry::create([
+            'entry_number' => 'JE-TEST-REV-01',
+            'journal_id' => $journal->id,
+            'type' => 'auto',
+            'description' => 'Test revenue entry',
+            'status' => 'posted',
+            'posting_date' => now()->toDateString(),
+            'fiscal_year' => now()->year,
+            'period' => now()->month,
+        ]);
+
+        \App\Models\JournalEntryLine::create([
+            'journal_entry_id' => $entry->id,
+            'account_id' => $bank->id,
+            'account_code' => $bank->code,
+            'account_name' => $bank->name,
+            'debit' => 50000.00,
+            'credit' => 0.00,
+        ]);
+
+        \App\Models\JournalEntryLine::create([
+            'journal_entry_id' => $entry->id,
+            'account_id' => $activeRev->id,
+            'account_code' => $activeRev->code,
+            'account_name' => $activeRev->name,
+            'debit' => 0.00,
+            'credit' => 50000.00,
+        ]);
+
+        // Default query: 0-balance account must NOT be present
+        $resDefault = $this->getJson('/api/reports/income-statement');
+        $resDefault->assertOk();
+        $revCodes = collect($resDefault->json('revenues'))->pluck('code')->all();
+        $this->assertContains('4901', $revCodes);
+        $this->assertNotContains('4902', $revCodes);
+
+        // With include_zero=1: 0-balance account MUST be present
+        $resAll = $this->getJson('/api/reports/income-statement?include_zero=1');
+        $resAll->assertOk();
+        $allRevCodes = collect($resAll->json('revenues'))->pluck('code')->all();
+        $this->assertContains('4901', $allRevCodes);
+        $this->assertContains('4902', $allRevCodes);
+    }
 }

@@ -34,7 +34,6 @@ import { JournalPage } from './pages/JournalPage';
 import { PaymentsPage } from './pages/PaymentsPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { VendorsPage } from './pages/VendorsPage';
-import { ReportsPage } from './pages/ReportsPage';
 
 // Excalidraw Re-architecture Pages
 import { VendorBillsPage } from './pages/VendorBillsPage';
@@ -278,13 +277,7 @@ export const App: React.FC = () => {
                       />
                       <Route
                         path="reports"
-                        element={
-                          <ProtectedRoute>
-                            <RoleRoute allowedRoles={[UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT]}>
-                              <ReportsPage />
-                            </RoleRoute>
-                          </ProtectedRoute>
-                        }
+                        element={<Navigate to="/reports/balance-sheet" replace />}
                       />
                       {/* Dedicated Excalidraw Financial Reports */}
                       <Route

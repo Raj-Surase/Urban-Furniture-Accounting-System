@@ -252,7 +252,7 @@ export const exportIncomeStatementPdf = (data: any, dateRange?: ReportDateRange)
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  (data.revenues || []).forEach((rev: any) => {
+  (data.revenues || []).filter((r: any) => Number(r.amount) !== 0).forEach((rev: any) => {
     doc.setTextColor(71, 85, 105);
     doc.text(`${rev.code} - ${rev.name}`, 60, y);
     doc.setTextColor(30, 41, 59);
@@ -288,7 +288,7 @@ export const exportIncomeStatementPdf = (data: any, dateRange?: ReportDateRange)
   y += 28;
 
   doc.setFont('helvetica', 'normal');
-  (data.expenses || []).filter((e: any) => e.code !== '5100').forEach((exp: any) => {
+  (data.expenses || []).filter((e: any) => e.code !== '5100' && Number(e.amount) !== 0).forEach((exp: any) => {
     doc.setTextColor(71, 85, 105);
     doc.text(`${exp.code} - ${exp.name}`, 60, y);
     doc.setTextColor(30, 41, 59);

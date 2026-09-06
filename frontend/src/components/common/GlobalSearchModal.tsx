@@ -182,16 +182,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       badge: 'Treasury',
     },
     {
-      id: 'page-reports',
-      name: 'Financial & Budget Reports',
-      description: 'Balance Sheet, Profit & Loss (P&L), Budget Report, Trial Balance, and GSTR summaries',
-      category: 'Pages',
-      icon: FileSpreadsheet,
-      path: '/reports',
-      keywords: ['reports', 'balance sheet', 'pnl', 'profit and loss', 'budget report', 'trial balance', 'gst summary'],
-      badge: 'Reports',
-    },
-    {
       id: 'page-customers',
       name: 'Customer Directory',
       description: 'Client accounts master data: Nimesh Pathak, corporate clients, GSTIN, and receivables',

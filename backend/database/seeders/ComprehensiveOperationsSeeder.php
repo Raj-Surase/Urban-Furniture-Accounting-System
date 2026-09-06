@@ -168,9 +168,7 @@ class ComprehensiveOperationsSeeder extends Seeder
             $accountMap[$acc->code] = $acc;
         }
 
-        $needed = max(0, $targetCount - $currentCount);
-        if ($needed > 0) {
-            $accountTemplates = [
+        $accountTemplates = [
                 // Assets: 1000 - 1999
                 ['prefix' => '13', 'type' => 'asset', 'sub_type' => 'current_asset', 'normal' => 'debit', 'category' => 'Regional Bank Accounts & Petty Cash'],
                 ['prefix' => '14', 'type' => 'asset', 'sub_type' => 'current_asset', 'normal' => 'debit', 'category' => 'Customer Segment Receivables'],
@@ -202,31 +200,29 @@ class ComprehensiveOperationsSeeder extends Seeder
             ];
 
             $counter = 10;
-            while (count($accountMap) < $targetCount) {
+            while ($counter < 270) {
                 $tmpl = $accountTemplates[$counter % count($accountTemplates)];
-                $code = sprintf("%s%02d", $tmpl['prefix'], (int)($counter / count($accountTemplates)) + 1);
-                $name = "{$tmpl['category']} - Subledger #{$code}";
+                $subNumber = (int)($counter / count($accountTemplates)) + 1;
+                $code = sprintf("%s%02d", $tmpl['prefix'], $subNumber);
+                $cityInfo = $this->indianCities[$counter % count($this->indianCities)];
+                $name = "{$tmpl['category']} - {$cityInfo['city']} Hub (#{$code})";
 
-                if (!isset($accountMap[$code])) {
-                    $acc = Account::firstOrCreate(
-                        ['code' => $code],
-                        [
-                            'name' => $name,
-                            'type' => $tmpl['type'],
-                            'sub_type' => $tmpl['sub_type'],
-                            'normal_balance' => $tmpl['normal'],
-                            'opening_balance' => 0.00,
-                            'current_balance' => 0,
-                            'description' => "Operational accounting subledger for {$name}",
-                            'is_active' => true,
-                            'created_by' => $admin->id,
-                        ]
-                    );
-                    $accountMap[$code] = $acc;
-                }
+                $acc = Account::updateOrCreate(
+                    ['code' => $code],
+                    [
+                        'name' => $name,
+                        'type' => $tmpl['type'],
+                        'sub_type' => $tmpl['sub_type'],
+                        'normal_balance' => $tmpl['normal'],
+                        'opening_balance' => 0.00,
+                        'description' => "Operational accounting subledger for {$name}",
+                        'is_active' => true,
+                        'created_by' => $admin->id,
+                    ]
+                );
+                $accountMap[$code] = $acc;
                 $counter++;
             }
-        }
 
         return array_values($accountMap);
     }
@@ -828,6 +824,8 @@ class ComprehensiveOperationsSeeder extends Seeder
         $arCount = $existingInvoices->where('type', 'receivable')->count();
         $apCount = $existingInvoices->where('type', 'payable')->count();
 
+        $revAccounts = Account::where('type', 'revenue')->get();
+        $expAccounts = Account::where('type', 'expense')->get();
         $revAcc = Account::where('code', '4001')->first() ?? $accounts[0];
         $expAcc = Account::where('code', '5001')->first() ?? $accounts[0];
 
@@ -873,6 +871,7 @@ class ComprehensiveOperationsSeeder extends Seeder
                 $unitPrice = $prod->unit_price;
                 $lineSub = round($qty * $unitPrice, 2);
                 $analytic = $analytics[($idx + $li) % count($analytics)];
+                $currentRevAcc = $revAccounts->isNotEmpty() ? $revAccounts[($idx + $li) % $revAccounts->count()] : $revAcc;
 
                 if ($isInterstate) {
                     $cgst = 0;
@@ -894,7 +893,7 @@ class ComprehensiveOperationsSeeder extends Seeder
 
                 $lines[] = [
                     'product_id' => $prod->id,
-                    'account_id' => $revAcc->id,
+                    'account_id' => $currentRevAcc->id,
                     'analytic_account_id' => $analytic->id,
                     'hsn_code' => $prod->hsn_code,
                     'description' => "Commercial invoice line for {$prod->name}",
@@ -1014,9 +1013,11 @@ class ComprehensiveOperationsSeeder extends Seeder
                 $sgstTotal += $sgst;
                 $igstTotal += $igst;
 
+                $currentExpAcc = $expAccounts->isNotEmpty() ? $expAccounts[($idx + $li) % $expAccounts->count()] : $expAcc;
+
                 $lines[] = [
                     'product_id' => $prod->id,
-                    'account_id' => $expAcc->id,
+                    'account_id' => $currentExpAcc->id,
                     'analytic_account_id' => $analytic->id,
                     'hsn_code' => $prod->hsn_code,
                     'description' => "Vendor raw materials delivery for {$prod->name}",
@@ -1249,6 +1250,11 @@ class ComprehensiveOperationsSeeder extends Seeder
         $purchExpenseAcc = Account::where('code', '5001')->first() ?? $accounts[4];
         $cgstOutputAcc = Account::where('code', '2131')->first() ?? $accounts[5];
         $sgstOutputAcc = Account::where('code', '2132')->first() ?? $accounts[6];
+        $cashAcc = Account::where('code', '1112')->first() ?? $bankAcc;
+
+        $revAccounts = Account::where('type', 'revenue')->get();
+        $directExpAccounts = Account::where('type', 'expense')->where('sub_type', 'direct_expense')->get();
+        $opExpAccounts = Account::where('type', 'expense')->where('sub_type', 'operating_expense')->get();
 
         $entries = [];
         foreach ($existing as $e) {
@@ -1256,15 +1262,9 @@ class ComprehensiveOperationsSeeder extends Seeder
         }
         $counter = 1;
 
-        while (count($entries) < $targetCount) {
+        while ($counter <= $targetCount) {
             $year = ($counter % 3 === 0) ? 2025 : 2026;
             $num = sprintf("JE-%d-%04d", $year, $counter);
-
-            if ($existingJE = JournalEntry::where('entry_number', $num)->first()) {
-                $entries[$existingJE->id] = $existingJE;
-                $counter++;
-                continue;
-            }
 
             $idx = $counter;
             $journal = $journals[$idx % count($journals)];
@@ -1286,24 +1286,31 @@ class ComprehensiveOperationsSeeder extends Seeder
                 default => 'adjustment',
             };
 
-            $je = JournalEntry::create([
-                'entry_number' => $num,
-                'journal_id' => $journal->id,
-                'type' => $entryType,
-                'description' => "General ledger entry for {$journal->name} operation #{$idx}",
-                'posting_date' => $postingDate,
-                'fiscal_year' => $year,
-                'period' => $month,
-                'status' => $status,
-                'reference_type' => 'ManualAdjustment',
-                'reference_id' => $idx,
-                'posted_by' => $status === 'posted' ? $users[0]->id : null,
-                'posted_at' => $status === 'posted' ? Carbon::parse($postingDate)->addHours(4) : null,
-                'created_by' => $creator->id,
-            ]);
+            $je = JournalEntry::where('entry_number', $num)->first();
+            if (!$je) {
+                $je = JournalEntry::create([
+                    'entry_number' => $num,
+                    'journal_id' => $journal->id,
+                    'type' => $entryType,
+                    'description' => "General ledger entry for {$journal->name} operation #{$idx}",
+                    'posting_date' => $postingDate,
+                    'fiscal_year' => $year,
+                    'period' => $month,
+                    'status' => $status,
+                    'reference_type' => 'ManualAdjustment',
+                    'reference_id' => $idx,
+                    'posted_by' => $status === 'posted' ? $users[0]->id : null,
+                    'posted_at' => $status === 'posted' ? Carbon::parse($postingDate)->addHours(4) : null,
+                    'created_by' => $creator->id,
+                ]);
+            } else {
+                JournalEntryLine::where('journal_entry_id', $je->id)->delete();
+            }
 
             // Balanced Double-Entry Lines: sum(debit) == sum(credit)
             if ($journal->type === 'sales') {
+                $activeRevAcc = $revAccounts->isNotEmpty() ? $revAccounts[$idx % $revAccounts->count()] : $salesIncomeAcc;
+
                 // Debit AR, Credit Revenue, Credit CGST/SGST
                 JournalEntryLine::create([
                     'journal_entry_id' => $je->id,
@@ -1317,12 +1324,12 @@ class ComprehensiveOperationsSeeder extends Seeder
                 ]);
                 JournalEntryLine::create([
                     'journal_entry_id' => $je->id,
-                    'account_id' => $salesIncomeAcc->id,
-                    'account_code' => $salesIncomeAcc->code,
-                    'account_name' => $salesIncomeAcc->name,
+                    'account_id' => $activeRevAcc->id,
+                    'account_code' => $activeRevAcc->code,
+                    'account_name' => $activeRevAcc->name,
                     'debit' => 0.00,
                     'credit' => $amount,
-                    'description' => 'Commercial sales recognized',
+                    'description' => "Commercial sales recognized - {$activeRevAcc->name}",
                     'reference' => $num,
                 ]);
                 JournalEntryLine::create([
@@ -1346,15 +1353,17 @@ class ComprehensiveOperationsSeeder extends Seeder
                     'reference' => $num,
                 ]);
             } elseif ($journal->type === 'purchase') {
+                $activeExpAcc = $directExpAccounts->isNotEmpty() ? $directExpAccounts[$idx % $directExpAccounts->count()] : $purchExpenseAcc;
+
                 // Debit Expense, Debit Input Tax, Credit AP
                 JournalEntryLine::create([
                     'journal_entry_id' => $je->id,
-                    'account_id' => $purchExpenseAcc->id,
-                    'account_code' => $purchExpenseAcc->code,
-                    'account_name' => $purchExpenseAcc->name,
+                    'account_id' => $activeExpAcc->id,
+                    'account_code' => $activeExpAcc->code,
+                    'account_name' => $activeExpAcc->name,
                     'debit' => $amount,
                     'credit' => 0.00,
-                    'description' => 'Procurement materials intake',
+                    'description' => "Procurement materials intake - {$activeExpAcc->name}",
                     'reference' => $num,
                 ]);
                 JournalEntryLine::create([
@@ -1388,27 +1397,77 @@ class ComprehensiveOperationsSeeder extends Seeder
                     'reference' => $num,
                 ]);
             } else {
-                // Bank / Adjustment transfer: Debit Bank, Credit AR or vice versa
-                JournalEntryLine::create([
-                    'journal_entry_id' => $je->id,
-                    'account_id' => $bankAcc->id,
-                    'account_code' => $bankAcc->code,
-                    'account_name' => $bankAcc->name,
-                    'debit' => $amount,
-                    'credit' => 0.00,
-                    'description' => 'Bank treasury clearance',
-                    'reference' => $num,
-                ]);
-                JournalEntryLine::create([
-                    'journal_entry_id' => $je->id,
-                    'account_id' => $receivableAcc->id,
-                    'account_code' => $receivableAcc->code,
-                    'account_name' => $receivableAcc->name,
-                    'debit' => 0.00,
-                    'credit' => $amount,
-                    'description' => 'Receivable settlement offset',
-                    'reference' => $num,
-                ]);
+                $subTypeIndex = $idx % 3;
+                if ($subTypeIndex === 0 && $opExpAccounts->isNotEmpty()) {
+                    // Operating Expense payment (Rent, Utilities, Logistics, Maintenance, Marketing)
+                    $currentOpExp = $opExpAccounts[$idx % $opExpAccounts->count()];
+                    $paymentSource = ($idx % 2 === 0) ? $bankAcc : $cashAcc;
+
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $currentOpExp->id,
+                        'account_code' => $currentOpExp->code,
+                        'account_name' => $currentOpExp->name,
+                        'debit' => $amount,
+                        'credit' => 0.00,
+                        'description' => "Operating expenditure for {$currentOpExp->name}",
+                        'reference' => $num,
+                    ]);
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $paymentSource->id,
+                        'account_code' => $paymentSource->code,
+                        'account_name' => $paymentSource->name,
+                        'debit' => 0.00,
+                        'credit' => $amount,
+                        'description' => "Operational disbursement via {$paymentSource->name}",
+                        'reference' => $num,
+                    ]);
+                } elseif ($subTypeIndex === 1) {
+                    // Vendor AP settlement payment
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $payableAcc->id,
+                        'account_code' => $payableAcc->code,
+                        'account_name' => $payableAcc->name,
+                        'debit' => $amount,
+                        'credit' => 0.00,
+                        'description' => 'Accounts payable vendor disbursement',
+                        'reference' => $num,
+                    ]);
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $bankAcc->id,
+                        'account_code' => $bankAcc->code,
+                        'account_name' => $bankAcc->name,
+                        'debit' => 0.00,
+                        'credit' => $amount,
+                        'description' => 'Bank treasury payment clearance',
+                        'reference' => $num,
+                    ]);
+                } else {
+                    // Customer AR collections / settlement
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $bankAcc->id,
+                        'account_code' => $bankAcc->code,
+                        'account_name' => $bankAcc->name,
+                        'debit' => $amount,
+                        'credit' => 0.00,
+                        'description' => 'Bank treasury deposit collections',
+                        'reference' => $num,
+                    ]);
+                    JournalEntryLine::create([
+                        'journal_entry_id' => $je->id,
+                        'account_id' => $receivableAcc->id,
+                        'account_code' => $receivableAcc->code,
+                        'account_name' => $receivableAcc->name,
+                        'debit' => 0.00,
+                        'credit' => $amount,
+                        'description' => 'Receivable settlement offset',
+                        'reference' => $num,
+                    ]);
+                }
             }
 
             $entries[$je->id] = $je;

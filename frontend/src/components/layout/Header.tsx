@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
       window.dispatchEvent(new CustomEvent('auth:role-updated'));
 
       const targetRole = targetEmail.includes(UserRole.ADMIN) ? UserRole.ADMIN : targetEmail.includes(UserRole.MANAGER) ? UserRole.MANAGER : UserRole.USER;
-      if (targetRole === UserRole.USER && ['/admin', '/accounts', '/journal', '/reports'].includes(location.pathname)) {
+      if (targetRole === UserRole.USER && (['/admin', '/accounts', '/journal'].includes(location.pathname) || location.pathname.startsWith('/reports'))) {
         navigate('/invoices');
       } else if (targetRole === UserRole.MANAGER && location.pathname === '/admin') {
         navigate('/');
