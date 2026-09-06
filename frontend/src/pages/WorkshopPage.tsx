@@ -319,36 +319,96 @@ export const WorkshopPage: React.FC = () => {
                   {/* Dynamic Render according to Selected Template & View Angle */}
                   {viewAngle === 'isometric' && (
                     <g filter="url(#furnitureShadow)" transform="translate(250, 180) scale(1.1)">
-                      {selectedTemplate.id === 'exec-desk' || selectedTemplate.id === 'dining-table' ? (
+                      {selectedTemplate.id === 'exec-desk' && (
                         <>
                           {/* Desktop Plinth */}
                           <polygon points="0,-40 140,25 0,90 -140,25" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
                           <polygon points="0,90 140,25 140,40 0,105" fill="#000000" opacity="0.35" />
                           <polygon points="0,90 -140,25 -140,40 0,105" fill="#000000" opacity="0.55" />
+                          {/* Inlay desk mat */}
+                          <polygon points="0,-20 80,18 0,55 -80,18" fill="#14141c" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.15" />
                           {/* Solid timber legs */}
                           <polygon points="-120,40 -110,45 -110,120 -120,115" fill={selectedWood.colorHex} />
-                          <polygon points="120,40 110,45 110,120 120,115" fill={selectedWood.colorHex} />
-                          <polygon points="-10,95 0,100 0,140 -10,135" fill={selectedWood.colorHex} />
                           <polygon points="-5,10 5,15 5,75 -5,70" fill={selectedWood.colorHex} opacity="0.7" />
-                          {/* Brass corner bracket joinery accent */}
+                          {/* Under-desk pedestal drawer block */}
+                          <polygon points="40,55 110,25 110,95 40,125" fill="#1b1b24" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          <polygon points="40,55 -5,75 -5,145 40,125" fill="#14141c" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          {/* Drawer handles */}
+                          <circle cx="20" cy="95" r="2.5" fill="#eab308" />
+                          <circle cx="20" cy="120" r="2.5" fill="#eab308" />
+                          {/* Brass corner brackets / cable grommets */}
                           <circle cx="-135" cy="27" r="3" fill="#eab308" />
                           <circle cx="135" cy="27" r="3" fill="#eab308" />
                         </>
-                      ) : selectedTemplate.id === 'ergo-chair' || selectedTemplate.id === 'lounge-armchair' ? (
+                      )}
+
+                      {selectedTemplate.id === 'dining-table' && (
+                        <>
+                          {/* Grand Dining Tabletop (longer and sleeker) */}
+                          <polygon points="0,-45 160,30 0,105 -160,30" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          <polygon points="0,105 160,30 160,45 0,120" fill="#000000" opacity="0.35" />
+                          <polygon points="0,105 -160,30 -160,45 0,120" fill="#000000" opacity="0.55" />
+                          {/* Center butterfly joints / bowtie inlays */}
+                          <polygon points="-40,30 -35,33 -35,27 -40,30" fill="#2d1c10" />
+                          <polygon points="-40,30 -45,33 -45,27 -40,30" fill="#2d1c10" />
+                          <polygon points="40,30 45,33 45,27 40,30" fill="#2d1c10" />
+                          <polygon points="40,30 35,33 35,27 40,30" fill="#2d1c10" />
+                          {/* 4 solid tapered corner timber legs with brass ferrules */}
+                          <polygon points="-140,45 -130,50 -130,135 -140,130" fill={selectedWood.colorHex} />
+                          <circle cx="-135" cy="132" r="3" fill="#eab308" />
+                          <polygon points="140,45 130,50 130,135 140,130" fill={selectedWood.colorHex} />
+                          <circle cx="135" cy="132" r="3" fill="#eab308" />
+                          <polygon points="-10,110 0,115 0,150 -10,145" fill={selectedWood.colorHex} />
+                          <circle cx="-5" cy="148" r="3" fill="#eab308" />
+                          <polygon points="0,-35 10,-30 10,40 0,35" fill={selectedWood.colorHex} opacity="0.5" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'ergo-chair' && (
                         <>
                           {/* Seat Cushion */}
                           <polygon points="0,-10 70,25 0,60 -70,25" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
                           <polygon points="0,60 70,25 70,40 0,75" fill="#000000" opacity="0.4" />
                           <polygon points="0,60 -70,25 -70,40 0,75" fill="#000000" opacity="0.6" />
                           {/* Curved Ergonomic Backrest */}
-                          <polygon points="-50,-20 0,-70 50,-20 0,-10" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
-                          <polygon points="-40,-25 0,-65 40,-25 0,-15" fill="url(#fabricGrad)" opacity="0.9" />
-                          {/* Timber Legs */}
+                          <polygon points="-50,-20 0,-75 50,-20 0,-10" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          <polygon points="-40,-25 0,-70 40,-25 0,-15" fill="url(#fabricGrad)" opacity="0.9" />
+                          {/* Armrest rails */}
+                          <line x1="-55" y1="10" x2="-65" y2="-15" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <line x1="55" y1="10" x2="65" y2="-15" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          {/* Timber Legs with brass casters */}
                           <line x1="-55" y1="40" x2="-65" y2="110" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
                           <line x1="55" y1="40" x2="65" y2="110" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
                           <line x1="0" y1="75" x2="0" y2="120" stroke={selectedWood.colorHex} strokeWidth="7" strokeLinecap="round" />
+                          <circle cx="-65" cy="110" r="3" fill="#eab308" />
+                          <circle cx="65" cy="110" r="3" fill="#eab308" />
+                          <circle cx="0" cy="120" r="3" fill="#eab308" />
                         </>
-                      ) : (
+                      )}
+
+                      {selectedTemplate.id === 'lounge-armchair' && (
+                        <>
+                          {/* Deep, Wide Lounge Seat Cushion */}
+                          <polygon points="0,-15 85,25 0,68 -85,25" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          <polygon points="0,68 85,25 85,45 0,88" fill="#000000" opacity="0.45" />
+                          <polygon points="0,68 -85,25 -85,45 0,88" fill="#000000" opacity="0.65" />
+                          {/* Angled Plush Backrest Cushion */}
+                          <polygon points="-65,-25 0,-65 65,-25 0,-15" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          <polygon points="0,-65 65,-25 65,-10 0,-50" fill="#000000" opacity="0.3" />
+                          {/* Sculptural Mid-Century Timber Armrest Wings */}
+                          <polygon points="-85,15 -68,22 -68,-20 -85,-25" fill="url(#woodGrad)" />
+                          <polygon points="68,22 85,15 85,-25 68,-20" fill="url(#woodGrad)" />
+                          {/* Splayed Solid Timber Legs */}
+                          <line x1="-70" y1="45" x2="-80" y2="115" stroke={selectedWood.colorHex} strokeWidth="7" strokeLinecap="round" />
+                          <line x1="70" y1="45" x2="80" y2="115" stroke={selectedWood.colorHex} strokeWidth="7" strokeLinecap="round" />
+                          <line x1="0" y1="88" x2="0" y2="125" stroke={selectedWood.colorHex} strokeWidth="7" strokeLinecap="round" />
+                          {/* Brass ferrule caps on legs */}
+                          <line x1="-77" y1="102" x2="-80" y2="115" stroke="#eab308" strokeWidth="7" strokeLinecap="round" />
+                          <line x1="77" y1="102" x2="80" y2="115" stroke="#eab308" strokeWidth="7" strokeLinecap="round" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'modular-shelf' && (
                         <>
                           {/* Bookshelf Framework */}
                           <polygon points="-90,-80 90,-80 90,90 -90,90" fill="none" stroke="url(#woodGrad)" strokeWidth="12" strokeLinejoin="round" />
@@ -367,38 +427,294 @@ export const WorkshopPage: React.FC = () => {
 
                   {viewAngle === 'front' && (
                     <g filter="url(#furnitureShadow)" transform="translate(250, 190)">
-                      <rect x="-130" y="-10" width="260" height="20" fill="url(#woodGrad)" rx="3" />
-                      <rect x="-120" y="10" width="18" height="100" fill={selectedWood.colorHex} />
-                      <rect x="102" y="10" width="18" height="100" fill={selectedWood.colorHex} />
-                      {/* Under-desk drawer box */}
-                      <rect x="30" y="10" width="80" height="60" fill="#1b1b22" stroke={selectedWood.colorHex} strokeWidth="2" rx="4" />
-                      <circle cx="70" cy="40" r="3" fill="#eab308" />
+                      {selectedTemplate.id === 'exec-desk' && (
+                        <>
+                          {/* Desktop Surface */}
+                          <rect x="-140" y="-10" width="280" height="20" fill="url(#woodGrad)" rx="3" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Legs */}
+                          <rect x="-130" y="10" width="18" height="100" fill={selectedWood.colorHex} />
+                          <rect x="112" y="10" width="18" height="100" fill={selectedWood.colorHex} />
+                          {/* Modesty Panel */}
+                          <rect x="-112" y="10" width="145" height="45" fill="#15151c" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          {/* Right Pedestal Drawer Box */}
+                          <rect x="33" y="10" width="79" height="75" fill="#1b1b24" stroke={selectedWood.colorHex} strokeWidth="1.5" rx="3" />
+                          <line x1="33" y1="47" x2="112" y2="47" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          <circle cx="72" cy="28" r="3.5" fill="#eab308" />
+                          <circle cx="72" cy="62" r="3.5" fill="#eab308" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'dining-table' && (
+                        <>
+                          {/* Long Grand Dining Tabletop */}
+                          <rect x="-160" y="-10" width="320" height="22" fill="url(#woodGrad)" rx="4" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Under-table Bevel Apron */}
+                          <rect x="-145" y="12" width="290" height="12" fill={selectedWood.colorHex} opacity="0.85" rx="1" />
+                          {/* Rear Leg Shadows */}
+                          <polygon points="-95,24 -85,24 -87,105 -93,105" fill="#000000" opacity="0.4" />
+                          <polygon points="85,24 95,24 93,105 87,105" fill="#000000" opacity="0.4" />
+                          {/* Front Tapered Timber Legs with Brass Feet */}
+                          <polygon points="-142,24 -128,24 -131,110 -139,110" fill={selectedWood.colorHex} />
+                          <rect x="-140" y="103" width="10" height="7" fill="#eab308" rx="1" />
+                          <polygon points="128,24 142,24 139,110 131,110" fill={selectedWood.colorHex} />
+                          <rect x="130" y="103" width="10" height="7" fill="#eab308" rx="1" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'ergo-chair' && (
+                        <>
+                          {/* Ergonomic Curved Wood Backrest Frame */}
+                          <rect x="-50" y="-95" width="100" height="85" rx="20" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Upholstered Backrest Cushion */}
+                          <rect x="-38" y="-85" width="76" height="68" rx="14" fill="url(#fabricGrad)" />
+                          {/* Lumbar Spine Accent */}
+                          <path d="M-25,-45 Q0,-40 25,-45" stroke="#ffffff" strokeWidth="2.5" strokeOpacity="0.25" fill="none" />
+                          {/* Contoured Seat Cushion */}
+                          <rect x="-55" y="-5" width="110" height="24" rx="8" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Armrest Supports */}
+                          <path d="M-65,-40 L-50,-40 L-50,2" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          <path d="M65,-40 L50,-40 L50,2" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                          {/* Central Pedestal & Timber Base */}
+                          <rect x="-8" y="19" width="16" height="35" fill="#1b1c24" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          <line x1="0" y1="54" x2="-65" y2="105" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
+                          <line x1="0" y1="54" x2="65" y2="105" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
+                          <circle cx="-65" cy="105" r="3.5" fill="#eab308" />
+                          <circle cx="65" cy="105" r="3.5" fill="#eab308" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'lounge-armchair' && (
+                        <>
+                          {/* Low-Slung Sculptural Timber Sides */}
+                          <polygon points="-85,-35 -70,-35 -60,50 -75,50" fill={selectedWood.colorHex} />
+                          <polygon points="70,-35 85,-35 75,50 60,50" fill={selectedWood.colorHex} />
+                          <rect x="-88" y="-38" width="20" height="7" rx="2" fill="url(#woodGrad)" />
+                          <rect x="68" y="-38" width="20" height="7" rx="2" fill="url(#woodGrad)" />
+                          {/* Plush Angled Backrest */}
+                          <rect x="-60" y="-50" width="120" height="52" rx="10" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Deep Seat Cushion */}
+                          <rect x="-65" y="4" width="130" height="32" rx="8" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Lower Apron Base */}
+                          <rect x="-62" y="36" width="124" height="10" fill="url(#woodGrad)" rx="2" />
+                          {/* Splayed Tapered Timber Legs with Brass Ferrules */}
+                          <line x1="-55" y1="46" x2="-75" y2="108" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
+                          <line x1="55" y1="46" x2="75" y2="108" stroke={selectedWood.colorHex} strokeWidth="6" strokeLinecap="round" />
+                          <line x1="-70" y1="96" x2="-75" y2="108" stroke="#eab308" strokeWidth="6" strokeLinecap="round" />
+                          <line x1="70" y1="96" x2="75" y2="108" stroke="#eab308" strokeWidth="6" strokeLinecap="round" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'modular-shelf' && (
+                        <>
+                          {/* Outer Framework */}
+                          <polygon points="-100,-105 100,-105 100,105 -100,105" fill="none" stroke="url(#woodGrad)" strokeWidth="10" strokeLinejoin="round" />
+                          {/* Vertical Dividers */}
+                          <line x1="-35" y1="-105" x2="-35" y2="105" stroke={selectedWood.colorHex} strokeWidth="6" />
+                          <line x1="35" y1="-105" x2="35" y2="105" stroke={selectedWood.colorHex} strokeWidth="6" />
+                          {/* Horizontal Shelves */}
+                          <line x1="-100" y1="-50" x2="100" y2="-50" stroke={selectedWood.colorHex} strokeWidth="7" />
+                          <line x1="-100" y1="5" x2="100" y2="5" stroke={selectedWood.colorHex} strokeWidth="7" />
+                          <line x1="-100" y1="60" x2="100" y2="60" stroke={selectedWood.colorHex} strokeWidth="7" />
+                          {/* Books & Decor */}
+                          <rect x="-90" y="-45" width="12" height="42" fill="#7042f4" rx="2" />
+                          <rect x="-76" y="-38" width="9" height="35" fill="#38bdf8" rx="2" />
+                          <rect x="-65" y="-48" width="14" height="45" fill="#fbbf24" rx="2" />
+                          <rect x="42" y="12" width="12" height="40" fill="#10b981" rx="2" />
+                          <rect x="56" y="18" width="10" height="34" fill="#f43f5e" rx="2" />
+                          {/* Minimalist Ceramic Planter */}
+                          <circle cx="0" cy="45" r="10" fill="#d97706" opacity="0.85" />
+                          <rect x="-4" y="32" width="8" height="5" fill="#b45309" rx="1" />
+                        </>
+                      )}
                     </g>
                   )}
 
                   {viewAngle === 'top' && (
                     <g filter="url(#furnitureShadow)" transform="translate(250, 180)">
-                      <rect x="-140" y="-70" width="280" height="140" fill="url(#woodGrad)" rx="8" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
-                      {/* Wood grain decorative lines */}
-                      <path d="M-130,-40 Q0,-30 130,-40" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
-                      <path d="M-130,0 Q0,10 130,0" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
-                      <path d="M-130,40 Q0,30 130,40" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
+                      {selectedTemplate.id === 'exec-desk' && (
+                        <>
+                          {/* Desktop Surface */}
+                          <rect x="-140" y="-70" width="280" height="140" fill="url(#woodGrad)" rx="8" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Leather Executive Blotter */}
+                          <rect x="-80" y="-45" width="160" height="90" rx="4" fill="#14141d" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.15" />
+                          {/* Wood Grain Lines */}
+                          <path d="M-130,-55 Q0,-45 130,-55" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
+                          <path d="M-130,55 Q0,45 130,55" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" fill="none" />
+                          {/* Dual Brass Cable Grommets */}
+                          <circle cx="-120" cy="-50" r="4" fill="#eab308" />
+                          <circle cx="120" cy="-50" r="4" fill="#eab308" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'dining-table' && (
+                        <>
+                          {/* Grand Tabletop Surface */}
+                          <rect x="-170" y="-65" width="340" height="130" fill="url(#woodGrad)" rx="8" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Center Bookmatched Grain Seam */}
+                          <line x1="-165" y1="0" x2="165" y2="0" stroke="#000000" strokeWidth="1.2" opacity="0.25" />
+                          {/* Butterfly Joint Inlays */}
+                          <polygon points="-70,0 -64,-5 -64,5 -70,0" fill="#2d1c10" />
+                          <polygon points="-70,0 -76,-5 -76,5 -70,0" fill="#2d1c10" />
+                          <polygon points="70,0 64,-5 64,5 70,0" fill="#2d1c10" />
+                          <polygon points="70,0 76,-5 76,5 70,0" fill="#2d1c10" />
+                          {/* Wood Grain Flow */}
+                          <path d="M-160,-35 Q0,-25 160,-35" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.15" fill="none" />
+                          <path d="M-160,35 Q0,45 160,35" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.15" fill="none" />
+                          {/* 6 Ghosted Dining Chairs around perimeter */}
+                          <rect x="-115" y="-82" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                          <rect x="-16" y="-82" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                          <rect x="83" y="-82" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                          <rect x="-115" y="70" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                          <rect x="-16" y="70" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                          <rect x="83" y="70" width="32" height="12" rx="3" stroke="#ffffff" strokeOpacity="0.25" strokeDasharray="2 2" fill="none" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'ergo-chair' && (
+                        <>
+                          {/* Contoured Fabric Seat Cushion */}
+                          <rect x="-50" y="-35" width="100" height="80" rx="20" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Curved Backrest Profile Behind */}
+                          <path d="M-55,-40 C-30,-65 30,-65 55,-40" stroke="url(#woodGrad)" strokeWidth="14" strokeLinecap="round" fill="none" />
+                          <path d="M-45,-42 C-25,-60 25,-60 45,-42" stroke="url(#fabricGrad)" strokeWidth="8" strokeLinecap="round" fill="none" />
+                          {/* Armrest Pads */}
+                          <rect x="-68" y="-18" width="14" height="46" rx="7" fill={selectedWood.colorHex} />
+                          <rect x="54" y="-18" width="14" height="46" rx="7" fill={selectedWood.colorHex} />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'lounge-armchair' && (
+                        <>
+                          {/* Deep Plush Seat Cushion */}
+                          <rect x="-65" y="-25" width="130" height="95" rx="16" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Cushion Crease / Button Tufting */}
+                          <circle cx="-25" cy="18" r="2.5" fill="#000000" opacity="0.4" />
+                          <circle cx="25" cy="18" r="2.5" fill="#000000" opacity="0.4" />
+                          {/* Backrest Cushion */}
+                          <rect x="-60" y="-58" width="120" height="28" rx="10" fill="url(#fabricGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Wide Architectural Timber Armrests */}
+                          <rect x="-85" y="-52" width="18" height="115" rx="8" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          <rect x="67" y="-52" width="18" height="115" rx="8" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'modular-shelf' && (
+                        <>
+                          {/* Top View Plan of Bookcase */}
+                          <rect x="-140" y="-35" width="280" height="70" rx="4" fill="url(#woodGrad)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.2" />
+                          {/* Interlocking Vertical Uprights */}
+                          <rect x="-135" y="-30" width="12" height="60" fill={selectedWood.colorHex} stroke="#000000" strokeWidth="1" rx="1" />
+                          <rect x="-45" y="-30" width="10" height="60" fill={selectedWood.colorHex} stroke="#000000" strokeWidth="1" rx="1" />
+                          <rect x="35" y="-30" width="10" height="60" fill={selectedWood.colorHex} stroke="#000000" strokeWidth="1" rx="1" />
+                          <rect x="123" y="-30" width="12" height="60" fill={selectedWood.colorHex} stroke="#000000" strokeWidth="1" rx="1" />
+                          {/* Book Spine Tops */}
+                          <rect x="-115" y="-20" width="6" height="40" fill="#7042f4" rx="1" />
+                          <rect x="-105" y="-18" width="6" height="36" fill="#38bdf8" rx="1" />
+                          <rect x="-95" y="-22" width="6" height="44" fill="#fbbf24" rx="1" />
+                        </>
+                      )}
                     </g>
                   )}
 
                   {viewAngle === 'room' && (
                     <g transform="translate(250, 180)">
-                      {/* Office Backdrop simulation */}
+                      {/* Architectural Backdrop Simulation */}
                       <line x1="-200" y1="110" x2="200" y2="110" stroke="#ffffff" strokeOpacity="0.1" strokeDasharray="4 4" />
+                      {/* Wall Window Framing */}
                       <rect x="-180" y="-120" width="80" height="100" fill="#ffffff" fillOpacity="0.04" stroke="#ffffff" strokeOpacity="0.1" rx="4" />
+                      <line x1="-140" y1="-120" x2="-140" y2="-20" stroke="#ffffff" strokeOpacity="0.08" />
+                      <line x1="-180" y1="-70" x2="-100" y2="-70" stroke="#ffffff" strokeOpacity="0.08" />
+                      {/* Wall Art Frame */}
                       <rect x="100" y="-100" width="70" height="70" fill="#ffffff" fillOpacity="0.03" stroke="#ffffff" strokeOpacity="0.08" rx="4" />
-                      {/* Furniture in room */}
-                      <polygon points="0,-20 110,35 0,85 -110,35" fill="url(#woodGrad)" />
-                      <polygon points="-90,40 -80,45 -80,110 -90,105" fill={selectedWood.colorHex} />
-                      <polygon points="90,40 80,45 80,110 90,105" fill={selectedWood.colorHex} />
-                      <text x="0" y="130" textAnchor="middle" fill="#34d399" fontSize="12" fontWeight="bold" fontFamily="monospace">
-                        ✓ Fits Room Clearance Spec (2.4m x 3.0m Zone)
-                      </text>
+                      <circle cx="135" cy="-65" r="16" fill="#7042f4" fillOpacity="0.15" />
+
+                      {/* Selected Model in Room */}
+                      {selectedTemplate.id === 'exec-desk' && (
+                        <>
+                          <polygon points="0,-20 110,35 0,85 -110,35" fill="url(#woodGrad)" />
+                          <polygon points="-90,40 -80,45 -80,110 -90,105" fill={selectedWood.colorHex} />
+                          <polygon points="90,40 80,45 80,110 90,105" fill={selectedWood.colorHex} />
+                          {/* Drawer pedestal */}
+                          <polygon points="30,55 75,35 75,85 30,105" fill="#1b1c24" stroke={selectedWood.colorHex} strokeWidth="1" />
+                          <circle cx="52" cy="80" r="2" fill="#eab308" />
+                          {/* Mini Laptop */}
+                          <polygon points="5,15 35,0 45,15 15,30" fill="#ffffff" opacity="0.3" />
+                          <text x="0" y="135" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                            ✓ Fits Office Clearance Spec (2.4m × 3.0m Zone)
+                          </text>
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'dining-table' && (
+                        <>
+                          <polygon points="0,-25 130,35 0,95 -130,35" fill="url(#woodGrad)" />
+                          <polygon points="-110,40 -100,45 -100,115 -110,110" fill={selectedWood.colorHex} />
+                          <polygon points="110,40 100,45 100,115 110,110" fill={selectedWood.colorHex} />
+                          <polygon points="-10,95 0,100 0,130 -10,125" fill={selectedWood.colorHex} />
+                          <circle cx="-105" cy="113" r="2.5" fill="#eab308" />
+                          <circle cx="105" cy="113" r="2.5" fill="#eab308" />
+                          {/* Centerpiece Vase */}
+                          <ellipse cx="0" cy="35" rx="8" ry="4" fill="#a855f7" opacity="0.7" />
+                          <text x="0" y="135" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                            ✓ Fits Dining Clearance (min 90cm perimeter walk-around)
+                          </text>
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'ergo-chair' && (
+                        <>
+                          {/* Chair Seat & Backrest in Room */}
+                          <polygon points="0,15 50,38 0,60 -50,38" fill="url(#fabricGrad)" />
+                          <polygon points="-35,10 0,-40 35,10 0,20" fill="url(#woodGrad)" />
+                          <polygon points="-28,8 0,-34 28,8 0,16" fill="url(#fabricGrad)" />
+                          {/* Chair Base */}
+                          <line x1="0" y1="60" x2="-40" y2="105" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <line x1="0" y1="60" x2="40" y2="105" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <line x1="0" y1="60" x2="0" y2="110" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <circle cx="-40" cy="105" r="3" fill="#eab308" />
+                          <circle cx="40" cy="105" r="3" fill="#eab308" />
+                          <text x="0" y="135" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                            ✓ Ergonomic Task Clearance Verified (1.2m swivel radius)
+                          </text>
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'lounge-armchair' && (
+                        <>
+                          {/* Armchair in Room */}
+                          <polygon points="0,5 65,35 0,65 -65,35" fill="url(#fabricGrad)" />
+                          <polygon points="-45,-5 0,-45 45,-5 0,5" fill="url(#fabricGrad)" />
+                          {/* Armrest posts */}
+                          <polygon points="-65,25 -50,30 -50,75 -65,70" fill={selectedWood.colorHex} />
+                          <polygon points="50,30 65,25 65,70 50,75" fill={selectedWood.colorHex} />
+                          {/* Legs */}
+                          <line x1="-55" y1="65" x2="-65" y2="108" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <line x1="55" y1="65" x2="65" y2="108" stroke={selectedWood.colorHex} strokeWidth="5" strokeLinecap="round" />
+                          <circle cx="-65" cy="108" r="2.5" fill="#eab308" />
+                          <circle cx="65" cy="108" r="2.5" fill="#eab308" />
+                          <text x="0" y="135" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                            ✓ Lounge Reading Nook Clearance Approved
+                          </text>
+                        </>
+                      )}
+
+                      {selectedTemplate.id === 'modular-shelf' && (
+                        <>
+                          {/* Modular Shelf Against Wall */}
+                          <polygon points="-75,-75 75,-75 75,70 -75,70" fill="none" stroke="url(#woodGrad)" strokeWidth="8" strokeLinejoin="round" />
+                          <line x1="-25" y1="-75" x2="-25" y2="70" stroke={selectedWood.colorHex} strokeWidth="5" />
+                          <line x1="25" y1="-75" x2="25" y2="70" stroke={selectedWood.colorHex} strokeWidth="5" />
+                          <line x1="-75" y1="-25" x2="75" y2="-25" stroke={selectedWood.colorHex} strokeWidth="5" />
+                          <line x1="-75" y1="20" x2="75" y2="20" stroke={selectedWood.colorHex} strokeWidth="5" />
+                          {/* Small book accents */}
+                          <rect x="-65" y="-20" width="8" height="28" fill="#7042f4" rx="1" />
+                          <rect x="-55" y="-16" width="6" height="24" fill="#38bdf8" rx="1" />
+                          <rect x="35" y="25" width="10" height="32" fill="#fbbf24" rx="1" />
+                          <text x="0" y="135" textAnchor="middle" fill="#34d399" fontSize="11" fontWeight="bold" fontFamily="monospace">
+                            ✓ Wall Anchor & Ceiling Clearance Verified (2.2m min height)
+                          </text>
+                        </>
+                      )}
                     </g>
                   )}
 
@@ -410,11 +726,27 @@ export const WorkshopPage: React.FC = () => {
                       <text x="250" y="330" textAnchor="middle" fill="#c084fc" fontSize="11" fontWeight="bold">
                         W: {width} cm
                       </text>
-                      {/* Height tag */}
-                      <line x1="45" y1="90" x2="45" y2="280" stroke="#7042f4" strokeWidth="1.5" strokeDasharray="3 3" />
-                      <text x="40" y="190" textAnchor="end" fill="#c084fc" fontSize="11" fontWeight="bold">
-                        H: {height} cm
-                      </text>
+                      {/* Height tag for non-top views */}
+                      {viewAngle !== 'top' ? (
+                        <>
+                          <line x1="45" y1="90" x2="45" y2="280" stroke="#7042f4" strokeWidth="1.5" strokeDasharray="3 3" />
+                          <text x="40" y="190" textAnchor="end" fill="#c084fc" fontSize="11" fontWeight="bold">
+                            H: {height} cm
+                          </text>
+                        </>
+                      ) : (
+                        <>
+                          <line x1="45" y1="110" x2="45" y2="250" stroke="#7042f4" strokeWidth="1.5" strokeDasharray="3 3" />
+                          <text x="40" y="185" textAnchor="end" fill="#c084fc" fontSize="11" fontWeight="bold">
+                            D: {depth} cm
+                          </text>
+                        </>
+                      )}
+                      {viewAngle === 'isometric' && (
+                        <text x="435" y="185" textAnchor="start" fill="#818cf8" fontSize="10" fontWeight="bold">
+                          D: {depth} cm
+                        </text>
+                      )}
                     </g>
                   )}
                 </svg>
