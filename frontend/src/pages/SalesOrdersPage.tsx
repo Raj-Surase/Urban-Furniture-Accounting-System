@@ -343,6 +343,7 @@ export const SalesOrdersPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredOrders,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
@@ -560,6 +561,9 @@ export const SalesOrdersPage: React.FC = () => {
                       </td>
                     </tr>
                   ))
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader rows={3} cols={8} />
               )}
             </tbody>
           </table>

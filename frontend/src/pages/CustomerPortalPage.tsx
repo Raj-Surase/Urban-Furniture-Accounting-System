@@ -4,6 +4,7 @@ import { FileText, CreditCard, CheckCircle2, Clock, DollarSign, ExternalLink, Za
 import { useAuth } from '../context/AuthContext';
 import { invoicesApi } from '../lib/api';
 import { ExcalidrawPaymentModal } from '../components/payments/ExcalidrawPaymentModal';
+import { TableSkeleton } from '../components/common/TableSkeleton';
 import { InvoiceStatus, InvoiceType } from '../types';
 
 export const CustomerPortalPage: React.FC = () => {
@@ -58,9 +59,13 @@ export const CustomerPortalPage: React.FC = () => {
 
         <div className="text-left sm:text-right bg-[#121216]/80 p-4 rounded-xl border border-white/[0.08]">
           <span className="text-xs text-[#8a8a9a] block">Total Outstanding Dues</span>
-          <span className="text-2xl font-mono font-extrabold text-white">
-            ₹{totalDue.toLocaleString()}
-          </span>
+          {loading ? (
+            <div className="h-8 w-28 bg-white/[0.08] rounded-md animate-pulse mt-1 ml-auto" />
+          ) : (
+            <span className="text-2xl font-mono font-extrabold text-white">
+              ₹{totalDue.toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -90,46 +95,50 @@ export const CustomerPortalPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
-                    <span>{inv.invoice_number}</span>
-                  </td>
-                  <td className="py-3 px-4 text-[#a0a0b0] font-mono">{inv.invoice_date}</td>
-                  <td className="py-3 px-4 text-[#a0a0b0] font-mono">{inv.due_date}</td>
-                  <td className="py-3 px-4 text-right font-mono text-white">
-                    ₹{Number(inv.total_amount).toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-right font-mono font-bold text-rose-400">
-                    ₹{Number(inv.balance_due).toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      inv.status === InvoiceStatus.PAID
-                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                    }`}>
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    {inv.balance_due > 0 ? (
-                      <button
-                        onClick={() => handlePay(inv)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] text-white text-xs font-semibold shadow-md shadow-[#7042f4]/30 mx-auto transition-all cursor-pointer"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Pay Online</span>
-                      </button>
-                    ) : (
-                      <span className="text-emerald-400 font-semibold flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Paid
+              {loading ? (
+                <TableSkeleton columns={7} rows={4} />
+              ) : (
+                invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
+                      <span>{inv.invoice_number}</span>
+                    </td>
+                    <td className="py-3 px-4 text-[#a0a0b0] font-mono">{inv.invoice_date}</td>
+                    <td className="py-3 px-4 text-[#a0a0b0] font-mono">{inv.due_date}</td>
+                    <td className="py-3 px-4 text-right font-mono text-white">
+                      ₹{Number(inv.total_amount).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-rose-400">
+                      ₹{Number(inv.balance_due).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        inv.status === InvoiceStatus.PAID
+                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                      }`}>
+                        {inv.status}
                       </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {inv.balance_due > 0 ? (
+                        <button
+                          onClick={() => handlePay(inv)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] text-white text-xs font-semibold shadow-md shadow-[#7042f4]/30 mx-auto transition-all cursor-pointer"
+                        >
+                          <Zap className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Pay Online</span>
+                        </button>
+                      ) : (
+                        <span className="text-emerald-400 font-semibold flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Paid
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
               {invoices.length === 0 && !loading && (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-[#707080]">

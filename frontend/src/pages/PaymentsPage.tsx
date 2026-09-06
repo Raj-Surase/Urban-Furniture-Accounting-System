@@ -394,6 +394,7 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
   } = useScrollPagination({
     items: filteredPayments,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -591,6 +592,9 @@ export const PaymentsPage: React.FC<PaymentsPageProps> = ({ openNew = false }) =
                       </tr>
                     );
                   })
+                )}
+                {loadingMore && (
+                  <TableSkeleton isPaginationLoader columns={8} rows={3} />
                 )}
               </tbody>
             </table>

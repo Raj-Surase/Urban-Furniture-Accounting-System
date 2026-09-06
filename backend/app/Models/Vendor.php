@@ -21,6 +21,7 @@ class Vendor extends Model
         "city",
         "state",
         "country",
+        "pincode",
         "gstin",
         "pan",
         "payment_terms_days",
@@ -30,6 +31,15 @@ class Vendor extends Model
         "notes",
         "created_by",
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Vendor $vendor) {
+            if (empty($vendor->code)) {
+                $vendor->code = \App\Services\SequenceService::generate('VEN', null, 3);
+            }
+        });
+    }
 
     protected $casts = [
         "is_active" => "boolean",

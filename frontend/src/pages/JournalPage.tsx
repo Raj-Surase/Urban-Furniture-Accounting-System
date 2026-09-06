@@ -383,6 +383,7 @@ export const JournalPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredEntries,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -618,6 +619,9 @@ export const JournalPage: React.FC = () => {
                     </React.Fragment>
                   );
                 })
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader columns={10} rows={3} />
               )}
             </tbody>
           </table>

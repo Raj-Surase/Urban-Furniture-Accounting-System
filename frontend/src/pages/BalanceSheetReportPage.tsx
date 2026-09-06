@@ -18,6 +18,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../lib/api';
 import { exportBalanceSheetPdf } from '../components/pdf/ReportPdfGenerator';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
+import { ReportDocumentSkeleton } from '../components/common/ReportDocumentSkeleton';
 
 type PresetKey = 'today' | 'month-end' | 'last-month-end' | 'fy-end' | 'prev-fy-end' | 'custom';
 type CategoryFilter = 'all' | 'asset' | 'liability' | 'equity';
@@ -363,72 +365,79 @@ export const BalanceSheetReportPage: React.FC = () => {
       </div>
 
       {/* ── Key Equation KPI Metric Banner ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
-        <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08] flex items-center justify-between">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-              Total Assets
-            </span>
-            <span className="text-xl font-bold font-mono text-indigo-400 mt-1 block">
-              {fmtCurrency(totalAsset)}
-            </span>
+      {loading ? (
+        <StatCardSkeleton count={3} columns="grid-cols-1 sm:grid-cols-3" className="print:hidden" />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
+          <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08] flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+                Total Assets
+              </span>
+              <span className="text-xl font-bold font-mono text-indigo-400 mt-1 block">
+                {fmtCurrency(totalAsset)}
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <Scale className="w-5 h-5" />
+            </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <Scale className="w-5 h-5" />
-          </div>
-        </div>
 
-        <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08] flex items-center justify-between">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-              Liabilities & Equity
-            </span>
-            <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
-              {fmtCurrency(totalLiabAndEquity)}
-            </span>
+          <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08] flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+                Liabilities & Equity
+              </span>
+              <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
+                {fmtCurrency(totalLiabAndEquity)}
+              </span>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Scale className="w-5 h-5" />
+            </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-            <Scale className="w-5 h-5" />
-          </div>
-        </div>
 
-        <div
-          className={`p-4 rounded-2xl border flex items-center justify-between ${
-            isBalanced
-              ? 'bg-emerald-500/10 border-emerald-500/20'
-              : 'bg-rose-500/10 border-rose-500/20'
-          }`}
-        >
-          <div>
-            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-              Status Check
-            </span>
-            <span
-              className={`text-sm font-bold font-mono mt-1 block ${
-                isBalanced ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {isBalanced ? 'PERFECTLY BALANCED' : `OUT OF BALANCE (₹${diff.toFixed(2)})`}
-            </span>
-          </div>
           <div
-            className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+            className={`p-4 rounded-2xl border flex items-center justify-between ${
               isBalanced
-                ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                : 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                ? 'bg-emerald-500/10 border-emerald-500/20'
+                : 'bg-rose-500/10 border-rose-500/20'
             }`}
           >
-            {isBalanced ? <ShieldCheck className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            <div>
+              <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+                Status Check
+              </span>
+              <span
+                className={`text-sm font-bold font-mono mt-1 block ${
+                  isBalanced ? 'text-emerald-400' : 'text-rose-400'
+                }`}
+              >
+                {isBalanced ? 'PERFECTLY BALANCED' : `OUT OF BALANCE (₹${diff.toFixed(2)})`}
+              </span>
+            </div>
+            <div
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+                isBalanced
+                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                  : 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+              }`}
+            >
+              {isBalanced ? <ShieldCheck className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Printable Report Document Card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-[#18181f]/95 border border-white/[0.08] rounded-2xl p-8 shadow-obsidian-card space-y-8 print:border-none print:shadow-none print:p-0"
-      >
+      {loading ? (
+        <ReportDocumentSkeleton type="dual-column" />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#18181f]/95 border border-white/[0.08] rounded-2xl p-8 shadow-obsidian-card space-y-8 print:border-none print:shadow-none print:p-0"
+        >
         {/* Document Header */}
         <div className="border-b border-white/[0.08] pb-6 flex justify-between items-start">
           <div>
@@ -646,6 +655,7 @@ export const BalanceSheetReportPage: React.FC = () => {
           </span>
         </div>
       </motion.div>
+      )}
     </div>
   );
 };

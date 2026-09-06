@@ -6,6 +6,8 @@ import { contactsApi } from '../lib/api';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { CardGridSkeleton } from '../components/common/CardGridSkeleton';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { ContactType } from '../types';
@@ -166,7 +168,8 @@ export const ContactsPage: React.FC = () => {
     }
 
     try {
-      await contactsApi.create(formData);
+      const payload = activeContact ? { ...formData, id: activeContact.id } : formData;
+      await contactsApi.create(payload);
       await fetchContacts();
       setViewMode('list');
     } catch (err: any) {
@@ -220,6 +223,7 @@ export const ContactsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredContacts,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -440,57 +444,66 @@ export const ContactsPage: React.FC = () => {
         </form>
       ) : viewMode === 'kanban' ? (
         /* KANBAN VIEW */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {visibleContacts.map((c) => (
-            <motion.div
-              key={`${c.contact_type}-${c.id}`}
-              onClick={() => handleOpenForm(c)}
-              whileHover={{ y: -3, scale: 1.01 }}
-              className="p-5 rounded-2xl bg-[#18181f]/90 border border-white/[0.08] hover:border-[#7042f4]/50 shadow-obsidian-card cursor-pointer transition-all space-y-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-sm shadow-md">
-                  {c.name.slice(0, 2).toUpperCase()}
+        loading && visibleContacts.length === 0 ? (
+          <CardGridSkeleton count={8} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {visibleContacts.map((c) => (
+              <motion.div
+                key={`${c.contact_type}-${c.id}`}
+                onClick={() => handleOpenForm(c)}
+                whileHover={{ y: -3, scale: 1.01 }}
+                className="p-5 rounded-2xl bg-[#18181f]/90 border border-white/[0.08] hover:border-[#7042f4]/50 shadow-obsidian-card cursor-pointer transition-all space-y-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-sm shadow-md">
+                    {c.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="overflow-hidden">
+                    <h3 className="text-sm font-bold text-white truncate">{c.name}</h3>
+                    <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase bg-white/[0.05] text-[#a0a0b0]">
+                      {c.contact_type}
+                    </span>
+                  </div>
                 </div>
-                <div className="overflow-hidden">
-                  <h3 className="text-sm font-bold text-white truncate">{c.name}</h3>
-                  <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase bg-white/[0.05] text-[#a0a0b0]">
-                    {c.contact_type}
-                  </span>
-                </div>
-              </div>
 
-              <div className="space-y-1.5 text-xs text-[#8a8a9a] pt-1">
-                <div className="flex items-center gap-2 truncate">
-                  <Mail className="w-3.5 h-3.5 text-[#7042f4]" />
-                  <span className="truncate">{c.email}</span>
+                <div className="space-y-1.5 text-xs text-[#8a8a9a] pt-1">
+                  <div className="flex items-center gap-2 truncate">
+                    <Mail className="w-3.5 h-3.5 text-[#7042f4]" />
+                    <span className="truncate">{c.email}</span>
+                  </div>
+                  {c.phone && (
+                    <div className="flex items-center gap-2 truncate">
+                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{c.phone}</span>
+                    </div>
+                  )}
+                  {c.gstin && (
+                    <div className="flex items-center gap-2 truncate font-mono text-[10px] text-[#c084fc]">
+                      <span>GSTIN: {c.gstin}</span>
+                    </div>
+                  )}
+                  {c.city && (
+                    <div className="flex items-center gap-2 truncate">
+                      <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{c.city}, {c.state}</span>
+                    </div>
+                  )}
                 </div>
-                {c.phone && (
-                  <div className="flex items-center gap-2 truncate">
-                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{c.phone}</span>
-                  </div>
-                )}
-                {c.gstin && (
-                  <div className="flex items-center gap-2 truncate font-mono text-[10px] text-[#c084fc]">
-                    <span>GSTIN: {c.gstin}</span>
-                  </div>
-                )}
-                {c.city && (
-                  <div className="flex items-center gap-2 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                    <span>{c.city}, {c.state}</span>
-                  </div>
-                )}
+              </motion.div>
+            ))}
+            {loadingMore && (
+              <div className="col-span-full">
+                <CardGridSkeleton isPaginationLoader count={4} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
               </div>
-            </motion.div>
-          ))}
-          {visibleContacts.length === 0 && !loading && (
-            <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
-              No contacts found matching current filters. Click "+ New" to add one.
-            </div>
-          )}
-        </div>
+            )}
+            {visibleContacts.length === 0 && !loading && (
+              <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
+                No contacts found matching current filters. Click "+ New" to add one.
+              </div>
+            )}
+          </div>
+        )
       ) : (
         /* LIST VIEW */
         <div className="space-y-4">
@@ -544,35 +557,42 @@ export const ContactsPage: React.FC = () => {
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {visibleContacts.map((c) => (
-                    <tr
-                      key={`${c.contact_type}-${c.id}`}
-                      onClick={() => handleOpenForm(c)}
-                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                    >
-                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" className="rounded border-white/20 bg-transparent" />
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="w-8 h-8 rounded-full mx-auto bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs">
-                          {c.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-white">{c.name}</td>
-                      <td className="py-3 px-4 text-[#a0a0b0]">{c.email}</td>
-                      <td className="py-3 px-4 text-[#a0a0b0]">{c.phone || '—'}</td>
-                      <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                          c.contact_type === ContactType.CUSTOMER
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                        }`}>
-                          {c.contact_type}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading && visibleContacts.length === 0 ? (
+                    <TableSkeleton columns={7} rows={6} />
+                  ) : (
+                    visibleContacts.map((c) => (
+                      <tr
+                        key={`${c.contact_type}-${c.id}`}
+                        onClick={() => handleOpenForm(c)}
+                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                      >
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="rounded border-white/20 bg-transparent" />
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="w-8 h-8 rounded-full mx-auto bg-gradient-to-tr from-[#7042f4] to-[#a855f7] flex items-center justify-center text-white font-bold text-xs">
+                            {c.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white">{c.name}</td>
+                        <td className="py-3 px-4 text-[#a0a0b0]">{c.email}</td>
+                        <td className="py-3 px-4 text-[#a0a0b0]">{c.phone || '—'}</td>
+                        <td className="py-3 px-4 font-mono text-[#c084fc]">{c.gstin || '—'}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                            c.contact_type === ContactType.CUSTOMER
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                          }`}>
+                            {c.contact_type}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {loadingMore && (
+                    <TableSkeleton isPaginationLoader columns={7} rows={3} />
+                  )}
                   {visibleContacts.length === 0 && !loading && (
                     <tr>
                       <td colSpan={7} className="text-center py-8 text-[#707080]">

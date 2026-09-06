@@ -615,6 +615,7 @@ export const PurchaseOrdersPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredOrders,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const selectedVendor = vendors.find((v) => v.id === vendorId);
@@ -716,8 +717,8 @@ export const PurchaseOrdersPage: React.FC = () => {
               }`}
             >
               <span>All Procurement</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/30 text-neutral-300">
-                {orders.length}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/30 text-neutral-300 min-w-[1.25rem] text-center inline-flex items-center justify-center">
+                {loading ? <span className="inline-block w-3.5 h-2.5 bg-white/20 animate-pulse rounded" /> : orders.length}
               </span>
             </button>
 
@@ -733,8 +734,8 @@ export const PurchaseOrdersPage: React.FC = () => {
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>✨ 3D Studio Custom Orders</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
-                {customOrdersCount}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 min-w-[1.25rem] text-center inline-flex items-center justify-center">
+                {loading ? <span className="inline-block w-3.5 h-2.5 bg-amber-300/30 animate-pulse rounded" /> : customOrdersCount}
               </span>
             </button>
 
@@ -750,8 +751,8 @@ export const PurchaseOrdersPage: React.FC = () => {
               }`}
             >
               <span>Standard Procurement</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/30 text-neutral-300">
-                {standardOrdersCount}
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-black/30 text-neutral-300 min-w-[1.25rem] text-center inline-flex items-center justify-center">
+                {loading ? <span className="inline-block w-3.5 h-2.5 bg-white/20 animate-pulse rounded" /> : standardOrdersCount}
               </span>
             </button>
           </div>
@@ -974,6 +975,9 @@ export const PurchaseOrdersPage: React.FC = () => {
                     </td>
                   </tr>
                 ))
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader rows={3} cols={8} />
               )}
             </tbody>
           </table>

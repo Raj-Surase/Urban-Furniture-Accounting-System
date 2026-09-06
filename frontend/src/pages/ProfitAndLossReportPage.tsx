@@ -19,6 +19,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { reportsApi } from '../lib/api';
 import { exportIncomeStatementPdf } from '../components/pdf/ReportPdfGenerator';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
+import { ReportDocumentSkeleton } from '../components/common/ReportDocumentSkeleton';
 
 type PresetKey = 'this-month' | 'last-month' | '30days' | 'quarter' | 'fy' | 'prev-fy' | 'all' | 'custom';
 type CategoryFilter = 'all' | 'revenue' | 'cogs' | 'expense';
@@ -381,74 +383,81 @@ export const ProfitAndLossReportPage: React.FC = () => {
       </div>
 
       {/* ── Financial Performance Metric Strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
-        <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
-          <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-            Operating Revenue
-          </span>
-          <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-            {fmtCurrency(totalIncome)}
-          </span>
-          <span className="text-[11px] text-[#707080] mt-0.5 block">100% of top-line sales</span>
-        </div>
+      {loading ? (
+        <StatCardSkeleton count={4} columns="grid-cols-2 sm:grid-cols-4" className="print:hidden" />
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
+          <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
+            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+              Operating Revenue
+            </span>
+            <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
+              {fmtCurrency(totalIncome)}
+            </span>
+            <span className="text-[11px] text-[#707080] mt-0.5 block">100% of top-line sales</span>
+          </div>
 
-        <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
-          <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-            Gross Profit
-          </span>
-          <span className="text-xl font-bold font-mono text-emerald-300 mt-1 block">
-            {fmtCurrency(grossProfit)}
-          </span>
-          <span className="text-[11px] text-emerald-400/90 mt-0.5 block font-semibold">
-            {grossMarginPct}% Gross Margin
-          </span>
-        </div>
+          <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
+            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+              Gross Profit
+            </span>
+            <span className="text-xl font-bold font-mono text-emerald-300 mt-1 block">
+              {fmtCurrency(grossProfit)}
+            </span>
+            <span className="text-[11px] text-emerald-400/90 mt-0.5 block font-semibold">
+              {grossMarginPct}% Gross Margin
+            </span>
+          </div>
 
-        <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
-          <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-            Operating Expenses
-          </span>
-          <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
-            {fmtCurrency(operatingExpensesTotal)}
-          </span>
-          <span className="text-[11px] text-[#707080] mt-0.5 block">
-            {opexRatioPct}% OpEx Ratio
-          </span>
-        </div>
+          <div className="p-4 rounded-2xl bg-[#18181f] border border-white/[0.08]">
+            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+              Operating Expenses
+            </span>
+            <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
+              {fmtCurrency(operatingExpensesTotal)}
+            </span>
+            <span className="text-[11px] text-[#707080] mt-0.5 block">
+              {opexRatioPct}% OpEx Ratio
+            </span>
+          </div>
 
-        <div
-          className={`p-4 rounded-2xl border ${
-            netIncome >= 0
-              ? 'bg-emerald-500/10 border-emerald-500/20'
-              : 'bg-rose-500/10 border-rose-500/20'
-          }`}
-        >
-          <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
-            Net Profit / (Loss)
-          </span>
-          <span
-            className={`text-xl font-bold font-mono mt-1 block ${
-              netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          <div
+            className={`p-4 rounded-2xl border ${
+              netIncome >= 0
+                ? 'bg-emerald-500/10 border-emerald-500/20'
+                : 'bg-rose-500/10 border-rose-500/20'
             }`}
           >
-            {fmtCurrency(netIncome)}
-          </span>
-          <span
-            className={`text-[11px] font-semibold mt-0.5 block ${
-              netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'
-            }`}
-          >
-            {netMarginPct}% Net Margin
-          </span>
+            <span className="text-[10px] uppercase font-bold text-[#8a8a9a] tracking-wider block">
+              Net Profit / (Loss)
+            </span>
+            <span
+              className={`text-xl font-bold font-mono mt-1 block ${
+                netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {fmtCurrency(netIncome)}
+            </span>
+            <span
+              className={`text-[11px] font-semibold mt-0.5 block ${
+                netIncome >= 0 ? 'text-emerald-400' : 'text-rose-400'
+              }`}
+            >
+              {netMarginPct}% Net Margin
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Printable Report Document Card ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-[#18181f]/95 border border-white/[0.08] rounded-2xl p-8 shadow-obsidian-card space-y-8 print:border-none print:shadow-none print:p-0"
-      >
+      {loading ? (
+        <ReportDocumentSkeleton type="single-column" />
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#18181f]/95 border border-white/[0.08] rounded-2xl p-8 shadow-obsidian-card space-y-8 print:border-none print:shadow-none print:p-0"
+        >
         {/* Document Header */}
         <div className="border-b border-white/[0.08] pb-6 flex justify-between items-start">
           <div>
@@ -611,6 +620,7 @@ export const ProfitAndLossReportPage: React.FC = () => {
           </div>
         </div>
       </motion.div>
+      )}
     </div>
   );
 };

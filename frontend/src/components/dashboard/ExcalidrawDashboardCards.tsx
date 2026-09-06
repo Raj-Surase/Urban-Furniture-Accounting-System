@@ -27,6 +27,10 @@ export interface ExcalidrawDashboardCardsProps {
   loading?: boolean;
 }
 
+const PulsePlaceholder: React.FC<{ width?: string }> = ({ width = 'w-8' }) => (
+  <span className={`inline-block ${width} h-5 bg-white/10 animate-pulse rounded my-0.5 align-middle`} />
+);
+
 export const ExcalidrawDashboardCards: React.FC<ExcalidrawDashboardCardsProps> = ({
   salesData = { all: 0, confirmed: 0, draft: 0 },
   purchaseData = { all: 0, confirmed: 0, draft: 0 },
@@ -72,19 +76,19 @@ export const ExcalidrawDashboardCards: React.FC<ExcalidrawDashboardCardsProps> =
             <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
               <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">All</span>
               <span className="text-xl font-bold font-mono text-white mt-1 block">
-                {loading ? '—' : salesData.all}
+                {loading ? <PulsePlaceholder /> : salesData.all}
               </span>
             </div>
             <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
               <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Confirmed</span>
               <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-                {loading ? '—' : salesData.confirmed}
+                {loading ? <PulsePlaceholder /> : salesData.confirmed}
               </span>
             </div>
             <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
               <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Draft</span>
               <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
-                {loading ? '—' : salesData.draft}
+                {loading ? <PulsePlaceholder /> : salesData.draft}
               </span>
             </div>
           </div>
@@ -267,19 +271,19 @@ export const ExcalidrawDashboardCards: React.FC<ExcalidrawDashboardCardsProps> =
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">All</span>
             <span className="text-xl font-bold font-mono text-white mt-1 block">
-              {loading ? '—' : salesData.all}
+              {loading ? <PulsePlaceholder /> : salesData.all}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Confirmed</span>
             <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-              {loading ? '—' : salesData.confirmed}
+              {loading ? <PulsePlaceholder /> : salesData.confirmed}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Draft</span>
             <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
-              {loading ? '—' : salesData.draft}
+              {loading ? <PulsePlaceholder /> : salesData.draft}
             </span>
           </div>
         </div>
@@ -341,19 +345,19 @@ export const ExcalidrawDashboardCards: React.FC<ExcalidrawDashboardCardsProps> =
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">All</span>
             <span className="text-xl font-bold font-mono text-white mt-1 block">
-              {loading ? '—' : purchaseData.all}
+              {loading ? <PulsePlaceholder /> : purchaseData.all}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Confirmed</span>
             <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">
-              {loading ? '—' : purchaseData.confirmed}
+              {loading ? <PulsePlaceholder /> : purchaseData.confirmed}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Draft</span>
             <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">
-              {loading ? '—' : purchaseData.draft}
+              {loading ? <PulsePlaceholder /> : purchaseData.draft}
             </span>
           </div>
         </div>
@@ -415,19 +419,19 @@ export const ExcalidrawDashboardCards: React.FC<ExcalidrawDashboardCardsProps> =
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Budget</span>
             <span className="text-xl font-bold font-mono text-white mt-1 block">
-              {loading ? '—' : budgetData.budget}
+              {loading ? <PulsePlaceholder /> : budgetData.budget}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Committed</span>
             <span className="text-xs font-bold font-mono text-indigo-300 mt-2 block truncate">
-              {loading ? '—' : `₹${Math.round(budgetData.committed).toLocaleString('en-IN')}`}
+              {loading ? <PulsePlaceholder width="w-14" /> : `₹${Math.round(budgetData.committed).toLocaleString('en-IN')}`}
             </span>
           </div>
           <div className="p-3 rounded-xl bg-[#121216] border border-white/[0.04]">
             <span className="text-[11px] text-[#8a8a9a] block uppercase tracking-wider">Achieved</span>
             <span className="text-xs font-bold font-mono text-emerald-400 mt-2 block truncate">
-              {loading ? '—' : `₹${Math.round(budgetData.achieved).toLocaleString('en-IN')}`}
+              {loading ? <PulsePlaceholder width="w-14" /> : `₹${Math.round(budgetData.achieved).toLocaleString('en-IN')}`}
             </span>
           </div>
         </div>

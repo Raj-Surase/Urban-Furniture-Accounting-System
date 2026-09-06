@@ -21,6 +21,8 @@ import { analyticAccountsApi } from '../lib/api';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { CardGridSkeleton } from '../components/common/CardGridSkeleton';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { BudgetLineType } from '../types';
@@ -284,6 +286,7 @@ export const AnalyticAccountsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredAnalytics,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -579,55 +582,64 @@ export const AnalyticAccountsPage: React.FC = () => {
           />
 
           {viewMode === 'kanban' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleAnalytics.map((a) => (
-                <motion.div
-                  key={a.id}
-                  onClick={() => handleOpenForm(a)}
-                  whileHover={{ y: -3 }}
-                  className="p-5 rounded-2xl bg-[#18181f]/90 border border-white/[0.08] hover:border-[#7042f4]/50 shadow-obsidian-card cursor-pointer transition-all space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-2 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/30 text-[#c084fc]">
-                        <Layers className="w-4 h-4" />
+            loading && visibleAnalytics.length === 0 ? (
+              <CardGridSkeleton count={6} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {visibleAnalytics.map((a) => (
+                  <motion.div
+                    key={a.id}
+                    onClick={() => handleOpenForm(a)}
+                    whileHover={{ y: -3 }}
+                    className="p-5 rounded-2xl bg-[#18181f]/90 border border-white/[0.08] hover:border-[#7042f4]/50 shadow-obsidian-card cursor-pointer transition-all space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/30 text-[#c084fc]">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-white">{a.name}</h3>
+                          {a.code && <span className="text-[10px] font-mono text-[#808090]">{a.code}</span>}
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-sm font-bold text-white">{a.name}</h3>
-                        {a.code && <span className="text-[10px] font-mono text-[#808090]">{a.code}</span>}
-                      </div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase flex items-center gap-1 ${
-                      a.type === BudgetLineType.INCOME
-                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                    }`}>
-                      {a.type === BudgetLineType.INCOME ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {a.type}
-                    </span>
-                  </div>
-                  {a.description && (
-                    <p className="text-xs text-[#8a8a9a] line-clamp-2">{a.description}</p>
-                  )}
-                  {a.has_budget_exceeded && (
-                    <div className="pt-2 border-t border-rose-500/20">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold w-full">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
-                        <span>Budget Exceeded (+₹{Math.round(a.max_exceeded_amount || 0).toLocaleString('en-IN')})</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase flex items-center gap-1 ${
+                        a.type === BudgetLineType.INCOME
+                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                      }`}>
+                        {a.type === BudgetLineType.INCOME ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                        {a.type}
                       </span>
                     </div>
-                  )}
-                  {a.is_active === false && (
-                    <span className="inline-block text-[10px] text-amber-400 font-medium">Inactive</span>
-                  )}
-                </motion.div>
-              ))}
-              {visibleAnalytics.length === 0 && !loading && (
-                <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
-                  No analytic accounts found matching current filters. Click "+ New" to create one.
-                </div>
-              )}
-            </div>
+                    {a.description && (
+                      <p className="text-xs text-[#8a8a9a] line-clamp-2">{a.description}</p>
+                    )}
+                    {a.has_budget_exceeded && (
+                      <div className="pt-2 border-t border-rose-500/20">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[11px] font-semibold w-full">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                          <span>Budget Exceeded (+₹{Math.round(a.max_exceeded_amount || 0).toLocaleString('en-IN')})</span>
+                        </span>
+                      </div>
+                    )}
+                    {a.is_active === false && (
+                      <span className="inline-block text-[10px] text-amber-400 font-medium">Inactive</span>
+                    )}
+                  </motion.div>
+                ))}
+                {loadingMore && (
+                  <div className="col-span-full">
+                    <CardGridSkeleton isPaginationLoader count={3} />
+                  </div>
+                )}
+                {visibleAnalytics.length === 0 && !loading && (
+                  <div className="col-span-full text-center py-12 text-[#707080] bg-[#18181f]/40 border border-white/[0.06] rounded-2xl">
+                    No analytic accounts found matching current filters. Click "+ New" to create one.
+                  </div>
+                )}
+              </div>
+            )
           ) : (
             <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-obsidian-card">
               <div className="overflow-x-auto">
@@ -649,46 +661,53 @@ export const AnalyticAccountsPage: React.FC = () => {
                     )}
                   </thead>
                   <tbody className="divide-y divide-white/[0.04]">
-                    {visibleAnalytics.map((a) => (
-                      <tr
-                        key={a.id}
-                        onClick={() => handleOpenForm(a)}
-                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                      >
-                        <td className="py-3.5 px-4 font-semibold text-white">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <FolderTree className="w-4 h-4 text-[#7042f4] shrink-0" />
-                            <span>{a.name}</span>
-                            {a.has_budget_exceeded && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                                Exceeded Limit
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <span className={`capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                            a.type === BudgetLineType.INCOME
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
-                              : 'bg-rose-500/15 text-rose-300 border border-rose-500/25'
-                          }`}>
-                            {a.type}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-[#a0a0b0]">{a.code || '—'}</td>
-                        <td className="py-3.5 px-4 text-[#8a8a9a]">{a.description || '—'}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            a.is_active !== false
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-white/[0.06] text-[#707080]'
-                          }`}>
-                            {a.is_active !== false ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {loading && visibleAnalytics.length === 0 ? (
+                      <TableSkeleton columns={5} rows={6} />
+                    ) : (
+                      visibleAnalytics.map((a) => (
+                        <tr
+                          key={a.id}
+                          onClick={() => handleOpenForm(a)}
+                          className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                        >
+                          <td className="py-3.5 px-4 font-semibold text-white">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <FolderTree className="w-4 h-4 text-[#7042f4] shrink-0" />
+                              <span>{a.name}</span>
+                              {a.has_budget_exceeded && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                  Exceeded Limit
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={`capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                              a.type === BudgetLineType.INCOME
+                                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
+                                : 'bg-rose-500/15 text-rose-300 border border-rose-500/25'
+                            }`}>
+                              {a.type}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-[#a0a0b0]">{a.code || '—'}</td>
+                          <td className="py-3.5 px-4 text-[#8a8a9a]">{a.description || '—'}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              a.is_active !== false
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : 'bg-white/[0.06] text-[#707080]'
+                            }`}>
+                              {a.is_active !== false ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                    {loadingMore && (
+                      <TableSkeleton isPaginationLoader columns={5} rows={3} />
+                    )}
                     {visibleAnalytics.length === 0 && !loading && (
                       <tr>
                         <td colSpan={5} className="text-center py-8 text-[#707080]">

@@ -397,6 +397,7 @@ export const AccountsPage: React.FC = () => {
   } = useScrollPagination({
     items: sortedAccounts,
     pageSize: 20,
+    isLoading: loading,
   });
 
   let lastAccountType = '';
@@ -678,6 +679,9 @@ export const AccountsPage: React.FC = () => {
                     </React.Fragment>
                   );
                 })
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader columns={6} rows={3} />
               )}
             </tbody>
           </table>

@@ -35,8 +35,8 @@ interface AuthContextType {
   isLoading: boolean;
   hasRole: (roles: UserRole | string | (UserRole | string)[]) => boolean;
   hasPermission: (permission: string) => boolean;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
-  register: (data: { name: string; email: string; password: string; role?: UserRole | string }) => Promise<void>;
+  login: (credentials: { email?: string; login_id?: string; password: string }) => Promise<void>;
+  register: (data: { name?: string; login_id: string; email: string; password: string; role?: UserRole | string; [key: string]: any }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchCurrentUser]);
 
-  const login = async (credentials: { email: string; password: string }) => {
+  const login = async (credentials: { email?: string; login_id?: string; password: string }) => {
     setIsLoading(true);
     try {
       const response = await api.post('/login', credentials);
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (data: { name: string; email: string; password: string; role?: UserRole | string }) => {
+  const register = async (data: { name?: string; login_id: string; email: string; password: string; role?: UserRole | string; [key: string]: any }) => {
     setIsLoading(true);
     try {
       const response = await api.post('/register', data);

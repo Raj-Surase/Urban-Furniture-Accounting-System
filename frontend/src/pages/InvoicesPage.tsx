@@ -32,6 +32,7 @@ import { Badge } from '../components/ui/Badge';
 import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfModal';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { RolePortalBanner } from '../components/common/RolePortalBanner';
 import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanner';
@@ -599,6 +600,7 @@ export const InvoicesPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredInvoices,
     pageSize: 15,
+    isLoading: loading,
   });
 
   // Calculate high level metrics
@@ -694,57 +696,61 @@ export const InvoicesPage: React.FC = () => {
       />
 
       {/* KPI Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Receivables (AR)</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <ArrowDownLeft className="w-4 h-4" />
+      {loading ? (
+        <StatCardSkeleton count={4} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Receivables (AR)</span>
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <ArrowDownLeft className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
-            ₹{totalReceivables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due from commercial buyers</p>
-        </Card>
+            <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
+              ₹{totalReceivables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due from commercial buyers</p>
+          </Card>
 
-        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Payables (AP)</span>
-            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-              <ArrowUpRight className="w-4 h-4" />
+          <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Payables (AP)</span>
+              <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                <ArrowUpRight className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
-            ₹{totalPayables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due to timber & hardware vendors</p>
-        </Card>
+            <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
+              ₹{totalPayables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due to timber & hardware vendors</p>
+          </Card>
 
-        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">GST Collected / Input</span>
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-              <Percent className="w-4 h-4" />
+          <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">GST Collected / Input</span>
+              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                <Percent className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
-            ₹{totalGst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </p>
-          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Total CGST + SGST + IGST</p>
-        </Card>
+            <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
+              ₹{totalGst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Total CGST + SGST + IGST</p>
+          </Card>
 
-        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Pending Approvals</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              <CheckCircle2 className="w-4 h-4" />
+          <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Pending Approvals</span>
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
             </div>
-          </div>
-          <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-2 font-mono tracking-tight">{pendingApprovals}</p>
-          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Require Manager / Admin approval</p>
-        </Card>
-      </div>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-2 font-mono tracking-tight">{pendingApprovals}</p>
+            <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Require Manager / Admin approval</p>
+          </Card>
+        </div>
+      )}
 
       {/* Field-Wise Filtering Toolbar */}
       <FieldFilterBar
@@ -962,6 +968,9 @@ export const InvoicesPage: React.FC = () => {
                     </tr>
                   );
                 })
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader rows={3} cols={9} />
               )}
             </tbody>
           </table>

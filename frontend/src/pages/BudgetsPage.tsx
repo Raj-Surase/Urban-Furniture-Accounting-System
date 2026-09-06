@@ -24,6 +24,7 @@ import { budgetsApi, analyticAccountsApi, contactsApi } from '../lib/api';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { TableSkeleton } from '../components/common/TableSkeleton';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { BudgetStatus, BudgetLineType, ContactType } from '../types';
@@ -524,6 +525,7 @@ export const BudgetsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredBudgets,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -1142,51 +1144,58 @@ export const BudgetsPage: React.FC = () => {
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {visibleBudgets.map((b) => {
-                    const isOver = b.is_over_budget || b.has_exceeded_lines || (b.total_committed && b.total_achieved && b.total_achieved > b.total_committed);
-                    return (
-                      <tr
-                        key={b.id}
-                        onClick={() => handleOpenForm(b.id)}
-                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                      >
-                        <td className="py-3.5 px-4 font-bold text-white">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <PieChart className="w-4 h-4 text-[#7042f4] shrink-0" />
-                            <span>{b.name}</span>
-                            {isOver && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                                Limit Exceeded
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.start_date}</td>
-                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
-                        <td className="py-3.5 px-4">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            b.status === BudgetStatus.CONFIRM
-                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                              : b.status === BudgetStatus.REVISED
-                              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                              : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
-                          }`}>
-                            {b.status}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono text-white">
-                          ₹{(b.total_committed || 0).toLocaleString()}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono text-emerald-400 font-semibold">
-                          ₹{(b.total_achieved || 0).toLocaleString()}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="font-mono text-xs text-[#a0a0b0]">{b.progress_percent || 0}%</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {loading && visibleBudgets.length === 0 ? (
+                    <TableSkeleton columns={7} rows={6} />
+                  ) : (
+                    visibleBudgets.map((b) => {
+                      const isOver = b.is_over_budget || b.has_exceeded_lines || (b.total_committed && b.total_achieved && b.total_achieved > b.total_committed);
+                      return (
+                        <tr
+                          key={b.id}
+                          onClick={() => handleOpenForm(b.id)}
+                          className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                        >
+                          <td className="py-3.5 px-4 font-bold text-white">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <PieChart className="w-4 h-4 text-[#7042f4] shrink-0" />
+                              <span>{b.name}</span>
+                              {isOver && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                  <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                  Limit Exceeded
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.start_date}</td>
+                          <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.end_date}</td>
+                          <td className="py-3.5 px-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              b.status === BudgetStatus.CONFIRM
+                                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                : b.status === BudgetStatus.REVISED
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
+                            }`}>
+                              {b.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-white">
+                            ₹{(b.total_committed || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono text-emerald-400 font-semibold">
+                            ₹{(b.total_achieved || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="font-mono text-xs text-[#a0a0b0]">{b.progress_percent || 0}%</span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                  {loadingMore && (
+                    <TableSkeleton isPaginationLoader columns={7} rows={3} />
+                  )}
                   {visibleBudgets.length === 0 && !loading && (
                     <tr>
                       <td colSpan={7} className="text-center py-8 text-[#707080]">

@@ -7,6 +7,7 @@ import { journalsApi, accountsApi } from '../lib/api';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { TableSkeleton } from '../components/common/TableSkeleton';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { JournalType } from '../types';
@@ -205,6 +206,7 @@ export const JournalsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredJournals,
     pageSize: 15,
+    isLoading: loading,
   });
 
   return (
@@ -387,38 +389,45 @@ export const JournalsPage: React.FC = () => {
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {visibleJournals.map((j) => (
-                    <tr
-                      key={j.id}
-                      onClick={() => handleOpenForm(j)}
-                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-[#7042f4]" />
-                        <span>{j.name}</span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-[#c084fc] border border-white/[0.06]">
-                          {j.type}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-[#a0a0b0]">
-                        {j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#8a8a9a] max-w-xs truncate">
-                        {j.description || '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => navigate(`/journal?search=${encodeURIComponent(j.name)}`)}
-                          className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-[#a0a0b0] text-[11px] font-semibold transition-colors"
-                          title="View Journal Entries for this journal"
-                        >
-                          Entries →
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading && visibleJournals.length === 0 ? (
+                    <TableSkeleton columns={5} rows={6} />
+                  ) : (
+                    visibleJournals.map((j) => (
+                      <tr
+                        key={j.id}
+                        onClick={() => handleOpenForm(j)}
+                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-semibold text-white flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-[#7042f4]" />
+                          <span>{j.name}</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="capitalize px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-[#c084fc] border border-white/[0.06]">
+                            {j.type}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[#a0a0b0]">
+                          {j.default_account ? `${j.default_account.name} (${j.default_account.code})` : '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-[#8a8a9a] max-w-xs truncate">
+                          {j.description || '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => navigate(`/journal?search=${encodeURIComponent(j.name)}`)}
+                            className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-[#a0a0b0] text-[11px] font-semibold transition-colors"
+                            title="View Journal Entries for this journal"
+                          >
+                            Entries →
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {loadingMore && (
+                    <TableSkeleton isPaginationLoader columns={5} rows={3} />
+                  )}
                   {visibleJournals.length === 0 && !loading && (
                     <tr>
                       <td colSpan={5} className="text-center py-8 text-[#707080]">

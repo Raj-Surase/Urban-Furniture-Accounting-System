@@ -63,26 +63,34 @@ export function useScrollPagination<T>({
     return false;
   }, [isClientSide, visibleItems.length, totalCount]);
 
+  const loadMoreLock = useRef<boolean>(false);
+
   const loadMore = useCallback(async () => {
-    if (loadingMore || isLoading || !hasMore) return;
+    if (loadingMore || isLoading || !hasMore || loadMoreLock.current) return;
+
+    loadMoreLock.current = true;
+    setLoadingMore(true);
 
     if (isClientSide) {
-      setLoadingMore(true);
-      // Brief simulated tick for ultra-smooth UI feedback
+      // Gentle 220ms simulated async tick so skeleton loaders smoothly bridge batches
       setTimeout(() => {
         setPage((prev) => prev + 1);
         setLoadingMore(false);
-      }, 150);
+        loadMoreLock.current = false;
+      }, 220);
     } else if (fetchMore) {
       try {
-        setLoadingMore(true);
         await fetchMore(page + 1);
         setPage((prev) => prev + 1);
       } catch (err) {
         console.error('Failed to fetch more records:', err);
       } finally {
         setLoadingMore(false);
+        loadMoreLock.current = false;
       }
+    } else {
+      setLoadingMore(false);
+      loadMoreLock.current = false;
     }
   }, [loadingMore, isLoading, hasMore, isClientSide, fetchMore, page]);
 

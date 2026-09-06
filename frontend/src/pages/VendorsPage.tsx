@@ -242,6 +242,7 @@ export const VendorsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredVendors,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const isElevated = isAdmin || isManager || isAccountant;
@@ -283,7 +284,25 @@ export const VendorsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <TableSkeleton columns={3} rows={4} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
+            <Card className="lg:col-span-2 p-6 bg-[#141418] border-white/[0.06] rounded-2xl space-y-6">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.08]" />
+                <div className="space-y-2">
+                  <div className="h-5 w-48 bg-white/[0.08] rounded" />
+                  <div className="h-3.5 w-32 bg-white/[0.04] rounded" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/[0.06]">
+                <div className="h-20 bg-white/[0.03] rounded-xl" />
+                <div className="h-20 bg-white/[0.03] rounded-xl" />
+              </div>
+            </Card>
+            <Card className="p-6 bg-[#141418] border-white/[0.06] rounded-2xl space-y-4">
+              <div className="h-4 w-32 bg-white/[0.06] rounded" />
+              <div className="h-10 w-full bg-white/[0.04] rounded-xl" />
+            </Card>
+          </div>
         ) : !myVendor ? (
           <Card className="p-8 text-center bg-[#141418] border-white/[0.06] rounded-2xl">
             <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto mb-3">
@@ -530,6 +549,9 @@ export const VendorsPage: React.FC = () => {
                     </td>
                   </tr>
                 ))
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader columns={5} rows={3} />
               )}
             </tbody>
           </table>

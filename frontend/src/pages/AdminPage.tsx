@@ -17,6 +17,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { PageTransition } from '../components/layout/PageTransition';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
@@ -126,6 +127,7 @@ export const AdminPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredUsers,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const handleClearFilters = () => {
@@ -336,41 +338,45 @@ export const AdminPage: React.FC = () => {
         ) : (
           <>
             {/* 3 Obsidian Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-                <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">Registered Users</div>
-                <div className="flex items-baseline justify-between mt-1">
-                  <span className="text-3xl font-bold text-white tracking-tight font-sans">
-                    {stats?.total_users ?? users.length}
-                  </span>
-                  <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
-                    Active Directory
-                  </span>
+            {loading ? (
+              <StatCardSkeleton count={3} columns="grid-cols-1 sm:grid-cols-3" />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+                  <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">Registered Users</div>
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-3xl font-bold text-white tracking-tight font-sans">
+                      {stats?.total_users ?? users.length}
+                    </span>
+                    <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
+                      Active Directory
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-                <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">Database Items</div>
-                <div className="flex items-baseline justify-between mt-1">
-                  <span className="text-3xl font-bold text-white tracking-tight font-sans">
-                    {stats?.total_items ?? 5}
-                  </span>
-                  <span className="text-[11px] font-bold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/25 px-2 py-0.5 rounded-full">
-                    Policy Protected
-                  </span>
+                <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+                  <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">Database Items</div>
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-3xl font-bold text-white tracking-tight font-sans">
+                      {stats?.total_items ?? 5}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/25 px-2 py-0.5 rounded-full">
+                      Policy Protected
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-                <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">RBAC Security Guard</div>
-                <div className="flex items-baseline justify-between mt-1">
-                  <span className="text-3xl font-bold text-emerald-400 tracking-tight font-sans">STRICT</span>
-                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
-                    3 Clearance Tiers
-                  </span>
+                <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+                  <div className="text-xs text-[#8e8e9f] font-medium font-sans uppercase">RBAC Security Guard</div>
+                  <div className="flex items-baseline justify-between mt-1">
+                    <span className="text-3xl font-bold text-emerald-400 tracking-tight font-sans">STRICT</span>
+                    <span className="text-[11px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
+                      3 Clearance Tiers
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Admin Console Navigation Tabs */}
             <div className="border border-white/[0.06] bg-[#18181f] shadow-obsidian-card rounded-[24px] p-6 sm:p-8 overflow-hidden">
@@ -536,6 +542,9 @@ export const AdminPage: React.FC = () => {
                               </tr>
                             );
                           })
+                        )}
+                        {loadingMore && (
+                          <TableSkeleton isPaginationLoader columns={5} rows={3} />
                         )}
                       </tbody>
                       </table>

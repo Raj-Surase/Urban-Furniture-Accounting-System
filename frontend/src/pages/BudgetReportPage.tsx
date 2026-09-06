@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { budgetsApi } from '../lib/api';
 import { BudgetLineType } from '../types';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
 
 // ── SVG Donut Chart (no external dep) ──────────────────────────────────────────
 interface DonutProps {
@@ -507,7 +508,9 @@ export const BudgetReportPage: React.FC = () => {
         </div>
 
         {/* ── Summary KPI Row ── */}
-        {!loading && filtered.length > 0 && (
+        {loading ? (
+          <StatCardSkeleton count={4} columns="grid-cols-2 sm:grid-cols-4" className="print:hidden" />
+        ) : filtered.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:hidden">
             <div className="bg-[#18181f]/90 border border-white/[0.08] rounded-2xl p-4">
               <p className="text-[11px] text-[#8a8a9a] uppercase tracking-wider">Filtered Budgets</p>
@@ -553,9 +556,26 @@ export const BudgetReportPage: React.FC = () => {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-[#6a6a7a]">
-              <RefreshCw className="w-5 h-5 animate-spin mr-2 text-[#7042f4]" />
-              Loading budget data…
+            <div className="divide-y divide-white/[0.04] animate-pulse">
+              {[1, 2, 3, 4, 5].map((idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-[2fr_1.5fr_1fr_0.8fr_1fr_1fr_1fr_1fr_64px] gap-2 px-5 py-4 items-center bg-white/[0.01]"
+                >
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-40 bg-white/[0.08] rounded" />
+                    <div className="h-3 w-24 bg-white/[0.04] rounded" />
+                  </div>
+                  <div className="h-3.5 w-28 bg-white/[0.05] rounded" />
+                  <div className="h-3.5 w-20 bg-white/[0.05] rounded" />
+                  <div className="h-5 w-16 bg-white/[0.06] rounded-full" />
+                  <div className="h-3.5 w-20 bg-white/[0.06] rounded ml-auto" />
+                  <div className="h-3.5 w-20 bg-white/[0.06] rounded ml-auto" />
+                  <div className="h-3.5 w-16 bg-white/[0.05] rounded ml-auto" />
+                  <div className="h-3.5 w-12 bg-white/[0.05] rounded ml-auto" />
+                  <div className="w-8 h-8 rounded-full bg-white/[0.06] mx-auto" />
+                </div>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-[#6a6a7a]">

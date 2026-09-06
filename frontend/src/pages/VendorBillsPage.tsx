@@ -26,6 +26,7 @@ import { ExcalidrawGuideBanner } from '../components/common/ExcalidrawGuideBanne
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
+import { TableSkeleton } from '../components/common/TableSkeleton';
 import { useScrollPagination } from '../hooks/useScrollPagination';
 import { FieldFilterConfig, ActiveFieldFilter, filterItems } from '../lib/filterUtils';
 import { InvoiceStatus, InvoiceType, ContactType, BudgetStatus, BudgetLineType, AccountClassification } from '../types';
@@ -412,6 +413,7 @@ export const VendorBillsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredBills,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const vendorName = vendors.find((v) => v.id === parseInt(vendorId, 10))?.name || activeBill?.vendor?.name || 'Vendor';
@@ -921,38 +923,45 @@ export const VendorBillsPage: React.FC = () => {
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {visibleBills.map((b) => (
-                    <tr
-                      key={b.id}
-                      onClick={() => handleOpenForm(b)}
-                      className="hover:bg-white/[0.03] cursor-pointer transition-colors"
-                    >
-                      <td className="py-3.5 px-4 font-bold text-white font-mono flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
-                        <span>{b.invoice_number}</span>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-white">{b.vendor?.name || '—'}</td>
-                      <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.notes || '—'}</td>
-                      <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.invoice_date}</td>
-                      <td className="py-3.5 px-4 text-right font-mono text-white">
-                        ₹{Number(b.total_amount).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400">
-                        ₹{Number(b.balance_due).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          b.status === InvoiceStatus.PAID
-                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                            : b.status === InvoiceStatus.APPROVED
-                            ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
-                            : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
-                        }`}>
-                          {b.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {loading && visibleBills.length === 0 ? (
+                    <TableSkeleton columns={7} rows={6} />
+                  ) : (
+                    visibleBills.map((b) => (
+                      <tr
+                        key={b.id}
+                        onClick={() => handleOpenForm(b)}
+                        className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-bold text-white font-mono flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
+                          <span>{b.invoice_number}</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-white">{b.vendor?.name || '—'}</td>
+                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.notes || '—'}</td>
+                        <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.invoice_date}</td>
+                        <td className="py-3.5 px-4 text-right font-mono text-white">
+                          ₹{Number(b.total_amount).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-400">
+                          ₹{Number(b.balance_due).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            b.status === InvoiceStatus.PAID
+                              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                              : b.status === InvoiceStatus.APPROVED
+                              ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30'
+                              : 'bg-white/[0.08] text-[#c084fc] border border-white/10'
+                          }`}>
+                            {b.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  {loadingMore && (
+                    <TableSkeleton isPaginationLoader columns={7} rows={3} />
+                  )}
                   {visibleBills.length === 0 && !loading && (
                     <tr>
                       <td colSpan={7} className="text-center py-8 text-[#707080]">

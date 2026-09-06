@@ -35,6 +35,9 @@ import { AnimatedStatCard } from '../components/ui/AnimatedStatCard';
 import { PageTransition } from '../components/layout/PageTransition';
 import { PageHeader } from '../components/layout/PageHeader';
 import { RolePortalBanner } from '../components/common/RolePortalBanner';
+import { TableSkeleton } from '../components/common/TableSkeleton';
+import { CardGridSkeleton } from '../components/common/CardGridSkeleton';
+import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
 import { ScrollSentinel } from '../components/common/ScrollSentinel';
@@ -295,6 +298,7 @@ export const ItemsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredItems,
     pageSize: 15,
+    isLoading: loading,
   });
 
   // Calculated Stats
@@ -550,51 +554,55 @@ export const ItemsPage: React.FC = () => {
         </div>
 
         {/* 4 Sleek Obsidian KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {/* Card 1: Total Items */}
-          <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-            <div className="text-xs text-[#8e8e9f] font-medium font-sans">TOTAL ITEMS</div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-3xl font-bold text-white tracking-tight font-sans">{items.length}</span>
-              <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
-                100% synchronized
-              </span>
+        {loading ? (
+          <StatCardSkeleton count={4} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {/* Card 1: Total Items */}
+            <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+              <div className="text-xs text-[#8e8e9f] font-medium font-sans">TOTAL ITEMS</div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-3xl font-bold text-white tracking-tight font-sans">{items.length}</span>
+                <span className="text-[11px] font-bold text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded-full">
+                  100% synchronized
+                </span>
+              </div>
             </div>
-          </div>
 
-          {/* Card 2: Completed */}
-          <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-            <div className="text-xs text-[#8e8e9f] font-medium font-sans">COMPLETED</div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-3xl font-bold text-white tracking-tight font-sans">{completedCount}</span>
-              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
-                {Math.round((completedCount / Math.max(1, items.length)) * 100)}% completion rate
-              </span>
+            {/* Card 2: Completed */}
+            <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+              <div className="text-xs text-[#8e8e9f] font-medium font-sans">COMPLETED</div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-3xl font-bold text-white tracking-tight font-sans">{completedCount}</span>
+                <span className="text-[11px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
+                  {Math.round((completedCount / Math.max(1, items.length)) * 100)}% completion rate
+                </span>
+              </div>
             </div>
-          </div>
 
-          {/* Card 3: In Progress */}
-          <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-            <div className="text-xs text-[#8e8e9f] font-medium font-sans">IN PROGRESS</div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-3xl font-bold text-white tracking-tight font-sans">{inProgressCount}</span>
-              <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                {Math.round((inProgressCount / Math.max(1, items.length)) * 100)}% active sprint
-              </span>
+            {/* Card 3: In Progress */}
+            <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+              <div className="text-xs text-[#8e8e9f] font-medium font-sans">IN PROGRESS</div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-3xl font-bold text-white tracking-tight font-sans">{inProgressCount}</span>
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
+                  {Math.round((inProgressCount / Math.max(1, items.length)) * 100)}% active sprint
+                </span>
+              </div>
             </div>
-          </div>
 
-          {/* Card 4: Pending Review */}
-          <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
-            <div className="text-xs text-[#8e8e9f] font-medium font-sans">PENDING REVIEW</div>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-3xl font-bold text-white tracking-tight font-sans">{pendingCount}</span>
-              <span className="text-[11px] font-bold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/25 px-2 py-0.5 rounded-full">
-                {Math.round((pendingCount / Math.max(1, items.length)) * 100)}% unresolved
-              </span>
+            {/* Card 4: Pending Review */}
+            <div className="bg-[#18181f] border border-white/[0.06] rounded-[24px] p-5 sm:p-6 shadow-obsidian-card hover:border-white/12 transition-all">
+              <div className="text-xs text-[#8e8e9f] font-medium font-sans">PENDING REVIEW</div>
+              <div className="flex items-baseline justify-between mt-1">
+                <span className="text-3xl font-bold text-white tracking-tight font-sans">{pendingCount}</span>
+                <span className="text-[11px] font-bold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/25 px-2 py-0.5 rounded-full">
+                  {Math.round((pendingCount / Math.max(1, items.length)) * 100)}% unresolved
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Multi-Criteria Filter & Search Toolbar */}
         <div className="border border-white/[0.06] bg-[#18181f] shadow-obsidian-card rounded-[24px] p-5 sm:p-6 space-y-4">
@@ -736,12 +744,7 @@ export const ItemsPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {loading && visibleItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-16 text-center text-xs text-[#8e8e9f]">
-                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
-                        Loading operational items...
-                      </td>
-                    </tr>
+                    <TableSkeleton rows={6} cols={6} />
                   ) : visibleItems.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-16 text-center space-y-3">
@@ -870,6 +873,9 @@ export const ItemsPage: React.FC = () => {
                       </tr>
                     ))
                   )}
+                  {loadingMore && (
+                    <TableSkeleton isPaginationLoader rows={3} cols={6} />
+                  )}
                 </tbody>
               </table>
             </div>
@@ -877,7 +883,9 @@ export const ItemsPage: React.FC = () => {
         ) : (
           /* Card Grid View */
           <div>
-            {visibleItems.length === 0 && !loading ? (
+            {loading && visibleItems.length === 0 ? (
+              <CardGridSkeleton count={6} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" />
+            ) : visibleItems.length === 0 ? (
               <div className="border border-white/[0.06] bg-[#18181f] shadow-obsidian-card rounded-[24px] p-12 text-center space-y-3">
                 <div className="mx-auto w-12 h-12 rounded-2xl bg-[#22222b] flex items-center justify-center text-[#8e8e9f]">
                   <Layers className="w-6 h-6" />
@@ -1019,6 +1027,14 @@ export const ItemsPage: React.FC = () => {
                   </motion.div>
                 ))}
               </div>
+            )}
+            {loadingMore && (
+              <CardGridSkeleton
+                isPaginationLoader
+                count={3}
+                columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                className="mt-5"
+              />
             )}
           </div>
         )}

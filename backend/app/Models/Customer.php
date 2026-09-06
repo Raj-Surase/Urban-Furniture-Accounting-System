@@ -22,6 +22,7 @@ class Customer extends Model
         "city",
         "state",
         "country",
+        "pincode",
         "gstin",
         "credit_limit",
         "payment_terms_days",
@@ -31,6 +32,15 @@ class Customer extends Model
         "notes",
         "created_by",
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Customer $customer) {
+            if (empty($customer->code)) {
+                $customer->code = \App\Services\SequenceService::generate('CUST', null, 3);
+            }
+        });
+    }
 
     protected $casts = [
         "is_active" => "boolean",

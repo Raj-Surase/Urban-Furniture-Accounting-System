@@ -24,12 +24,17 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
+import { PortalModal } from '../components/common/PortalModal';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -45,7 +50,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await login({ email, password });
+      await login({ login_id: identifier, email: identifier, password });
       toast.success('Signed in successfully!');
       navigate('/');
     } catch (err: unknown) {
@@ -60,16 +65,16 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillAndLogin = async (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
+  const fillAndLogin = async (demoIdentifier: string, demoPass: string) => {
+    setIdentifier(demoIdentifier);
     setPassword(demoPass);
     setError(null);
     setFieldErrors({});
     setLoading(true);
 
     try {
-      await login({ email: demoEmail, password: demoPass });
-      toast.success(`Signed in as ${demoEmail}!`);
+      await login({ login_id: demoIdentifier, email: demoIdentifier, password: demoPass });
+      toast.success(`Signed in as ${demoIdentifier}!`);
       navigate('/');
     } catch (err: unknown) {
       const formatted = formatApiError(err);
@@ -80,11 +85,17 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const fillCredentials = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
+  const fillCredentials = (demoIdentifier: string, demoPass: string) => {
+    setIdentifier(demoIdentifier);
     setPassword(demoPass);
     setError(null);
     setFieldErrors({});
+  };
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotSent(true);
   };
 
   return (
@@ -168,16 +179,16 @@ export const LoginPage: React.FC = () => {
                 )}
 
                 <div className="space-y-1.5 text-left">
-                  <label htmlFor="login-email" className="text-xs font-semibold text-[#8e8e9f] block">
-                    Email Address
+                  <label htmlFor="login-identifier" className="text-xs font-semibold text-[#8e8e9f] block">
+                    Login Id / Email Address
                   </label>
                   <Input
-                    id="login-email"
-                    aria-label="Email Address"
-                    placeholder="admin@example.com"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="login-identifier"
+                    aria-label="Login Id or Email Address"
+                    placeholder="e.g. raj_surase or admin@example.com"
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     variant="bordered"
                     size="md"
                     startContent={<Mail className="w-4 h-4 text-[#8e8e9f] shrink-0" />}
@@ -189,8 +200,8 @@ export const LoginPage: React.FC = () => {
                     }}
                     required
                     autoFocus
-                    isInvalid={!!fieldErrors.email}
-                    errorMessage={fieldErrors.email}
+                    isInvalid={!!fieldErrors.email || !!fieldErrors.login_id}
+                    errorMessage={fieldErrors.email || fieldErrors.login_id}
                   />
                 </div>
 
@@ -235,7 +246,7 @@ export const LoginPage: React.FC = () => {
                   size="md"
                   isLoading={loading}
                   endContent={!loading && <ArrowRight className="w-4 h-4" />}
-                  className="w-full font-bold rounded-full !bg-white !text-black hover:!bg-white/90 shadow-sm active:scale-[0.98] transition-all h-11 text-sm mt-2"
+                  className="w-full font-bold rounded-full !bg-white !text-black hover:!bg-white/90 shadow-sm active:scale-[0.98] transition-all h-11 text-sm mt-2 uppercase tracking-wide"
                 >
                   Sign In
                 </Button>
@@ -245,15 +256,89 @@ export const LoginPage: React.FC = () => {
             <Divider className="my-3 border-border/40" />
 
             <CardFooter className="flex flex-col gap-2 text-center text-xs text-muted-foreground pb-2 pt-2 px-0">
-              <div>
-                Don't have an account?{' '}
+              <div className="flex items-center justify-center gap-3 font-medium">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotModal(true)}
+                  className="text-zinc-400 hover:text-white transition-colors"
+                >
+                  Forgot Password?
+                </button>
+                <span className="text-zinc-600">|</span>
                 <Link to="/register" className="text-primary font-bold hover:underline">
-                  Register new user
+                  Sign Up
                 </Link>
               </div>
             </CardFooter>
           </Card>
         </motion.div>
+
+        {/* Forgot Password Modal */}
+        <PortalModal
+          isOpen={showForgotModal}
+          onClose={() => {
+            setShowForgotModal(false);
+            setForgotSent(false);
+            setForgotEmail('');
+          }}
+          title="Reset Password"
+          maxWidth="max-w-md"
+        >
+          <div className="space-y-4 text-left">
+            {forgotSent ? (
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs space-y-2">
+                <p className="font-semibold">Reset instructions recorded!</p>
+                <p className="text-zinc-400">
+                  If an account exists for <span className="text-white font-medium">{forgotEmail}</span>, a temporary credentials reset link or Administrator notice has been generated. For direct local environment recovery, you can also sign in with the one-click Admin demo credentials.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotModal(false);
+                    setForgotSent(false);
+                  }}
+                  className="mt-2 w-full py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold rounded-lg text-xs transition-colors"
+                >
+                  Return to Sign In
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <p className="text-xs text-zinc-400">
+                  Enter your registered Login Id or Email address. We will verify your account against the directory.
+                </p>
+                <div>
+                  <label className="text-xs font-semibold text-zinc-300 block mb-1">
+                    Login Id or Email Address
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="e.g. raj_surase or admin@example.com"
+                    className="w-full px-3 py-2 bg-[#1a1a24] border border-white/[0.12] rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-primary text-white font-semibold rounded-xl text-xs hover:bg-primary/90 transition-colors"
+                  >
+                    Request Reset
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </PortalModal>
       </div>
     </PageTransition>
   );

@@ -380,6 +380,7 @@ export const ProductsPage: React.FC = () => {
   } = useScrollPagination({
     items: filteredProducts,
     pageSize: 15,
+    isLoading: loading,
   });
 
   const activeFilterConfigs = isElevated
@@ -568,6 +569,9 @@ export const ProductsPage: React.FC = () => {
                     </tr>
                   );
                 })
+              )}
+              {loadingMore && (
+                <TableSkeleton isPaginationLoader rows={3} cols={isElevated ? 10 : 9} />
               )}
             </tbody>
           </table>
