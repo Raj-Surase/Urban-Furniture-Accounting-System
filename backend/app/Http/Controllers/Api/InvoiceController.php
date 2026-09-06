@@ -33,7 +33,13 @@ class InvoiceController extends Controller
 
         $query = Invoice::with(['items.product', 'creator', 'approver'])->latest();
 
-        if (!$request->user()->isAdmin() && !$request->user()->isManager()) {
+        $canViewAll = $request->user()->isAdmin() ||
+                      $request->user()->isManager() ||
+                      $request->user()->isAccountant() ||
+                      $request->user()->role === \App\Models\User::ROLE_USER ||
+                      $request->user()->hasPermission(\App\Security\Rbac::PERMISSION_INVOICES_VIEW_ANY);
+
+        if (!$canViewAll) {
             $query->where('created_by', $request->user()->id);
         }
 

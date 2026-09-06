@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
+  Printer,
+  Download,
   DollarSign,
   Building2,
   Calendar,
@@ -31,6 +33,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { InvoicePdfModal, InvoicePdfData } from '../components/pdf/InvoicePdfModal';
+import { generateVectorInvoicePdf } from '../components/pdf/InvoicePdfGenerator';
 import { PortalModal } from '../components/common/PortalModal';
 import { TableSkeleton } from '../components/common/TableSkeleton';
 import { StatCardSkeleton } from '../components/common/StatCardSkeleton';
@@ -73,9 +76,41 @@ export const InvoicesPage: React.FC = () => {
   // PDF Preview State
   const [selectedInvoice, setSelectedInvoice] = useState<InvoicePdfData | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [autoPrintPdf, setAutoPrintPdf] = useState(false);
 
   // Row Tap Invoice Detail Modal State
   const [detailInvoice, setDetailInvoice] = useState<any>(null);
+
+  const handleViewPdf = (inv: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedInvoice(inv);
+    setAutoPrintPdf(false);
+    setIsPdfModalOpen(true);
+  };
+
+  const handlePrintPdf = (inv: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedInvoice(inv);
+    setAutoPrintPdf(true);
+    setIsPdfModalOpen(true);
+  };
+
+  const handleDownloadPdf = (inv: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      generateVectorInvoicePdf(inv);
+      addToast({
+        type: 'success',
+        title: 'Invoice PDF Downloaded',
+        message: `Successfully downloaded ${inv.invoice_number || 'Tax_Invoice'}.pdf`,
+      });
+    } catch (err) {
+      console.error('Download error:', err);
+      setSelectedInvoice(inv);
+      setAutoPrintPdf(false);
+      setIsPdfModalOpen(true);
+    }
+  };
 
   // Create Invoice Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -116,10 +151,11 @@ export const InvoicesPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      const canFetchPartners = isElevated || user?.role === 'user';
       const [invRes, custRes, vendRes, prodRes] = await Promise.all([
         invoicesApi.list(),
-        isElevated ? customersApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        isElevated ? vendorsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        canFetchPartners ? customersApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+        canFetchPartners ? vendorsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
         productsApi.list(),
       ]);
       setInvoices(invRes.data || invRes || []);
@@ -630,7 +666,14 @@ export const InvoicesPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <RolePortalBanner entityName="Invoices" />
+      <RolePortalBanner
+        entityName="Invoices"
+        customMessage={
+          user?.role === 'user'
+            ? 'Standard User clearance: Browse all organization tax invoices and vendor bills, inspect itemized calculations, and print or download official GST PDF records.'
+            : undefined
+        }
+      />
 
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -851,13 +894,13 @@ export const InvoicesPage: React.FC = () => {
                     >
                       <td className="py-3 px-4 font-mono font-bold text-foreground dark:text-white flex items-center gap-2">
                         <span>{inv.invoice_number}</span>
-                        {inv.reference_type === 'sales_order' && inv.reference_id && (
+                        {isElevated && inv.reference_type === 'sales_order' && inv.reference_id && (
                           <span
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/sales-orders?id=${inv.reference_id}`);
                             }}
-                            className="text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20"
+                            className="text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 cursor-pointer"
                             title="Created from Sales Order"
                           >
                             SO #{inv.reference_id}
@@ -927,17 +970,31 @@ export const InvoicesPage: React.FC = () => {
 
                       <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* pdfcn PDF Preview Button */}
+                          {/* View PDF */}
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedInvoice(inv);
-                              setIsPdfModalOpen(true);
-                            }}
+                            onClick={(e) => handleViewPdf(inv, e)}
                             className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-purple-600 hover:text-white text-neutral-300 transition-colors cursor-pointer"
-                            title="Generate & View PDF (pdfcn)"
+                            title="View Invoice PDF (pdfcn)"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+
+                          {/* Print Invoice */}
+                          <button
+                            onClick={(e) => handlePrintPdf(inv, e)}
+                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-blue-600 hover:text-white text-neutral-300 transition-colors cursor-pointer"
+                            title="Print Tax Invoice"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+
+                          {/* Download PDF */}
+                          <button
+                            onClick={(e) => handleDownloadPdf(inv, e)}
+                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-emerald-600 hover:text-white text-neutral-300 transition-colors cursor-pointer"
+                            title="Download Invoice PDF"
+                          >
+                            <Download className="w-4 h-4" />
                           </button>
 
                           {/* Approve & Auto-Post Button */}
@@ -1014,8 +1071,10 @@ export const InvoicesPage: React.FC = () => {
         onClose={() => {
           setIsPdfModalOpen(false);
           setSelectedInvoice(null);
+          setAutoPrintPdf(false);
         }}
         invoice={selectedInvoice}
+        autoPrint={autoPrintPdf}
       />
 
       {/* Create Invoice / Bill Modal */}
@@ -1609,7 +1668,7 @@ export const InvoicesPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                {(detailInvoice.reference_type === 'sales_order' || detailInvoice.reference_id) && (
+                {isElevated && (detailInvoice.reference_type === 'sales_order' || detailInvoice.reference_id) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1617,29 +1676,31 @@ export const InvoicesPage: React.FC = () => {
                       setDetailInvoice(null);
                       navigate(soId ? `/sales-orders?id=${soId}` : '/sales-orders');
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:text-white text-xs font-semibold transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:text-white text-xs font-semibold transition-all cursor-pointer"
                     title="Open originating Sales Order"
                   >
                     <ExternalLink className="w-3.5 h-3.5" /> SO {detailInvoice.reference_id ? `#${detailInvoice.reference_id}` : ''}
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const lineAnalyticId = (detailInvoice.items || []).find((it: any) => it.analytic_account_id)?.analytic_account_id;
-                    setDetailInvoice(null);
-                    navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all"
-                  title="Open Budget Analytic Report"
-                >
-                  <Layers className="w-3.5 h-3.5" /> Budget
-                </button>
+                {isElevated && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const lineAnalyticId = (detailInvoice.items || []).find((it: any) => it.analytic_account_id)?.analytic_account_id;
+                      setDetailInvoice(null);
+                      navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                    title="Open Budget Analytic Report"
+                  >
+                    <Layers className="w-3.5 h-3.5" /> Budget
+                  </button>
+                )}
 
                 <button
                   onClick={() => setDetailInvoice(null)}
-                  className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
+                  className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] cursor-pointer"
                 >
                   ✕
                 </button>
@@ -1744,14 +1805,30 @@ export const InvoicesPage: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/[0.06]">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    setSelectedInvoice(detailInvoice);
-                    setIsPdfModalOpen(true);
-                  }}
+                  onClick={() => handleViewPdf(detailInvoice)}
                   className="px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="View PDF preview (pdfcn)"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  View & Print PDF (pdfcn)
+                  View PDF
+                </button>
+
+                <button
+                  onClick={() => handlePrintPdf(detailInvoice)}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Print Tax Invoice"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print
+                </button>
+
+                <button
+                  onClick={() => handleDownloadPdf(detailInvoice)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Download Vector PDF"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download PDF
                 </button>
 
                 {detailInvoice.status === InvoiceStatus.DRAFT && isElevated && (

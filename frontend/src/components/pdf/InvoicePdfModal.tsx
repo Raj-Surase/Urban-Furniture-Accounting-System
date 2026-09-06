@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Printer,
   Download,
@@ -99,16 +99,27 @@ interface InvoicePdfModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoice: InvoicePdfData | null;
+  autoPrint?: boolean;
 }
 
 export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   isOpen,
   onClose,
   invoice,
+  autoPrint = false,
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && autoPrint && invoice) {
+      const timer = setTimeout(() => {
+        handlePrint();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoPrint, invoice]);
 
   if (!isOpen || !invoice) return null;
 

@@ -410,26 +410,24 @@ export const ProductsPage: React.FC = () => {
       viewMode={viewMode}
       onViewModeChange={(m) => setViewMode(m)}
       onNew={isElevated ? handleOpenNewModal : undefined}
-      searchValue={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search product SKU, name, category, HSN..."
     >
-      {/* Low Stock Warning Banner */}
-      {lowStockItems.length > 0 && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-amber-300">
-                Low Stock Warning: {lowStockItems.length} product(s) reached or fell below threshold!
-              </p>
-              <p className="text-[11px] text-amber-200/70">
-                {lowStockItems.map((p) => `${p?.name || 'Item'} (${p?.current_stock ?? 0} left)`).join(', ')}
-              </p>
+      <div className="space-y-6">
+        {/* Low Stock Warning Banner */}
+        {lowStockItems.length > 0 && (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-amber-300">
+                  Low Stock Warning: {lowStockItems.length} product(s) reached or fell below threshold!
+                </p>
+                <p className="text-[11px] text-amber-200/70">
+                  {lowStockItems.map((p) => `${p?.name || 'Item'} (${p?.current_stock ?? 0} left)`).join(', ')}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Field Filter Bar */}
       <FieldFilterBar
@@ -677,6 +675,7 @@ export const ProductsPage: React.FC = () => {
           />
         </Card>
       )}
+      </div>
 
       {/* Adjust Stock Modal */}
       {Boolean(isAdjustOpen && selectedProduct) && (

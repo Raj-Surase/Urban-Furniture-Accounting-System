@@ -147,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         items: [
           { name: 'My Sales Orders', path: '/sales-orders', icon: Truck },
           { name: 'My Purchase Orders', path: '/purchase-orders', icon: ShoppingBag },
-          { name: 'My Invoices', path: '/invoices', icon: FileText },
+          { name: 'Invoices & Bills', path: '/invoices', icon: FileText },
         ],
       },
       {

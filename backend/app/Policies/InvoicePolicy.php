@@ -11,12 +11,18 @@ class InvoicePolicy
     public function viewAny(User $user): bool
     {
         return $user->hasPermission(Rbac::PERMISSION_INVOICES_VIEW_ANY) ||
-               $user->hasPermission(Rbac::PERMISSION_INVOICES_VIEW_OWN);
+               $user->hasPermission(Rbac::PERMISSION_INVOICES_VIEW_OWN) ||
+               $user->role === User::ROLE_USER ||
+               $user->isAccountant();
     }
 
     public function view(User $user, Invoice $invoice): bool
     {
-        if ($user->hasPermission(Rbac::PERMISSION_INVOICES_VIEW_ANY)) {
+        if ($user->hasPermission(Rbac::PERMISSION_INVOICES_VIEW_ANY) ||
+            $user->role === User::ROLE_USER ||
+            $user->isAccountant() ||
+            $user->isAdmin() ||
+            $user->isManager()) {
             return true;
         }
 

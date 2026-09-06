@@ -537,6 +537,7 @@ class Rbac
                 self::PERMISSION_SALES_ORDERS_CREATE,
                 self::PERMISSION_SALES_ORDERS_UPDATE_OWN,
                 // Invoices & Bills
+                self::PERMISSION_INVOICES_VIEW_ANY,
                 self::PERMISSION_INVOICES_VIEW_OWN,
                 self::PERMISSION_INVOICES_CREATE,
                 self::PERMISSION_INVOICES_UPDATE_OWN,

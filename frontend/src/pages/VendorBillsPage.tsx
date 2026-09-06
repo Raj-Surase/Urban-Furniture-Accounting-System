@@ -486,28 +486,30 @@ export const VendorBillsPage: React.FC = () => {
 
             {/* Smart Buttons matching Excalidraw: PO Button & Budget Analytics Button */}
             <div className="flex items-center gap-2">
-              {originatingPoId && (
+              {isElevated && originatingPoId && (
                 <button
                   type="button"
                   onClick={() => navigate(`/purchase-orders?id=${originatingPoId}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/40 text-[#c084fc] hover:text-white text-xs font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/40 text-[#c084fc] hover:text-white text-xs font-semibold transition-all cursor-pointer"
                   title="Open the PO from which Bill was created"
                 >
                   <ExternalLink className="w-3.5 h-3.5" /> PO #{originatingPoId}
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  const lineAnalyticId = lines.find((l) => l.analytic_account_id)?.analytic_account_id;
-                  navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all"
-                title="On Click Open the Budget Analytic Report that is used in the Bill"
-              >
-                <Layers className="w-3.5 h-3.5" /> Budget
-              </button>
+              {isElevated && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lineAnalyticId = lines.find((l) => l.analytic_account_id)?.analytic_account_id;
+                    navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                  title="On Click Open the Budget Analytic Report that is used in the Bill"
+                >
+                  <Layers className="w-3.5 h-3.5" /> Budget
+                </button>
+              )}
 
               <button
                 type="button"
