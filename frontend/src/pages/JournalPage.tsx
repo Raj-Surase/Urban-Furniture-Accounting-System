@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Wand2,
 } from 'lucide-react';
-import { journalApi, accountsApi, journalsApi } from '../lib/api';
+import { journalApi, accountsApi, journalsApi, contactsApi } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button } from '../components/ui/Button';
@@ -51,6 +51,7 @@ const journalColumnDefs: ColumnFilterDef[] = [
   { key: 'expand', filterType: 'none' },
   { key: 'entry_number', filterType: 'text', placeholder: 'Filter entry #...' },
   { key: 'journal', filterType: 'text', placeholder: 'Journal...' },
+  { key: 'partner', filterType: 'text', placeholder: 'Partner...' },
   { key: 'date', filterType: 'date' },
   { key: 'description', filterType: 'text', placeholder: 'Narration...' },
   { key: 'source', filterType: 'text', placeholder: 'Source...' },
@@ -118,6 +119,7 @@ export const JournalPage: React.FC = () => {
   const [entries, setEntries] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [journals, setJournals] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Record<number, boolean>>({});
@@ -135,10 +137,10 @@ export const JournalPage: React.FC = () => {
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
   const [lines, setLines] = useState<
-    Array<{ account_id: number | ''; debit: number; credit: number; description: string }>
+    Array<{ account_id: number | ''; partner_id?: number | ''; debit: number; credit: number; description: string }>
   >([
-    { account_id: '', debit: 0, credit: 0, description: '' },
-    { account_id: '', debit: 0, credit: 0, description: '' },
+    { account_id: '', partner_id: '', debit: 0, credit: 0, description: '' },
+    { account_id: '', partner_id: '', debit: 0, credit: 0, description: '' },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -148,16 +150,19 @@ export const JournalPage: React.FC = () => {
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const [jRes, accRes, journalsRes] = await Promise.all([
+      const [jRes, accRes, journalsRes, contactsRes] = await Promise.all([
         journalApi.list({ per_page: 'all' }),
         accountsApi.list({ per_page: 'all' }),
         journalsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
+        contactsApi.list({ per_page: 'all' }).catch(() => ({ data: [] })),
       ]);
       const entryList = Array.isArray(jRes?.data) ? jRes.data : Array.isArray(jRes) ? jRes : [];
       setEntries(entryList);
       setAccounts(accRes.data || accRes || []);
       const jList = Array.isArray(journalsRes?.data) ? journalsRes.data : Array.isArray(journalsRes) ? journalsRes : [];
       setJournals(jList);
+      const cList = Array.isArray(contactsRes?.data) ? contactsRes.data : Array.isArray(contactsRes) ? contactsRes : [];
+      setContacts(cList);
     } catch (err) {
       console.error(err);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load journal entries.' });
@@ -295,6 +300,7 @@ export const JournalPage: React.FC = () => {
         source: 'manual',
         lines: lines.map((l) => ({
           account_id: l.account_id,
+          partner_id: l.partner_id ? Number(l.partner_id) : null,
           debit: Number(l.debit || 0),
           credit: Number(l.credit || 0),
           description: l.description || description,
@@ -311,8 +317,8 @@ export const JournalPage: React.FC = () => {
       setReference('');
       setDescription('');
       setLines([
-        { account_id: '', debit: 0, credit: 0, description: '' },
-        { account_id: '', debit: 0, credit: 0, description: '' },
+        { account_id: '', partner_id: '', debit: 0, credit: 0, description: '' },
+        { account_id: '', partner_id: '', debit: 0, credit: 0, description: '' },
       ]);
       fetchEntries();
     } catch (err: any) {
@@ -466,6 +472,7 @@ export const JournalPage: React.FC = () => {
                 <th className="py-3 px-4 w-10"></th>
                 <th className="py-3 px-4">Entry Number</th>
                 <th className="py-3 px-4">Journal</th>
+                <th className="py-3 px-4">Partner</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">Narration / Description</th>
                 <th className="py-3 px-4">Origin / Source</th>
@@ -484,10 +491,10 @@ export const JournalPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-white/[0.04] text-xs">
               {loading ? (
-                <TableSkeleton columns={10} rows={6} />
+                <TableSkeleton columns={11} rows={6} />
               ) : visibleEntries.length === 0 ? (
                 <EmptyState
-                  colSpan={10}
+                  colSpan={11}
                   icon={FileCode2}
                   title="No journal entries recorded"
                   description={
@@ -505,6 +512,9 @@ export const JournalPage: React.FC = () => {
                     (s: number, l: any) => s + Number(l.debit || 0),
                     0
                   );
+                  const partnerName = (je.lines || [])
+                    .map((l: any) => contacts.find((c: any) => c.id === l.partner_id)?.name)
+                    .filter(Boolean)[0] || '—';
 
                   return (
                     <React.Fragment key={je.id}>
@@ -528,6 +538,15 @@ export const JournalPage: React.FC = () => {
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
                             {je.journal?.name || 'General'}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-neutral-300">
+                          {partnerName !== '—' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                              {partnerName}
+                            </span>
+                          ) : (
+                            <span className="text-neutral-500">—</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-neutral-400">{je.posting_date || je.entry_date}</td>
                         <td className="py-3 px-4 text-neutral-200">
@@ -574,42 +593,55 @@ export const JournalPage: React.FC = () => {
                       {/* Expanded Sub-lines */}
                       {isExpanded && (
                         <tr className="bg-[#121218] border-b border-white/[0.04]">
-                          <td colSpan={10} className="p-4 pl-12">
+                          <td colSpan={11} className="p-4 pl-12">
                             <div className="border border-white/10 rounded-xl overflow-hidden bg-black/20">
                               <table className="w-full text-left text-xs">
                                 <thead>
                                   <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] text-neutral-400 uppercase">
                                     <th className="py-2 px-3">Account Code</th>
                                     <th className="py-2 px-3">Account Name</th>
+                                    <th className="py-2 px-3">Partner</th>
                                     <th className="py-2 px-3">Narration</th>
                                     <th className="py-2 px-3 text-right">Debit (₹)</th>
                                     <th className="py-2 px-3 text-right">Credit (₹)</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/[0.04]">
-                                  {(je.lines || []).map((line: any) => (
-                                    <tr key={line.id} className="hover:bg-white/[0.01]">
-                                      <td className="py-2 px-3 font-mono text-purple-400">
-                                        {line.account?.code || '—'}
-                                      </td>
-                                      <td className="py-2 px-3 font-semibold text-white">
-                                        {line.account?.name || 'Account'}
-                                      </td>
-                                      <td className="py-2 px-3 text-neutral-400 text-[11px]">
-                                        {line.description || je.description}
-                                      </td>
-                                      <td className="py-2 px-3 text-right font-mono text-emerald-400">
-                                        {Number(line.debit) > 0
-                                          ? `₹${Number(line.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                          : '—'}
-                                      </td>
-                                      <td className="py-2 px-3 text-right font-mono text-indigo-400">
-                                        {Number(line.credit) > 0
-                                          ? `₹${Number(line.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                          : '—'}
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {(je.lines || []).map((line: any) => {
+                                    const linePartner = contacts.find((c: any) => c.id === line.partner_id)?.name || '—';
+                                    return (
+                                      <tr key={line.id} className="hover:bg-white/[0.01]">
+                                        <td className="py-2 px-3 font-mono text-purple-400">
+                                          {line.account?.code || '—'}
+                                        </td>
+                                        <td className="py-2 px-3 font-semibold text-white">
+                                          {line.account?.name || 'Account'}
+                                        </td>
+                                        <td className="py-2 px-3 text-neutral-300 text-[11px]">
+                                          {linePartner !== '—' ? (
+                                            <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px]">
+                                              {linePartner}
+                                            </span>
+                                          ) : (
+                                            '—'
+                                          )}
+                                        </td>
+                                        <td className="py-2 px-3 text-neutral-400 text-[11px]">
+                                          {line.description || je.description}
+                                        </td>
+                                        <td className="py-2 px-3 text-right font-mono text-emerald-400">
+                                          {Number(line.debit) > 0
+                                            ? `₹${Number(line.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                            : '—'}
+                                        </td>
+                                        <td className="py-2 px-3 text-right font-mono text-indigo-400">
+                                          {Number(line.credit) > 0
+                                            ? `₹${Number(line.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                            : '—'}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </div>
@@ -774,10 +806,11 @@ export const JournalPage: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#1a1a22] border-b border-neutral-800 text-neutral-400">
                     <tr>
-                      <th className="py-2.5 px-3 w-[40%]">General Ledger Account</th>
+                      <th className="py-2.5 px-3 w-[30%]">General Ledger Account</th>
+                      <th className="py-2.5 px-3 w-[22%]">Partner</th>
                       <th className="py-2.5 px-3">Narration (Optional)</th>
-                      <th className="py-2.5 px-3 w-32 text-right">Debit (₹)</th>
-                      <th className="py-2.5 px-3 w-32 text-right">Credit (₹)</th>
+                      <th className="py-2.5 px-3 w-28 text-right">Debit (₹)</th>
+                      <th className="py-2.5 px-3 w-28 text-right">Credit (₹)</th>
                       <th className="py-2.5 px-2 w-10"></th>
                     </tr>
                   </thead>
@@ -841,6 +874,24 @@ export const JournalPage: React.FC = () => {
                                 ))}
                               </optgroup>
                             )}
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <select
+                            value={line.partner_id || ''}
+                            onChange={(e) => {
+                              const updated = [...lines];
+                              updated[idx].partner_id = e.target.value ? Number(e.target.value) : '';
+                              setLines(updated);
+                            }}
+                            className="w-full px-2 py-1.5 bg-[#121216] border border-neutral-700 rounded-lg text-xs text-white focus:border-purple-500 focus:outline-none"
+                          >
+                            <option value="">No Partner</option>
+                            {contacts.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} ({c.contact_type || 'contact'})
+                              </option>
+                            ))}
                           </select>
                         </td>
                         <td className="p-2">

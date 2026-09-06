@@ -84,6 +84,7 @@ class JournalEntryController extends Controller
             'posting_date' => ['required', 'date'],
             'lines' => ['required', 'array', 'min:2'],
             'lines.*.account_id' => ['required', 'exists:accounts,id'],
+            'lines.*.partner_id' => ['nullable', 'integer'],
             'lines.*.debit' => ['required', 'numeric', 'min:0'],
             'lines.*.credit' => ['required', 'numeric', 'min:0'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
@@ -133,6 +134,7 @@ class JournalEntryController extends Controller
                 JournalEntryLine::create([
                     'journal_entry_id' => $je->id,
                     'account_id' => $account->id,
+                    'partner_id' => !empty($lineData['partner_id']) ? (int) $lineData['partner_id'] : null,
                     'account_code' => $account->code,
                     'account_name' => $account->name,
                     'debit' => (float) $lineData['debit'],

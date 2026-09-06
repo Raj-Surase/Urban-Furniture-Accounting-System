@@ -90,6 +90,9 @@ export const ContactsPage: React.FC = () => {
     gstin: '',
     pan: '',
     image: '',
+    create_portal_user: false,
+    login_id: '',
+    portal_password: '',
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState<boolean>(false);
@@ -128,6 +131,9 @@ export const ContactsPage: React.FC = () => {
         gstin: contact.gstin || '',
         pan: contact.pan || '',
         image: contact.image || '',
+        create_portal_user: false,
+        login_id: '',
+        portal_password: '',
       });
     } else {
       setActiveContact(null);
@@ -144,6 +150,9 @@ export const ContactsPage: React.FC = () => {
         gstin: '',
         pan: '',
         image: '',
+        create_portal_user: false,
+        login_id: '',
+        portal_password: '',
       });
     }
     setFormError(null);
@@ -416,6 +425,61 @@ export const ContactsPage: React.FC = () => {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Portal Access (Excalidraw: Contact user can be created when creating contact) */}
+              <div className="pt-2 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-[#c084fc] uppercase tracking-wider">
+                      Client Portal Account
+                    </h3>
+                    <p className="text-[11px] text-[#8a8a9a]">
+                      Enable login credentials for this contact to view invoices and make payments
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.create_portal_user}
+                      onChange={(e) => setFormData({ ...formData, create_portal_user: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-white/[0.1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#7042f4]"></div>
+                  </label>
+                </div>
+
+                {formData.create_portal_user && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                        Portal Login Id (6–12 characters) *
+                      </label>
+                      <input
+                        type="text"
+                        minLength={6}
+                        maxLength={12}
+                        required={formData.create_portal_user}
+                        value={formData.login_id}
+                        onChange={(e) => setFormData({ ...formData, login_id: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                        placeholder="e.g. acme_portal"
+                        className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#a0a0b0] uppercase tracking-wider mb-1.5">
+                        Initial Password
+                      </label>
+                      <input
+                        type="password"
+                        value={formData.portal_password}
+                        onChange={(e) => setFormData({ ...formData, portal_password: e.target.value })}
+                        placeholder="Default: Welcome@123"
+                        className="w-full px-3.5 py-2.5 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white focus:outline-none focus:border-[#7042f4]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

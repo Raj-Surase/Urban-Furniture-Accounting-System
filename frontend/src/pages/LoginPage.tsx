@@ -281,10 +281,19 @@ export const LoginPage: React.FC = () => {
             setForgotSent(false);
             setForgotEmail('');
           }}
-          title="Reset Password"
           maxWidth="max-w-md"
         >
-          <div className="space-y-4 text-left">
+          <div className="bg-[#121218] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-4 text-left text-white">
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+              <h3 className="text-base font-bold text-white">Reset Password</h3>
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="text-zinc-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
             {forgotSent ? (
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs space-y-2">
                 <p className="font-semibold">Reset instructions recorded!</p>

@@ -489,17 +489,20 @@ export const VendorBillsPage: React.FC = () => {
               {originatingPoId && (
                 <button
                   type="button"
-                  onClick={() => navigate(`/purchase-orders`)}
+                  onClick={() => navigate(`/purchase-orders?id=${originatingPoId}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#7042f4]/15 border border-[#7042f4]/40 text-[#c084fc] hover:text-white text-xs font-semibold transition-all"
                   title="Open the PO from which Bill was created"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" /> PO
+                  <ExternalLink className="w-3.5 h-3.5" /> PO #{originatingPoId}
                 </button>
               )}
 
               <button
                 type="button"
-                onClick={() => navigate(`/budgets`)}
+                onClick={() => {
+                  const lineAnalyticId = lines.find((l) => l.analytic_account_id)?.analytic_account_id;
+                  navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all"
                 title="On Click Open the Budget Analytic Report that is used in the Bill"
               >
@@ -935,6 +938,18 @@ export const VendorBillsPage: React.FC = () => {
                         <td className="py-3.5 px-4 font-bold text-white font-mono flex items-center gap-2">
                           <FileText className="w-3.5 h-3.5 text-[#7042f4]" />
                           <span>{b.invoice_number}</span>
+                          {b.reference_type === 'purchase_order' && b.reference_id && (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/purchase-orders?id=${b.reference_id}`);
+                              }}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20"
+                              title="Created from PO"
+                            >
+                              PO #{b.reference_id}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-semibold text-white">{b.vendor?.name || '—'}</td>
                         <td className="py-3.5 px-4 text-[#a0a0b0] font-mono">{b.notes || '—'}</td>

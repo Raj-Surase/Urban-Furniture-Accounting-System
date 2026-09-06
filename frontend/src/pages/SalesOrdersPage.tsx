@@ -531,7 +531,13 @@ export const SalesOrdersPage: React.FC = () => {
 
                         {(so.status === SalesOrderStatus.CONFIRMED || so.status === SalesOrderStatus.APPROVED || so.status === SalesOrderStatus.PARTIALLY_DELIVERED || so.status === SalesOrderStatus.DELIVERED) && (isAdmin || isManager) && (
                           <button
-                            onClick={() => navigate(`/invoices?from_so=${so.id}`)}
+                            onClick={() =>
+                              navigate(
+                                `/invoices?from_so=${so.id}&customer_id=${so.customer_id}&so_number=${encodeURIComponent(
+                                  so.order_number
+                                )}`
+                              )
+                            }
                             className="px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold transition-colors flex items-center gap-1"
                             title="Create Customer Invoice"
                           >
@@ -1179,7 +1185,11 @@ export const SalesOrdersPage: React.FC = () => {
                   <Button
                     size="sm"
                     onClick={() => {
-                      navigate(`/invoices?from_so=${detailOrder.id}`);
+                      navigate(
+                        `/invoices?from_so=${detailOrder.id}&customer_id=${detailOrder.customer_id}&so_number=${encodeURIComponent(
+                          detailOrder.order_number
+                        )}`
+                      );
                     }}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1"
                   >

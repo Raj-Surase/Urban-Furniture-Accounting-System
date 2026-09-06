@@ -40,6 +40,19 @@ import {
 } from '../constants/formOptions';
 import { AccountClassification, NormalBalance, AccountSubType, BudgetLineType } from '../types';
 
+type UIAccountType = 'asset' | 'liability' | 'bank' | 'capital' | 'cash' | 'income' | 'expense' | 'other_expense';
+
+const UI_ACCOUNT_TYPE_MAP: Record<UIAccountType, { type: AccountClassification; subType: AccountSubType; defaultCodePrefix: string }> = {
+  asset: { type: AccountClassification.ASSET, subType: AccountSubType.RECEIVABLES, defaultCodePrefix: '112' },
+  liability: { type: AccountClassification.LIABILITY, subType: AccountSubType.PAYABLES, defaultCodePrefix: '211' },
+  bank: { type: AccountClassification.ASSET, subType: AccountSubType.CASH_BANK, defaultCodePrefix: '111' },
+  capital: { type: AccountClassification.EQUITY, subType: AccountSubType.CAPITAL, defaultCodePrefix: '310' },
+  cash: { type: AccountClassification.ASSET, subType: AccountSubType.CASH_BANK, defaultCodePrefix: '111' },
+  income: { type: AccountClassification.REVENUE, subType: AccountSubType.OPERATING_REVENUE, defaultCodePrefix: '410' },
+  expense: { type: AccountClassification.EXPENSE, subType: AccountSubType.OPERATING_EXPENSE, defaultCodePrefix: '540' },
+  other_expense: { type: AccountClassification.EXPENSE, subType: AccountSubType.OPERATING_EXPENSE, defaultCodePrefix: '560' },
+};
+
 const accountFilterConfigs: FieldFilterConfig[] = [
   { key: 'code', label: 'Account Code', type: 'text', placeholder: 'e.g. 1010...' },
   { key: 'name', label: 'Account Title', type: 'text', placeholder: 'e.g. Bank Account...' },
@@ -158,6 +171,7 @@ export const AccountsPage: React.FC = () => {
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountClassification>(AccountClassification.ASSET);
   const [subType, setSubType] = useState<AccountSubType>(AccountSubType.CASH_BANK);
+  const [uiAccountType, setUiAccountType] = useState<UIAccountType>('asset');
   const [parentId, setParentId] = useState<number | ''>('');
   const [normalBalance, setNormalBalance] = useState<NormalBalance>(NormalBalance.DEBIT);
   const [openingBalance, setOpeningBalance] = useState<string>('0');
@@ -249,6 +263,7 @@ export const AccountsPage: React.FC = () => {
     setCreationMode('custom');
     setSelectedPresetCode('');
     setIsCodeManuallyEdited(false);
+    setUiAccountType('asset');
     setType(AccountClassification.ASSET);
     setSubType(AccountSubType.CASH_BANK);
     setName('');
@@ -274,6 +289,17 @@ export const AccountsPage: React.FC = () => {
     setName(template.name);
     setType(template.type);
     setSubType(template.subType);
+    if (template.type === AccountClassification.ASSET) {
+      setUiAccountType(template.subType === AccountSubType.CASH_BANK ? 'bank' : 'asset');
+    } else if (template.type === AccountClassification.LIABILITY) {
+      setUiAccountType('liability');
+    } else if (template.type === AccountClassification.EQUITY) {
+      setUiAccountType('capital');
+    } else if (template.type === AccountClassification.REVENUE) {
+      setUiAccountType('income');
+    } else if (template.type === AccountClassification.EXPENSE) {
+      setUiAccountType('expense');
+    }
     setNormalBalance(template.normalBalance);
     setDescription(template.description);
     setIsCodeManuallyEdited(true);
@@ -370,12 +396,12 @@ export const AccountsPage: React.FC = () => {
     expense: 5,
   };
 
-  const typeMeta: Record<string, { label: string; range: string; color: string; badge: string }> = {
-    asset: { label: 'Assets', range: '1000 - 1999', color: 'text-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-    liability: { label: 'Liabilities & Statutory GST', range: '2000 - 2999', color: 'text-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    equity: { label: 'Equity & Capital Reserves', range: '3000 - 3999', color: 'text-purple-400', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-    revenue: { label: 'Revenue & Operating Income', range: '4000 - 4999', color: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    expense: { label: 'Cost of Goods Sold & Expenses', range: '5000 - 5999', color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
+  const typeMeta: Record<string, { label: string; range: string; color: string; badge: string; group: string }> = {
+    asset: { label: 'Assets', range: '1000 - 1999', color: 'text-blue-400', badge: 'bg-blue-500/10 text-blue-400 border-blue-500/20', group: 'Balancesheet' },
+    liability: { label: 'Liabilities & Statutory GST', range: '2000 - 2999', color: 'text-amber-400', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20', group: 'Balancesheet' },
+    equity: { label: 'Equity & Capital Reserves', range: '3000 - 3999', color: 'text-purple-400', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20', group: 'Balancesheet' },
+    revenue: { label: 'Revenue & Operating Income', range: '4000 - 4999', color: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', group: 'Profit and Loss' },
+    expense: { label: 'Cost of Goods Sold & Expenses', range: '5000 - 5999', color: 'text-rose-400', badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20', group: 'Profit and Loss' },
   };
 
   const sortedAccounts = React.useMemo(() => {
@@ -510,6 +536,9 @@ export const AccountsPage: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${typeMeta[acc.type]?.badge || ''}`}>
                                   {typeMeta[acc.type]?.label || acc.type}
+                                </span>
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
+                                  {typeMeta[acc.type]?.group}
                                 </span>
                                 <span className="text-[10px] font-mono text-neutral-400">
                                   {typeMeta[acc.type]?.range}
@@ -904,34 +933,45 @@ export const AccountsPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* 1. Account Classification Buttons */}
+                {/* 1. Account Type (Excalidraw Balancesheet vs Profit & Loss Grouping) */}
                 <div>
-                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
-                    Account Classification <span className="text-rose-400">*</span>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Account Type <span className="text-rose-400">*</span>
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {Object.entries(ACCOUNT_CLASSIFICATIONS).map(([key, config]) => {
-                      const isSelected = type === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => {
-                            setType(key as AccountClassification);
-                            setSubType((config.subTypes[0]?.key || AccountSubType.CASH_BANK) as AccountSubType);
-                            setIsCodeManuallyEdited(false);
-                          }}
-                          className={`p-2.5 rounded-xl border text-left transition-all ${
-                            isSelected
-                              ? 'bg-purple-600/20 border-purple-500 text-white shadow-sm ring-1 ring-purple-500/30'
-                              : 'bg-[#1a1a22] border-neutral-700/60 text-neutral-400 hover:text-white hover:border-neutral-600'
-                          }`}
-                        >
-                          <div className="text-[11px] font-bold capitalize">{key}</div>
-                          <div className="text-[10px] font-mono text-neutral-400 mt-0.5">{config.prefix}xxx</div>
-                        </button>
-                      );
-                    })}
+                  <select
+                    value={uiAccountType}
+                    onChange={(e) => {
+                      const val = e.target.value as UIAccountType;
+                      setUiAccountType(val);
+                      const mapping = UI_ACCOUNT_TYPE_MAP[val];
+                      if (mapping) {
+                        setType(mapping.type);
+                        setSubType(mapping.subType);
+                        setIsCodeManuallyEdited(false);
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-purple-500 font-medium"
+                  >
+                    <optgroup label="Balancesheet" className="bg-[#141418] text-purple-400 font-bold">
+                      <option value="asset" className="text-white">Asset</option>
+                      <option value="liability" className="text-white">Liability</option>
+                      <option value="bank" className="text-white">Bank</option>
+                      <option value="capital" className="text-white">Capital</option>
+                      <option value="cash" className="text-white">Cash</option>
+                    </optgroup>
+                    <optgroup label="Profit and Loss" className="bg-[#141418] text-emerald-400 font-bold">
+                      <option value="income" className="text-white">Income</option>
+                      <option value="expense" className="text-white">Expenses</option>
+                      <option value="other_expense" className="text-white">Other Expenses</option>
+                    </optgroup>
+                  </select>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      Classification: {type}
+                    </span>
+                    <span className="text-[10px] text-neutral-400">
+                      Standard {typeMeta[type]?.group} schedule
+                    </span>
                   </div>
                 </div>
 

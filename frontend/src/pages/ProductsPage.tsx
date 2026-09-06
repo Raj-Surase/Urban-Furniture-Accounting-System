@@ -26,7 +26,9 @@ import { formatApiError } from '../lib/errorHandler';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { PortalModal } from '../components/common/PortalModal';
+import { MasterViewLayout } from '../components/common/MasterViewLayout';
 import { TableSkeleton } from '../components/common/TableSkeleton';
+import { CardGridSkeleton } from '../components/common/CardGridSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { FieldFilterBar } from '../components/common/FieldFilterBar';
 import { ColumnFilterRow, ColumnFilterDef } from '../components/common/ColumnFilterRow';
@@ -90,6 +92,7 @@ export const ProductsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
   // Stock Adjustment Modal
   const [isAdjustOpen, setIsAdjustOpen] = useState(false);
@@ -100,6 +103,15 @@ export const ProductsPage: React.FC = () => {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustFieldErrors, setAdjustFieldErrors] = useState<Record<string, string>>({});
   const [adjustFormError, setAdjustFormError] = useState<string | null>(null);
+
+  const handleOpenAdjust = (p: any) => {
+    setSelectedProduct(p);
+    setAdjustmentDelta('');
+    setAdjustmentNotes('');
+    setAdjustFormError(null);
+    setAdjustFieldErrors({});
+    setIsAdjustOpen(true);
+  };
 
   // New Product Modal State
   const [isNewOpen, setIsNewOpen] = useState(false);
@@ -392,29 +404,16 @@ export const ProductsPage: React.FC = () => {
     : productColumnDefs.filter((c) => c.key !== 'cost_price');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <Layers className="w-7 h-7 text-amber-400" />
-            Products & Furniture Inventory
-          </h1>
-          <p className="text-sm text-neutral-400 mt-1">
-            SKU management, HSN GST classification, valuation, and real-time inventory tracking.
-          </p>
-        </div>
-
-        {(isAdmin || isManager) && (
-          <Button
-            onClick={handleOpenNewModal}
-            className="bg-amber-600 hover:bg-amber-500 text-white gap-2 shadow-lg shadow-amber-600/20 text-xs font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            Add New Product SKU
-          </Button>
-        )}
-      </div>
-
+    <MasterViewLayout
+      title="Product Master"
+      subtitle="Urban furniture catalogue, HSN tax classification, and real-time inventory tracking"
+      viewMode={viewMode}
+      onViewModeChange={(m) => setViewMode(m)}
+      onNew={isElevated ? handleOpenNewModal : undefined}
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search product SKU, name, category, HSN..."
+    >
       {/* Low Stock Warning Banner */}
       {lowStockItems.length > 0 && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between">
@@ -432,160 +431,252 @@ export const ProductsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Table Card */}
-      <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
-        <FieldFilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Search product SKU, name, category, HSN..."
-          filterConfigs={activeFilterConfigs}
-          activeFilters={activeFilters}
-          onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
-          onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
-          onClearAll={() => {
-            setSearchQuery('');
-            setActiveFilters([]);
-            setColumnFilters({});
-            setCategoryFilter('all');
-          }}
-          showColumnFilters={showColumnFilters}
-          onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
-          presets={{
-            field: 'category',
-            currentValue: categoryFilter,
-            onChange: setCategoryFilter,
-            options: [
-              { label: 'All Categories', value: 'all' },
-              ...categories.slice(0, 6).map((c) => ({ label: c, value: c })),
-            ],
-          }}
-        />
+      {/* Field Filter Bar */}
+      <FieldFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search product SKU, name, category, HSN..."
+        filterConfigs={activeFilterConfigs}
+        activeFilters={activeFilters}
+        onAddFilter={(filter) => setActiveFilters((prev) => [...prev, filter])}
+        onRemoveFilter={(id) => setActiveFilters((prev) => prev.filter((f) => f.id !== id))}
+        onClearAll={() => {
+          setSearchQuery('');
+          setActiveFilters([]);
+          setColumnFilters({});
+          setCategoryFilter('all');
+        }}
+        showColumnFilters={showColumnFilters}
+        onToggleColumnFilters={() => setShowColumnFilters((prev) => !prev)}
+        presets={{
+          field: 'category',
+          currentValue: categoryFilter,
+          onChange: setCategoryFilter,
+          options: [
+            { label: 'All Categories', value: 'all' },
+            ...categories.slice(0, 6).map((c) => ({ label: c, value: c })),
+          ],
+        }}
+      />
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                <th className="py-3 px-4">SKU / Code</th>
-                <th className="py-3 px-4">Product Name</th>
-                <th className="py-3 px-4 text-center">Type</th>
-                <th className="py-3 px-4">Category</th>
-                <th className="py-3 px-4 text-center">HSN Code</th>
-                {isElevated && <th className="py-3 px-4 text-right">Cost (₹)</th>}
-                <th className="py-3 px-4 text-right">Selling Price (₹)</th>
-                <th className="py-3 px-4 text-center">GST %</th>
-                <th className="py-3 px-4 text-right">Current Stock</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-              {showColumnFilters && (
-                <ColumnFilterRow
-                  columns={activeColumnDefs}
-                  values={columnFilters}
-                  onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
-                />
-              )}
-            </thead>
-            <tbody className="divide-y divide-white/[0.04] text-xs">
-              {loading ? (
-                <TableSkeleton rows={6} cols={isElevated ? 10 : 9} />
-              ) : visibleProducts.length === 0 ? (
-                <EmptyState
-                  icon={Package}
-                  colSpan={isElevated ? 10 : 9}
-                  title="No products found"
-                  description="Add raw materials, finished furniture, or hardware to your inventory catalog."
-                  actionLabel="New Product"
-                  onAction={() => setIsNewOpen(true)}
-                  secondaryActionLabel={searchQuery || categoryFilter !== 'all' || activeFilters.length > 0 ? 'Clear Filters' : undefined}
-                  onSecondaryAction={() => {
-                    setSearchQuery('');
-                    setCategoryFilter('all');
-                    setActiveFilters([]);
-                    setColumnFilters({});
-                  }}
-                />
-              ) : (
-                visibleProducts.map((prod) => {
-                  const isLow = Number(prod.current_stock ?? 0) <= Number(prod.min_stock_alert ?? prod.minimum_stock ?? 5);
-                  return (
-                    <tr
-                      key={prod.id}
-                      onClick={() => setDetailProduct(prod)}
-                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-amber-400 group-hover:underline">{prod.sku}</td>
-                      <td className="py-3 px-4 font-semibold text-white">{prod.name}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${
-                            prod.type === 'service'
-                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                              : prod.type === 'combo'
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                              : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          }`}
-                        >
-                          {prod.type || 'Goods'}
+      {viewMode === 'kanban' ? (
+        /* KANBAN VIEW (Matching Excalidraw requirement for Product Kanban View) */
+        loading && visibleProducts.length === 0 ? (
+          <CardGridSkeleton count={8} columns="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />
+        ) : visibleProducts.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="No products found"
+            description={searchQuery ? 'No products match your search query.' : 'Add your first product to view it in the Kanban catalogue.'}
+            actionLabel={isElevated ? 'Add New Product SKU' : undefined}
+            onAction={isElevated ? handleOpenNewModal : undefined}
+          />
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {visibleProducts.map((p) => {
+                const isLow = Number(p.current_stock ?? 0) <= Number(p.min_stock_alert ?? p.minimum_stock ?? 5);
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setDetailProduct(p)}
+                    className="group relative bg-[#18181f]/80 backdrop-blur-xl border border-white/[0.08] hover:border-amber-500/50 rounded-2xl p-5 transition-all duration-300 shadow-obsidian-card hover:shadow-obsidian-glow flex flex-col justify-between cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                          {p.sku}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-neutral-400">{prod.category || 'General'}</td>
-                      <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.hsn_code || '9403'}</td>
+                        <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider bg-white/[0.05] px-2 py-0.5 rounded-md border border-white/[0.06]">
+                          {p.type || 'goods'}
+                        </span>
+                      </div>
+
+                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors line-clamp-2">
+                        {p.name}
+                      </h3>
+                      <p className="text-xs text-[#8a8a9a] mt-1 flex items-center gap-1.5">
+                        <Tag className="w-3 h-3 text-[#707080]" />
+                        {p.category || 'Furniture'}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 mt-3 border-t border-white/[0.06] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-neutral-400">Price (incl. GST)</span>
+                        <span className="font-mono text-sm font-bold text-emerald-400">
+                          ₹{Number(p.price || p.unit_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                       {isElevated && (
-                        <td className="py-3 px-4 text-right font-mono text-neutral-300">
-                          ₹{Number(prod.cost_price || 0).toLocaleString('en-IN')}
-                        </td>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-neutral-500">Cost</span>
+                          <span className="font-mono text-neutral-400">
+                            ₹{Number(p.cost_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       )}
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                        ₹{(Number(prod.price ?? prod.unit_price ?? 0) || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.gst_rate || 18}%</td>
-                      <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-between pt-1">
                         <span
-                          className={`inline-block font-mono font-bold px-2 py-0.5 rounded ${
+                          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
                             isLow
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                              : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
                           }`}
                         >
-                          {prod.current_stock}
+                          {isLow ? <AlertTriangle className="w-3 h-3 text-rose-400" /> : <CheckCircle className="w-3 h-3 text-emerald-400" />}
+                          {p.current_stock ?? 0} {p.unit_of_measure || 'units'}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                        {(isAdmin || isManager) && (
+
+                        {isElevated && (
                           <button
-                            onClick={() => {
-                              setSelectedProduct(prod);
-                              setAdjustmentDelta('');
-                              setAdjustFieldErrors({});
-                              setAdjustFormError(null);
-                              setIsAdjustOpen(true);
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenAdjust(p);
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-amber-600 hover:text-white text-neutral-300 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                            className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-amber-600 hover:text-white text-neutral-300 transition-colors"
+                            title="Adjust Stock"
                           >
-                            <ArrowUpDown className="w-3 h-3" />
-                            Adjust Stock
+                            <ArrowUpDown className="w-3.5 h-3.5" />
                           </button>
                         )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-              {loadingMore && (
-                <TableSkeleton isPaginationLoader rows={3} cols={isElevated ? 10 : 9} />
-              )}
-            </tbody>
-          </table>
-        </div>
-        <ScrollSentinel
-          sentinelRef={sentinelRef}
-          loadingMore={loadingMore}
-          hasMore={hasMore}
-          totalCount={totalCount}
-          visibleCount={visibleProducts.length}
-          onLoadMore={loadMore}
-          entityName="products"
-        />
-      </Card>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <ScrollSentinel
+              sentinelRef={sentinelRef}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              totalCount={totalCount}
+              visibleCount={visibleProducts.length}
+              onLoadMore={loadMore}
+              entityName="products"
+            />
+          </div>
+        )
+      ) : (
+        /* LIST VIEW TABLE */
+        <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                  <th className="py-3 px-4">SKU / Code</th>
+                  <th className="py-3 px-4">Product Name</th>
+                  <th className="py-3 px-4 text-center">Type</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4 text-center">HSN Code</th>
+                  {isElevated && <th className="py-3 px-4 text-right">Cost (₹)</th>}
+                  <th className="py-3 px-4 text-right">Selling Price (₹)</th>
+                  <th className="py-3 px-4 text-center">GST %</th>
+                  <th className="py-3 px-4 text-right">Current Stock</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+                {showColumnFilters && (
+                  <ColumnFilterRow
+                    columns={activeColumnDefs}
+                    values={columnFilters}
+                    onChange={(key, val) => setColumnFilters((prev) => ({ ...prev, [key]: val }))}
+                  />
+                )}
+              </thead>
+              <tbody className="divide-y divide-white/[0.04] text-xs">
+                {loading ? (
+                  <TableSkeleton columns={isElevated ? 10 : 9} rows={6} />
+                ) : visibleProducts.length === 0 ? (
+                  <EmptyState
+                    colSpan={isElevated ? 10 : 9}
+                    icon={Package}
+                    title="No products found"
+                    description={searchQuery ? 'No products match your search query.' : 'Add your first product to get started.'}
+                    actionLabel={isElevated ? 'Add New Product SKU' : undefined}
+                    onAction={isElevated ? handleOpenNewModal : undefined}
+                  />
+                ) : (
+                  visibleProducts.map((prod) => {
+                    const isLow = Number(prod.current_stock ?? 0) <= Number(prod.min_stock_alert ?? prod.minimum_stock ?? 5);
+                    return (
+                      <tr
+                        key={prod.id}
+                        onClick={() => setDetailProduct(prod)}
+                        className="hover:bg-white/[0.04] cursor-pointer transition-colors group"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-amber-400 group-hover:underline">
+                          {prod.sku}
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white group-hover:text-amber-300">
+                          {prod.name}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.05] text-neutral-300 border border-white/10">
+                            {prod.type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-neutral-300">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                            <Tag className="w-3 h-3" />
+                            {prod.category}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.hsn_code}</td>
+                        {isElevated && (
+                          <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                            ₹{(Number(prod.cost_price) || 0).toLocaleString('en-IN')}
+                          </td>
+                        )}
+                        <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
+                          ₹{(Number(prod.price ?? prod.unit_price ?? 0) || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.gst_rate || 18}%</td>
+                        <td className="py-3 px-4 text-right">
+                          <span
+                            className={`inline-block font-mono font-bold px-2 py-0.5 rounded ${
+                              isLow
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            }`}
+                          >
+                            {prod.current_stock}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          {isElevated && (
+                            <button
+                              onClick={() => {
+                                handleOpenAdjust(prod);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-amber-600 hover:text-white text-neutral-300 text-[11px] font-semibold transition-colors inline-flex items-center gap-1"
+                            >
+                              <ArrowUpDown className="w-3 h-3" />
+                              Adjust Stock
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+                {loadingMore && (
+                  <TableSkeleton isPaginationLoader rows={3} cols={isElevated ? 10 : 9} />
+                )}
+              </tbody>
+            </table>
+          </div>
+          <ScrollSentinel
+            sentinelRef={sentinelRef}
+            loadingMore={loadingMore}
+            hasMore={hasMore}
+            totalCount={totalCount}
+            visibleCount={visibleProducts.length}
+            onLoadMore={loadMore}
+            entityName="products"
+          />
+        </Card>
+      )}
 
       {/* Adjust Stock Modal */}
       {Boolean(isAdjustOpen && selectedProduct) && (
@@ -850,12 +941,12 @@ export const ProductsPage: React.FC = () => {
                   onChange={(e) => setNewCategorySelect(e.target.value)}
                   className="w-full px-3 py-2 bg-[#1a1a22] border border-neutral-700 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500"
                 >
-                  {FURNITURE_CATEGORIES.map((cat) => (
+                  {Array.from(new Set([...FURNITURE_CATEGORIES, ...categories])).map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
                   ))}
-                  <option value="__custom__">+ Custom Category...</option>
+                  <option value="__custom__">+ Create Category on-the-fly...</option>
                 </select>
                 {newCategorySelect === '__custom__' && (
                   <input
@@ -1322,7 +1413,7 @@ export const ProductsPage: React.FC = () => {
           )}
         </PortalModal>
       )}
-    </div>
+    </MasterViewLayout>
   );
 };
 

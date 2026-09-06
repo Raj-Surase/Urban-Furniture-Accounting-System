@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText, Zap } from 'lucide-react';
+import { X, CheckCircle2, DollarSign, Calendar, CreditCard, Building2, FileText, Zap, Printer, Mail } from 'lucide-react';
 import { paymentsApi, razorpayApi } from '../../lib/api';
 import { openRazorpayCheckout } from '../../lib/razorpay';
 import { ContactType, PaymentType, PaymentMethod, InvoiceType } from '../../types';
@@ -34,6 +34,67 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handlePrintReceipt = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Payment Voucher - ${partnerName}</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #111; }
+              .header { border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 20px; }
+              .title { font-size: 22px; font-weight: bold; margin: 0; }
+              .meta { font-size: 13px; color: #666; margin-top: 4px; }
+              .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              .details-table td { padding: 8px 0; border-bottom: 1px solid #eee; }
+              .label { font-weight: 600; width: 40%; }
+              .amount { font-size: 18px; font-weight: bold; color: #16a34a; }
+              .footer { margin-top: 40px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1 class="title">Urban Furniture — Official Payment Voucher</h1>
+              <div class="meta">Receipt Date: ${paymentDate}</div>
+            </div>
+            <table class="details-table">
+              <tr><td class="label">Partner / Party:</td><td>${partnerName}</td></tr>
+              <tr><td class="label">Payment Type:</td><td>${paymentType === PaymentType.RECEIVE ? 'Receipt (Inward Payment)' : 'Disbursement (Outward Payment)'}</td></tr>
+              <tr><td class="label">Payment Method:</td><td>${paymentVia.toUpperCase()}</td></tr>
+              <tr><td class="label">Amount Settled:</td><td class="amount">₹${Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+              <tr><td class="label">Reference / Note:</td><td>${note || 'N/A'}</td></tr>
+              ${invoiceId ? `<tr><td class="label">Associated Document ID:</td><td>#${invoiceId}</td></tr>` : ''}
+            </table>
+            <div class="footer">
+              Generated automatically by Urban Furniture Accounting ERP Platform. This is an authentic computer-generated voucher.
+            </div>
+            <script>
+              window.onload = function() { window.print(); }
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
+  const handleSendMail = () => {
+    const subject = encodeURIComponent(`Payment Voucher: ${partnerName} - ₹${Number(amount || 0).toLocaleString('en-IN')}`);
+    const body = encodeURIComponent(
+      `Hello ${partnerName},\n\nPlease find the payment details below:\n\n` +
+      `Amount: ₹${Number(amount || 0).toLocaleString('en-IN')}\n` +
+      `Date: ${paymentDate}\n` +
+      `Method: ${paymentVia.toUpperCase()}\n` +
+      `Type: ${paymentType === PaymentType.RECEIVE ? 'Receipt (Inward)' : 'Payment (Outward)'}\n` +
+      (invoiceId ? `Document Reference: #${invoiceId}\n` : '') +
+      (note ? `Notes: ${note}\n` : '') +
+      `\nThank you,\nUrban Furniture Accounting Team`
+    );
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  };
 
   if (!isOpen) return null;
 
@@ -362,37 +423,60 @@ export const ExcalidrawPaymentModal: React.FC<ExcalidrawPaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Modal Actions matching Excalidraw */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/[0.08]">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={loading}
-                className="px-5 py-2.5 rounded-xl border border-white/[0.08] text-xs font-semibold text-[#a0a0b0] hover:text-white hover:bg-white/[0.05] transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-xs font-semibold shadow-lg transition-all disabled:opacity-50 ${
-                  paymentVia === PaymentMethod.RAZORPAY
-                    ? 'bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] shadow-[#7042f4]/30'
-                    : 'bg-[#7042f4] hover:bg-[#5f32e6] shadow-[#7042f4]/30'
-                }`}
-              >
-                {paymentVia === PaymentMethod.RAZORPAY ? (
-                  <>
-                    <Zap className="w-4 h-4 text-amber-300" />
-                    <span>{loading ? 'Opening Checkout...' : `Pay ₹${Number(amount || 0).toLocaleString('en-IN')} with Razorpay`}</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{loading ? 'Processing...' : 'Confirm'}</span>
-                  </>
-                )}
-              </button>
+            {/* Modal Actions matching Excalidraw (Option: 1. Print, 2. Send from Mail) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrintReceipt}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-xs font-semibold text-[#a0a0b0] hover:text-white transition-all"
+                  title="Print Official Payment Voucher"
+                >
+                  <Printer className="w-3.5 h-3.5 text-purple-400" />
+                  Print
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendMail}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.08] text-xs font-semibold text-[#a0a0b0] hover:text-white transition-all"
+                  title="Send Voucher Details via Email"
+                >
+                  <Mail className="w-3.5 h-3.5 text-blue-400" />
+                  Send (Mail)
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-xl border border-white/[0.08] text-xs font-semibold text-[#a0a0b0] hover:text-white hover:bg-white/[0.05] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white text-xs font-semibold shadow-lg transition-all disabled:opacity-50 ${
+                    paymentVia === PaymentMethod.RAZORPAY
+                      ? 'bg-gradient-to-r from-[#7042f4] to-[#9333ea] hover:from-[#5f32e6] hover:to-[#7e22ce] shadow-[#7042f4]/30'
+                      : 'bg-[#7042f4] hover:bg-[#5f32e6] shadow-[#7042f4]/30'
+                  }`}
+                >
+                  {paymentVia === PaymentMethod.RAZORPAY ? (
+                    <>
+                      <Zap className="w-4 h-4 text-amber-300" />
+                      <span>{loading ? 'Opening Checkout...' : `Pay ₹${Number(amount || 0).toLocaleString('en-IN')} with Razorpay`}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{loading ? 'Processing...' : 'Confirm'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </form>

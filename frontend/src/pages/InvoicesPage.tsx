@@ -19,8 +19,9 @@ import {
   X,
   Clock,
   ShieldCheck,
+  ExternalLink,
 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { invoicesApi, customersApi, vendorsApi, productsApi, paymentsApi, salesOrdersApi, razorpayApi } from '../lib/api';
 import { openRazorpayCheckout } from '../lib/razorpay';
 import { useAuth } from '../context/AuthContext';
@@ -52,6 +53,7 @@ import {
 } from '../types';
 
 export const InvoicesPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isAdmin, isManager, isAccountant } = useAuth();
   const isElevated = isAdmin || isManager || isAccountant;
   const { addToast } = useToast();
@@ -61,6 +63,7 @@ export const InvoicesPage: React.FC = () => {
   const [vendors, setVendors] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [originatingSoId, setOriginatingSoId] = useState<number | null>(null);
 
   // Filters
   const [activeTab, setActiveTab] = useState<'all' | 'customer' | 'vendor'>('all');
@@ -168,10 +171,12 @@ export const InvoicesPage: React.FC = () => {
   useEffect(() => {
     const soIdParam = searchParams.get('from_so');
     if (soIdParam) {
+      const soId = parseInt(soIdParam, 10);
+      setOriginatingSoId(soId);
       setCreateType(ContactType.CUSTOMER);
       setIsCreateModalOpen(true);
       salesOrdersApi
-        .get(parseInt(soIdParam, 10))
+        .get(soId)
         .then((res: any) => {
           const soData = res?.data || res;
           if (soData) {
@@ -293,6 +298,8 @@ export const InvoicesPage: React.FC = () => {
         type: createType === ContactType.CUSTOMER ? InvoiceType.RECEIVABLE : InvoiceType.PAYABLE,
         party_type: createType,
         party_id: Number(selectedPartyId),
+        reference_type: originatingSoId ? 'sales_order' : null,
+        reference_id: originatingSoId,
         invoice_date: invoiceDate,
         due_date: dueDate,
         notes: notes.trim() || null,
@@ -313,6 +320,7 @@ export const InvoicesPage: React.FC = () => {
         message: `${res.invoice_number || 'Invoice'} created in Draft status.`,
       });
       setIsCreateModalOpen(false);
+      setOriginatingSoId(null);
       setCreateFieldErrors({});
       setCreateFormError(null);
       // Reset form
@@ -640,6 +648,7 @@ export const InvoicesPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <Button
               onClick={() => {
+                setOriginatingSoId(null);
                 setCreateType(ContactType.CUSTOMER);
                 setSelectedPartyId('');
                 setCreateFieldErrors({});
@@ -655,6 +664,7 @@ export const InvoicesPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => {
+                setOriginatingSoId(null);
                 setCreateType(ContactType.VENDOR);
                 setSelectedPartyId('');
                 setCreateFieldErrors({});
@@ -841,6 +851,18 @@ export const InvoicesPage: React.FC = () => {
                     >
                       <td className="py-3 px-4 font-mono font-bold text-foreground dark:text-white flex items-center gap-2">
                         <span>{inv.invoice_number}</span>
+                        {inv.reference_type === 'sales_order' && inv.reference_id && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/sales-orders?id=${inv.reference_id}`);
+                            }}
+                            className="text-[10px] font-sans font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20"
+                            title="Created from Sales Order"
+                          >
+                            SO #{inv.reference_id}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3 px-4">
@@ -1586,12 +1608,42 @@ export const InvoicesPage: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => setDetailInvoice(null)}
-                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {(detailInvoice.reference_type === 'sales_order' || detailInvoice.reference_id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const soId = detailInvoice.reference_id;
+                      setDetailInvoice(null);
+                      navigate(soId ? `/sales-orders?id=${soId}` : '/sales-orders');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:text-white text-xs font-semibold transition-all"
+                    title="Open originating Sales Order"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> SO {detailInvoice.reference_id ? `#${detailInvoice.reference_id}` : ''}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lineAnalyticId = (detailInvoice.items || []).find((it: any) => it.analytic_account_id)?.analytic_account_id;
+                    setDetailInvoice(null);
+                    navigate(lineAnalyticId ? `/budgets?analytic_account_id=${lineAnalyticId}` : '/budgets');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-semibold transition-all"
+                  title="Open Budget Analytic Report"
+                >
+                  <Layers className="w-3.5 h-3.5" /> Budget
+                </button>
+
+                <button
+                  onClick={() => setDetailInvoice(null)}
+                  className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05]"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Metadata Summary Grid */}
