@@ -84,7 +84,7 @@ export const dashboardApi = {
 };
 
 export const accountsApi = {
-  list: (params?: Record<string, any>) => api.get('/accounts', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/accounts', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/accounts/${id}`).then(res => res.data),
   create: (data: any) => api.post('/accounts', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/accounts/${id}`, data).then(res => res.data),
@@ -110,7 +110,7 @@ export const normalizeProductItem = (item: any) => {
 
 export const productsApi = {
   list: (params?: Record<string, any>) =>
-    api.get('/products', { params }).then((res) => {
+    api.get('/products', { params: { per_page: 'all', ...params } }).then((res) => {
       const data = res.data;
       if (data && Array.isArray(data.data)) {
         return {
@@ -139,7 +139,7 @@ export const productsApi = {
 };
 
 export const vendorsApi = {
-  list: (params?: Record<string, any>) => api.get('/vendors', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/vendors', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/vendors/${id}`).then(res => res.data),
   create: (data: any) => api.post('/vendors', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/vendors/${id}`, data).then(res => res.data),
@@ -147,7 +147,7 @@ export const vendorsApi = {
 };
 
 export const customersApi = {
-  list: (params?: Record<string, any>) => api.get('/customers', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/customers', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/customers/${id}`).then(res => res.data),
   create: (data: any) => api.post('/customers', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/customers/${id}`, data).then(res => res.data),
@@ -155,7 +155,7 @@ export const customersApi = {
 };
 
 export const purchaseOrdersApi = {
-  list: (params?: Record<string, any>) => api.get('/purchase-orders', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/purchase-orders', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/purchase-orders/${id}`).then(res => res.data),
   create: (data: any) => api.post('/purchase-orders', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/purchase-orders/${id}`, data).then(res => res.data),
@@ -168,7 +168,7 @@ export const purchaseOrdersApi = {
 };
 
 export const salesOrdersApi = {
-  list: (params?: Record<string, any>) => api.get('/sales-orders', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/sales-orders', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/sales-orders/${id}`).then(res => res.data),
   create: (data: any) => api.post('/sales-orders', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/sales-orders/${id}`, data).then(res => res.data),
@@ -180,7 +180,7 @@ export const salesOrdersApi = {
 };
 
 export const invoicesApi = {
-  list: (params?: Record<string, any>) => api.get('/invoices', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/invoices', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/invoices/${id}`).then(res => res.data),
   create: (data: any) => api.post('/invoices', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/invoices/${id}`, data).then(res => res.data),
@@ -190,7 +190,7 @@ export const invoicesApi = {
 };
 
 export const paymentsApi = {
-  list: (params?: Record<string, any>) => api.get('/payments', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/payments', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/payments/${id}`).then(res => res.data),
   create: (data: any) => api.post('/payments', data).then(res => res.data),
   reconcile: (id: number) => api.post(`/payments/${id}/reconcile`).then(res => res.data),
@@ -206,7 +206,7 @@ export const razorpayApi = {
 
 export const paymentTransactionsApi = {
   list: (params?: Record<string, any>) =>
-    api.get('/payment-transactions', { params }).then(res => res.data),
+    api.get('/payment-transactions', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) =>
     api.get(`/payment-transactions/${id}`).then(res => res.data),
   sync: (id: number) =>
@@ -216,7 +216,7 @@ export const paymentTransactionsApi = {
 };
 
 export const journalApi = {
-  list: (params?: Record<string, any>) => api.get('/journal', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/journal', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/journal/${id}`).then(res => res.data),
   create: (data: any) => api.post('/journal', data).then(res => res.data),
   reverse: (id: number) => api.post(`/journal/${id}/reverse`).then(res => res.data),
@@ -242,7 +242,7 @@ export const usersApi = {
 };
 
 export const journalsApi = {
-  list: (params?: Record<string, any>) => api.get('/journals', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/journals', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/journals/${id}`).then(res => res.data),
   create: (data: any) => api.post('/journals', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/journals/${id}`, data).then(res => res.data),
@@ -250,7 +250,7 @@ export const journalsApi = {
 };
 
 export const analyticAccountsApi = {
-  list: (params?: Record<string, any>) => api.get('/analytic-accounts', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/analytic-accounts', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/analytic-accounts/${id}`).then(res => res.data),
   create: (data: any) => api.post('/analytic-accounts', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/analytic-accounts/${id}`, data).then(res => res.data),
@@ -258,7 +258,7 @@ export const analyticAccountsApi = {
 };
 
 export const budgetsApi = {
-  list: (params?: Record<string, any>) => api.get('/budgets', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/budgets', { params: { per_page: 'all', ...params } }).then(res => res.data),
   get: (id: number) => api.get(`/budgets/${id}`).then(res => res.data),
   create: (data: any) => api.post('/budgets', data).then(res => res.data),
   update: (id: number, data: any) => api.put(`/budgets/${id}`, data).then(res => res.data),
@@ -273,7 +273,6 @@ export const budgetsApi = {
 };
 
 export const contactsApi = {
-  list: (params?: Record<string, any>) => api.get('/contacts', { params }).then(res => res.data),
+  list: (params?: Record<string, any>) => api.get('/contacts', { params: { per_page: 'all', ...params } }).then(res => res.data),
   create: (data: any) => api.post('/contacts', data).then(res => res.data),
 };
-

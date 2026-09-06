@@ -48,7 +48,7 @@ class ItemController extends Controller
             $query->where('priority', $priority);
         }
 
-        $perPage = $request->query('per_page', 15);
+        $perPage = $request->query('per_page', 'all');
         if ($perPage === 'all' || $perPage === '-1') {
             $items = $query->get();
             return ItemResource::collection($items);

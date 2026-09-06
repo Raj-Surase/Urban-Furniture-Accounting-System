@@ -67,7 +67,7 @@ class ProductController extends Controller
         $user = $request->user();
         $isElevated = $user && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
 
-        $perPage = $request->query('per_page', 20);
+        $perPage = $request->query('per_page', 'all');
         if ($perPage === 'all' || $perPage === '-1') {
             $products = $query->get();
             if (! $isElevated) {

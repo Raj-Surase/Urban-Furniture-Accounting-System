@@ -60,7 +60,7 @@ class JournalEntryController extends Controller
             });
         }
 
-        $perPage = $request->query('per_page', 20);
+        $perPage = $request->query('per_page', 'all');
         if ($perPage === 'all' || $perPage === '-1') {
             $entries = $query->get();
             return response()->json([
