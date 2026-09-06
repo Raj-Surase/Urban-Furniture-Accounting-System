@@ -108,6 +108,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   if (!isOpen || !invoice) return null;
 
@@ -167,32 +168,43 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
     }
   };
 
+  const generateInvoicePdf = async (): Promise<{
+    canvas: HTMLCanvasElement;
+    imgData: string;
+    pdf: jsPDF;
+  } | null> => {
+    if (!printAreaRef.current || !invoice) return null;
+    const element = printAreaRef.current;
+    const canvas = await html2canvas(element, {
+      scale: 2.5,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 794,
+    });
+
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+    return { canvas, imgData, pdf };
+  };
+
   const handleDownloadPdf = async () => {
     if (!printAreaRef.current || !invoice) return;
     try {
       setIsGenerating(true);
-      const element = printAreaRef.current;
-      const canvas = await html2canvas(element, {
-        scale: 2.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 794,
-      });
-
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      pdf.save(`${invoice.invoice_number || 'Tax_Invoice'}.pdf`);
+      const generated = await generateInvoicePdf();
+      if (!generated) return;
+      generated.pdf.save(`${invoice.invoice_number || 'Tax_Invoice'}.pdf`);
     } catch (err) {
       console.error('Failed to generate PDF:', err);
       alert('Could not export PDF. You can also use the Print button.');
@@ -201,8 +213,117 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!printAreaRef.current || !invoice) return;
+    try {
+      setIsPrinting(true);
+      const generated = await generateInvoicePdf();
+      if (!generated) return;
+
+      const { imgData, pdf } = generated;
+
+      // Create an isolated hidden iframe for printing only the invoice document
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+
+      const frameDoc = iframe.contentWindow?.document;
+      if (!frameDoc) {
+        throw new Error('Unable to access iframe document');
+      }
+
+      frameDoc.open();
+      frameDoc.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <title>${invoice.invoice_number || 'Tax Invoice'}</title>
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 0mm;
+      }
+      @media print {
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        img {
+          width: 100% !important;
+          height: auto !important;
+          display: block !important;
+          margin: 0 auto !important;
+        }
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        width: 100%;
+      }
+      img {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <img id="print-invoice-img" src="${imgData}" alt="Tax Invoice" />
+  </body>
+</html>`);
+      frameDoc.close();
+
+      const printImg = frameDoc.getElementById('print-invoice-img') as HTMLImageElement;
+      const doPrint = () => {
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch (err) {
+            console.error('Print iframe error:', err);
+            // Fallback: open PDF blob in new window
+            const blob = pdf.output('blob');
+            const blobUrl = URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+          } finally {
+            setTimeout(() => {
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+            }, 3000);
+          }
+        }, 150);
+      };
+
+      if (printImg.complete) {
+        doPrint();
+      } else {
+        printImg.onload = doPrint;
+        printImg.onerror = () => {
+          const blob = pdf.output('blob');
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        };
+      }
+    } catch (err) {
+      console.error('Failed to prepare print document:', err);
+      alert('Could not prepare invoice for print. You can also download the PDF directly.');
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   // Safe item list with complete calculation fallbacks
@@ -284,7 +405,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
       containerClassName="max-w-4xl"
       backdropClassName="p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static"
     >
-      <div className="relative w-full bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto print:border-none print:shadow-none print:max-w-none print:w-full print:my-0">
+      <div className="relative w-full bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl flex flex-col my-auto print:border-none print:shadow-none print:max-w-none print:w-full print:my-0 print:bg-transparent">
         
         {/* Top Control Action Bar (Hidden in Print) */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-[#121216] rounded-t-2xl print:hidden">
@@ -307,16 +428,21 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
               variant="outline"
               size="sm"
               onClick={handlePrint}
+              disabled={isPrinting || isGenerating}
               className="text-xs gap-1.5 border-neutral-700 bg-neutral-800/80 hover:bg-neutral-700 text-white cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
-              Print
+              {isPrinting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Printer className="w-3.5 h-3.5" />
+              )}
+              {isPrinting ? 'Preparing...' : 'Print'}
             </Button>
 
             <Button
               size="sm"
               onClick={handleDownloadPdf}
-              disabled={isGenerating}
+              disabled={isGenerating || isPrinting}
               className="text-xs gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium shadow-md shadow-purple-600/20 cursor-pointer"
             >
               {isGenerating ? (
@@ -338,7 +464,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
         </div>
 
         {/* Printable / Capturable Document Container (pdfcn Modern Style) */}
-        <div className="p-4 sm:p-6 overflow-x-auto bg-[#18181f] flex justify-center print:p-0 print:bg-white">
+        <div className="p-4 sm:p-6 overflow-x-auto bg-[#18181f] flex justify-center print:p-0 print:bg-white print:overflow-visible">
           <div
             ref={printAreaRef}
             id="pdfcn-document"

@@ -92,14 +92,50 @@ export const accountsApi = {
   getLedger: (id: number, params?: Record<string, any>) => api.get(`/accounts/${id}/ledger`, { params }).then(res => res.data),
 };
 
+export const normalizeProductItem = (item: any) => {
+  if (!item || typeof item !== 'object') return item;
+  const unitPrice = item.unit_price != null ? Number(item.unit_price) : (item.price != null ? Number(item.price) : 0);
+  const costPrice = item.cost_price != null ? Number(item.cost_price) : 0;
+  const safeUnitPrice = isNaN(unitPrice) ? 0 : unitPrice;
+  const safeCostPrice = isNaN(costPrice) ? 0 : costPrice;
+  return {
+    ...item,
+    price: safeUnitPrice,
+    unit_price: safeUnitPrice,
+    cost_price: safeCostPrice,
+    min_stock_alert: item.min_stock_alert ?? item.minimum_stock ?? 5,
+    minimum_stock: item.minimum_stock ?? item.min_stock_alert ?? 5,
+  };
+};
+
 export const productsApi = {
-  list: (params?: Record<string, any>) => api.get('/products', { params }).then(res => res.data),
-  get: (id: number) => api.get(`/products/${id}`).then(res => res.data),
-  create: (data: any) => api.post('/products', data).then(res => res.data),
-  update: (id: number, data: any) => api.put(`/products/${id}`, data).then(res => res.data),
-  delete: (id: number) => api.delete(`/products/${id}`).then(res => res.data),
+  list: (params?: Record<string, any>) =>
+    api.get('/products', { params }).then((res) => {
+      const data = res.data;
+      if (data && Array.isArray(data.data)) {
+        return {
+          ...data,
+          data: data.data.map(normalizeProductItem),
+        };
+      }
+      if (Array.isArray(data)) {
+        return data.map(normalizeProductItem);
+      }
+      return data;
+    }),
+  get: (id: number) =>
+    api.get(`/products/${id}`).then((res) => {
+      const data = res.data;
+      if (data && data.data) {
+        return { ...data, data: normalizeProductItem(data.data) };
+      }
+      return normalizeProductItem(data);
+    }),
+  create: (data: any) => api.post('/products', data).then((res) => res.data),
+  update: (id: number, data: any) => api.put(`/products/${id}`, data).then((res) => res.data),
+  delete: (id: number) => api.delete(`/products/${id}`).then((res) => res.data),
   adjustStock: (id: number, data: { quantity_delta: number; reason: string; notes?: string }) =>
-    api.post(`/products/${id}/adjust`, data).then(res => res.data),
+    api.post(`/products/${id}/adjust`, data).then((res) => res.data),
 };
 
 export const vendorsApi = {

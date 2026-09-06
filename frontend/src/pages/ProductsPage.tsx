@@ -134,7 +134,22 @@ export const ProductsPage: React.FC = () => {
         isElevated ? accountsApi.list().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
       ]);
       const list = Array.isArray(prodRes?.data) ? prodRes.data : Array.isArray(prodRes) ? prodRes : [];
-      setProducts(list.filter(Boolean));
+      const normalized = list.filter(Boolean).map((p: any) => {
+        const unitPrice = p.unit_price != null ? Number(p.unit_price) : (p.price != null ? Number(p.price) : 0);
+        const costPrice = p.cost_price != null ? Number(p.cost_price) : 0;
+        const currentStock = p.current_stock != null ? Number(p.current_stock) : 0;
+        const minStock = p.min_stock_alert != null ? Number(p.min_stock_alert) : (p.minimum_stock != null ? Number(p.minimum_stock) : 5);
+        return {
+          ...p,
+          price: isNaN(unitPrice) ? 0 : unitPrice,
+          unit_price: isNaN(unitPrice) ? 0 : unitPrice,
+          cost_price: isNaN(costPrice) ? 0 : costPrice,
+          current_stock: isNaN(currentStock) ? 0 : currentStock,
+          min_stock_alert: minStock,
+          minimum_stock: minStock,
+        };
+      });
+      setProducts(normalized);
       const accList = Array.isArray(accRes?.data) ? accRes.data : Array.isArray(accRes) ? accRes : [];
       setAccounts(accList);
     } catch (err) {
@@ -310,7 +325,7 @@ export const ProductsPage: React.FC = () => {
 
   const lowStockItems = Array.isArray(products)
     ? products.filter(
-        (p) => p && Number(p?.current_stock ?? 0) <= Number(p?.min_stock_alert ?? 5)
+        (p) => p && Number(p?.current_stock ?? 0) <= Number(p?.min_stock_alert ?? p?.minimum_stock ?? 5)
       )
     : [];
 
@@ -489,7 +504,7 @@ export const ProductsPage: React.FC = () => {
                 />
               ) : (
                 visibleProducts.map((prod) => {
-                  const isLow = Number(prod.current_stock) <= Number(prod.min_stock_alert || 5);
+                  const isLow = Number(prod.current_stock ?? 0) <= Number(prod.min_stock_alert ?? prod.minimum_stock ?? 5);
                   return (
                     <tr
                       key={prod.id}
@@ -519,7 +534,7 @@ export const ProductsPage: React.FC = () => {
                         </td>
                       )}
                       <td className="py-3 px-4 text-right font-mono font-bold text-white">
-                        ₹{Number(prod.price).toLocaleString('en-IN')}
+                        ₹{(Number(prod.price ?? prod.unit_price ?? 0) || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3 px-4 text-center font-mono text-neutral-400">{prod.gst_rate || 18}%</td>
                       <td className="py-3 px-4 text-right">
@@ -1184,13 +1199,13 @@ export const ProductsPage: React.FC = () => {
                   <div className="text-lg font-mono font-bold text-white mt-0.5">
                     {detailProduct?.current_stock ?? 0}
                   </div>
-                  <div className="text-[10px] text-neutral-500">Threshold: {detailProduct?.min_stock_alert || 5} units</div>
+                  <div className="text-[10px] text-neutral-500">Threshold: {detailProduct?.min_stock_alert ?? detailProduct?.minimum_stock ?? 5} units</div>
                 </div>
 
                 <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                   <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Selling Price</div>
                   <div className="text-lg font-mono font-bold text-amber-400 mt-0.5">
-                    ₹{Number(detailProduct?.price || 0).toLocaleString('en-IN')}
+                    ₹{(Number(detailProduct?.price ?? detailProduct?.unit_price ?? 0) || 0).toLocaleString('en-IN')}
                   </div>
                   <div className="text-[10px] text-neutral-500">GST Rate: {detailProduct?.gst_rate || 18}%</div>
                 </div>
@@ -1199,9 +1214,9 @@ export const ProductsPage: React.FC = () => {
                   <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                     <div className="text-[10.5px] uppercase font-semibold text-neutral-400">Inventory Valuation</div>
                     <div className="text-lg font-mono font-bold text-emerald-400 mt-0.5">
-                      ₹{(Number(detailProduct?.current_stock || 0) * Number(detailProduct?.cost_price || 0)).toLocaleString('en-IN')}
+                      ₹{((Number(detailProduct?.current_stock || 0) || 0) * (Number(detailProduct?.cost_price || 0) || 0)).toLocaleString('en-IN')}
                     </div>
-                    <div className="text-[10px] text-neutral-500">Unit Cost: ₹{Number(detailProduct?.cost_price || 0).toLocaleString('en-IN')}</div>
+                    <div className="text-[10px] text-neutral-500">Unit Cost: ₹{(Number(detailProduct?.cost_price || 0) || 0).toLocaleString('en-IN')}</div>
                   </div>
                 ) : (
                   <div className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
@@ -1230,9 +1245,13 @@ export const ProductsPage: React.FC = () => {
                     <div>
                       <span className="text-neutral-500">Gross Margin:</span>{' '}
                       <span className="font-mono font-bold text-emerald-400">
-                        {detailProduct?.price && detailProduct?.cost_price
-                          ? `${Math.round(((detailProduct.price - detailProduct.cost_price) / detailProduct.price) * 100)}%`
-                          : 'N/A'}
+                        {(() => {
+                          const sp = Number(detailProduct?.price ?? detailProduct?.unit_price ?? 0);
+                          const cp = Number(detailProduct?.cost_price ?? 0);
+                          return sp > 0 && cp > 0
+                            ? `${Math.round(((sp - cp) / sp) * 100)}%`
+                            : 'N/A';
+                        })()}
                       </span>
                     </div>
                   ) : (
@@ -1245,12 +1264,12 @@ export const ProductsPage: React.FC = () => {
                     <span className="text-neutral-500">Status:</span>{' '}
                     <span
                       className={`font-semibold ${
-                        Number(detailProduct?.current_stock || 0) <= Number(detailProduct?.min_stock_alert || 5)
+                        Number(detailProduct?.current_stock || 0) <= Number(detailProduct?.min_stock_alert ?? detailProduct?.minimum_stock ?? 5)
                           ? 'text-rose-400'
                           : 'text-emerald-400'
                       }`}
                     >
-                      {Number(detailProduct?.current_stock || 0) <= Number(detailProduct?.min_stock_alert || 5)
+                      {Number(detailProduct?.current_stock || 0) <= Number(detailProduct?.min_stock_alert ?? detailProduct?.minimum_stock ?? 5)
                         ? 'Low Stock Reorder Alert'
                         : 'Optimal Stock Level'}
                     </span>

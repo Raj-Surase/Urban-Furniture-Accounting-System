@@ -300,3 +300,63 @@
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
 }
+
+/* ============================================================
+ *  Print Media Rules: Ensure clean invoice output when printing
+ * ============================================================ */
+@media print {
+  /* Hide the root app when printing from invoice modal */
+  body:has(#pdfcn-document) > #root,
+  body:has(#pdfcn-document) > *:not([role="dialog"]) {
+    display: none !important;
+  }
+
+  body:has(#pdfcn-document) {
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  body:has(#pdfcn-document) [role="dialog"] {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  body:has(#pdfcn-document) [role="dialog"] > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  body:has(#pdfcn-document) [role="dialog"] > div > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #pdfcn-document {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

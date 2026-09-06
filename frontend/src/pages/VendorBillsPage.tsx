@@ -299,7 +299,7 @@ export const VendorBillsPage: React.FC = () => {
     if (field === 'product_id') {
       const prod = products.find((p) => p.id === val);
       if (prod) {
-        updated[idx].unit_price = prod.cost || prod.sales_price || 0;
+        updated[idx].unit_price = Number(prod.cost_price ?? prod.cost ?? prod.unit_price ?? prod.sales_price ?? 0);
         updated[idx].description = prod.name;
       }
     }

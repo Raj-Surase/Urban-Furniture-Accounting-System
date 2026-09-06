@@ -241,12 +241,14 @@ export const InvoicesPage: React.FC = () => {
     const prod = products.find((p) => p.id === productId);
     if (!prod) return;
     const updated = [...lineItems];
+    const price = Number(prod.price ?? prod.unit_price ?? 0);
+    const cost = Number(prod.cost_price ?? 0);
     updated[index] = {
       ...updated[index],
       product_id: prod.id,
       description: prod.name,
       hsn_code: prod.hsn_code || '9403',
-      unit_price: createType === ContactType.CUSTOMER ? Number(prod.price) : Number(prod.cost_price || prod.price * 0.7),
+      unit_price: createType === ContactType.CUSTOMER ? price : (cost || price * 0.7),
       gst_rate: Number(prod.gst_rate || 18),
     };
     setLineItems(updated);

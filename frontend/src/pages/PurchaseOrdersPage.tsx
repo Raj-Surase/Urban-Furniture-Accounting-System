@@ -197,10 +197,12 @@ export const PurchaseOrdersPage: React.FC = () => {
     const prod = products.find((p) => p.id === productId);
     if (!prod) return;
     const updated = [...items];
+    const price = Number(prod.price ?? prod.unit_price ?? 0);
+    const cost = Number(prod.cost_price ?? 0);
     updated[index] = {
       ...updated[index],
       product_id: prod.id,
-      unit_price: Number(prod.cost_price || prod.price * 0.7),
+      unit_price: cost || price * 0.7,
       gst_rate: Number(prod.gst_rate || 18),
     };
     setItems(updated);

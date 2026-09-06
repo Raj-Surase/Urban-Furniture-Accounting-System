@@ -65,6 +65,20 @@ class Product extends Model
         "is_active" => "boolean",
     ];
 
+    protected $appends = [
+        'price',
+    ];
+
+    public function getPriceAttribute(): ?string
+    {
+        return isset($this->attributes['unit_price']) ? (string) $this->attributes['unit_price'] : null;
+    }
+
+    public function setPriceAttribute($value): void
+    {
+        $this->attributes['unit_price'] = $value;
+    }
+
     public function inventoryAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, "inventory_account_id");

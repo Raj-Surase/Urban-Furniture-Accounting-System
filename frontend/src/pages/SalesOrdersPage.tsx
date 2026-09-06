@@ -155,7 +155,7 @@ export const SalesOrdersPage: React.FC = () => {
     updated[index] = {
       ...updated[index],
       product_id: prod.id,
-      unit_price: Number(prod.price),
+      unit_price: Number(prod.price ?? prod.unit_price ?? 0),
       gst_rate: Number(prod.gst_rate || 18),
     };
     setItems(updated);
@@ -768,7 +768,7 @@ export const SalesOrdersPage: React.FC = () => {
                             <option value="">Select Furniture Item / SKU...</option>
                             {products.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({p.sku}) • Stock: {p.current_stock ?? 0} {p.unit_of_measure || 'pcs'} • Price: ₹{Number(p.price).toLocaleString('en-IN')}
+                                {p.name} ({p.sku}) • Stock: {p.current_stock ?? 0} {p.unit_of_measure || 'pcs'} • Price: ₹{(Number(p.price ?? p.unit_price ?? 0) || 0).toLocaleString('en-IN')}
                               </option>
                             ))}
                           </select>
