@@ -695,54 +695,54 @@ export const InvoicesPage: React.FC = () => {
 
       {/* KPI Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400">Total Receivables (AR)</span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Receivables (AR)</span>
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <ArrowDownLeft className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-bold text-white mt-2 font-mono">
+          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
             ₹{totalReceivables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
-          <p className="text-[11px] text-neutral-500 mt-1">Due from commercial buyers</p>
+          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due from commercial buyers</p>
         </Card>
 
-        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400">Total Payables (AP)</span>
-            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400">
+            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Total Payables (AP)</span>
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-bold text-white mt-2 font-mono">
+          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
             ₹{totalPayables.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
-          <p className="text-[11px] text-neutral-500 mt-1">Due to timber & hardware vendors</p>
+          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Due to timber & hardware vendors</p>
         </Card>
 
-        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400">GST Collected / Input</span>
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">GST Collected / Input</span>
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
               <Percent className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-bold text-white mt-2 font-mono">
+          <p className="text-xl font-bold text-foreground dark:text-white mt-2 font-mono tracking-tight">
             ₹{totalGst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
-          <p className="text-[11px] text-neutral-500 mt-1">Total CGST + SGST + IGST</p>
+          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Total CGST + SGST + IGST</p>
         </Card>
 
-        <Card className="p-4 bg-[#141418] border-white/[0.06]">
+        <Card className="p-4 bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs hover:shadow-card transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-neutral-400">Pending Approvals</span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+            <span className="text-xs font-semibold text-muted-foreground dark:text-neutral-400">Pending Approvals</span>
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-bold text-amber-400 mt-2 font-mono">{pendingApprovals}</p>
-          <p className="text-[11px] text-neutral-500 mt-1">Require Manager / Admin approval</p>
+          <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-2 font-mono tracking-tight">{pendingApprovals}</p>
+          <p className="text-[11px] text-muted-foreground/80 dark:text-neutral-500 mt-1">Require Manager / Admin approval</p>
         </Card>
       </div>
 
@@ -777,12 +777,12 @@ export const InvoicesPage: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <Card className="bg-[#141418] border-white/[0.06] overflow-hidden">
+      <Card className="bg-card dark:bg-[#141418] border-border dark:border-white/[0.06] shadow-xs overflow-hidden">
         {/* Invoices Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.01] text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+              <tr className="border-b border-border dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.01] text-[11px] font-semibold text-muted-foreground dark:text-neutral-400 uppercase tracking-wider">
                 <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Type</th>
                 <th className="py-3 px-4">Entity & GSTIN</th>
@@ -801,7 +801,7 @@ export const InvoicesPage: React.FC = () => {
                 />
               )}
             </thead>
-            <tbody className="divide-y divide-white/[0.04] text-xs">
+            <tbody className="divide-y divide-border/60 dark:divide-white/[0.04] text-xs">
               {loading ? (
                 <TableSkeleton rows={6} cols={9} />
               ) : filteredInvoices.length === 0 ? (
@@ -831,9 +831,9 @@ export const InvoicesPage: React.FC = () => {
                     <tr
                       key={inv.id}
                       onClick={() => setDetailInvoice(inv)}
-                      className="hover:bg-white/[0.04] transition-colors cursor-pointer group"
+                      className="hover:bg-slate-50/80 dark:hover:bg-white/[0.04] transition-colors cursor-pointer group"
                     >
-                      <td className="py-3 px-4 font-mono font-bold text-white flex items-center gap-2">
+                      <td className="py-3 px-4 font-mono font-bold text-foreground dark:text-white flex items-center gap-2">
                         <span>{inv.invoice_number}</span>
                       </td>
 
@@ -841,8 +841,8 @@ export const InvoicesPage: React.FC = () => {
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                             isCust
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
                           }`}
                         >
                           {isCust ? 'Tax Invoice' : 'Vendor Bill'}
@@ -850,32 +850,32 @@ export const InvoicesPage: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-neutral-200">{partyName}</div>
-                        <div className="text-[10.5px] text-neutral-500 font-mono">
+                        <div className="font-semibold text-foreground dark:text-neutral-200">{partyName}</div>
+                        <div className="text-[10.5px] text-muted-foreground dark:text-neutral-500 font-mono">
                           {party?.gstin || 'Unregistered'} · {inv.place_of_supply || 'MH'}
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 text-neutral-400">
-                        <div>Date: {inv.invoice_date}</div>
-                        <div className="text-[10.5px] text-neutral-500">Due: {inv.due_date}</div>
+                      <td className="py-3 px-4 text-muted-foreground dark:text-neutral-400">
+                        <div>Date: <span className="text-foreground/90 dark:text-neutral-300 font-medium">{inv.invoice_date}</span></div>
+                        <div className="text-[10.5px] text-muted-foreground dark:text-neutral-500">Due: {inv.due_date}</div>
                       </td>
 
-                      <td className="py-3 px-4 text-right font-mono text-neutral-300">
+                      <td className="py-3 px-4 text-right font-mono text-foreground/90 dark:text-neutral-300 font-medium">
                         ₹{Number(inv.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
 
-                      <td className="py-3 px-4 text-right font-mono text-neutral-400">
+                      <td className="py-3 px-4 text-right font-mono text-muted-foreground dark:text-neutral-400">
                         ₹{Number(inv.tax_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                        <span className="text-[10px] text-neutral-500 block">
+                        <span className="text-[10px] text-muted-foreground/80 dark:text-neutral-500 block">
                           {inv.is_interstate ? 'IGST' : 'CGST+SGST'}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 text-right font-mono font-bold text-white">
+                      <td className="py-3 px-4 text-right font-mono font-bold text-foreground dark:text-white">
                         ₹{Number(inv.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         {(inv.amount_paid ?? 0) > 0 && (
-                          <span className="text-[10px] text-emerald-400 block font-normal">
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-normal">
                             Paid: ₹{Number(inv.amount_paid).toLocaleString('en-IN')}
                           </span>
                         )}
@@ -885,12 +885,12 @@ export const InvoicesPage: React.FC = () => {
                         <span
                           className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                             inv.status === InvoiceStatus.PAID
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                               : inv.status === InvoiceStatus.APPROVED
-                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              ? 'bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/30'
                               : inv.status === InvoiceStatus.VOID
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                              : 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30'
                           }`}
                         >
                           {inv.status}

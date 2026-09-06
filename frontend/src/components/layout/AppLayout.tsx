@@ -20,7 +20,7 @@ export const AppLayout: React.FC = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen w-full bg-[#121216] text-foreground font-sans flex flex-col">
+    <div className="min-h-screen w-full bg-background text-foreground font-sans flex flex-col">
       {/* Offline network status banner */}
       <NetworkStatusBanner />
 

@@ -130,8 +130,8 @@ export default {
         "hero-modal": "var(--shadow-modal)",
         "hero-glow": "0 0 24px -4px var(--primary-glow)",
         "obsidian-glow": "0 0 50px -10px rgba(112, 66, 244, 0.35)",
-        "obsidian-card": "0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 2px 8px -2px rgba(0, 0, 0, 0.4)",
-        "obsidian-hover": "0 16px 40px -6px rgba(0, 0, 0, 0.65), 0 4px 12px -2px rgba(0, 0, 0, 0.45)",
+        "obsidian-card": "var(--shadow-obsidian-card, 0 8px 32px -4px rgba(0, 0, 0, 0.5))",
+        "obsidian-hover": "var(--shadow-obsidian-hover, 0 16px 40px -6px rgba(0, 0, 0, 0.65))",
       },
       keyframes: {
         "pulse-slow": {

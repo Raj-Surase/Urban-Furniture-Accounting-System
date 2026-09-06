@@ -134,24 +134,24 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
   return (
     <div className={`space-y-3 ${className}`}>
       {/* Top Controls Row */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-[#18181f] border border-white/[0.08] p-3 sm:p-4 rounded-2xl shadow-obsidian-card">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-card dark:bg-[#18181f] border border-border dark:border-white/[0.08] p-3 sm:p-4 rounded-2xl shadow-obsidian-card">
         {/* Left: Search & Quick Presets */}
         <div className="flex flex-wrap items-center gap-2.5 flex-1">
           {/* Universal Search Input */}
           <div className="relative min-w-[240px] flex-1 sm:max-w-md">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#707080]" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground dark:text-[#707080]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full pl-9 pr-8 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-xs text-white placeholder-[#606070] focus:outline-none focus:border-[#7042f4] transition-all"
+              className="w-full pl-9 pr-8 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-xs text-foreground dark:text-white placeholder:text-muted-foreground/70 dark:placeholder-[#606070] focus:outline-none focus:border-primary transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white p-0.5 rounded-full"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground dark:text-neutral-500 dark:hover:text-white p-0.5 rounded-full"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
 
           {/* Quick Presets Pills (e.g. Status tab selector) */}
           {presets && (
-            <div className="flex items-center gap-1 bg-[#121216] border border-white/[0.08] p-1 rounded-xl overflow-x-auto max-w-full">
+            <div className="flex items-center gap-1 bg-muted/60 dark:bg-[#121216] border border-border dark:border-white/[0.08] p-1 rounded-xl overflow-x-auto max-w-full">
               {presets.options.map((opt) => (
                 <button
                   key={opt.value}
@@ -169,8 +169,8 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                   onClick={() => presets.onChange(opt.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                     presets.currentValue === opt.value
-                      ? 'bg-white text-black font-bold shadow-xs'
-                      : 'text-[#8a8a9a] hover:text-white'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-black font-bold shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground dark:text-[#8a8a9a] dark:hover:text-white'
                   }`}
                 >
                   {opt.label}
@@ -189,14 +189,14 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
               onClick={() => setIsPopoverOpen((prev) => !prev)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 activeFilters.length > 0 || isPopoverOpen
-                  ? 'bg-[#7042f4]/15 text-[#c084fc] border-[#7042f4]/40 shadow-xs'
-                  : 'bg-[#121216] text-[#a0a0b0] hover:text-white border-white/[0.08]'
+                  ? 'bg-primary/10 text-primary border-primary/30 shadow-xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border dark:bg-[#121216] dark:text-[#a0a0b0] dark:hover:text-white dark:border-white/[0.08]'
               }`}
             >
               <Filter className="w-3.5 h-3.5" />
               <span>Add Field Filter</span>
               {activeFilters.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#7042f4] text-white text-[10px] flex items-center justify-center font-bold">
+                <span className="w-4 h-4 rounded-full bg-primary text-white text-[10px] flex items-center justify-center font-bold">
                   {activeFilters.length}
                 </span>
               )}
@@ -205,16 +205,16 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
 
             {/* Field Filter Popover Modal */}
             {isPopoverOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#18181f] border border-white/12 rounded-2xl shadow-2xl p-4 z-50 space-y-4 backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-                    <Filter className="w-3.5 h-3.5 text-[#7042f4]" />
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card dark:bg-[#18181f] border border-border dark:border-white/12 rounded-2xl shadow-xl dark:shadow-2xl p-4 z-50 space-y-4 backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-border dark:border-white/[0.06] pb-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-white uppercase tracking-wider">
+                    <Filter className="w-3.5 h-3.5 text-primary" />
                     <span>Filter by Field</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsPopoverOpen(false)}
-                    className="text-[#707080] hover:text-white"
+                    className="text-muted-foreground hover:text-foreground dark:text-[#707080] dark:hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -223,13 +223,13 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                 <form onSubmit={handleApplyFilter} className="space-y-3 text-xs">
                   {/* Field Selector */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#8e8e9f] uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-semibold text-muted-foreground dark:text-[#8e8e9f] uppercase tracking-wider mb-1">
                       Target Field
                     </label>
                     <select
                       value={selectedFieldKey}
                       onChange={(e) => setSelectedFieldKey(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                      className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                     >
                       {filterConfigs.map((cfg) => (
                         <option key={cfg.key} value={cfg.key}>
@@ -241,13 +241,13 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
 
                   {/* Operator Selector */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#8e8e9f] uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-semibold text-muted-foreground dark:text-[#8e8e9f] uppercase tracking-wider mb-1">
                       Operator / Condition
                     </label>
                     <select
                       value={selectedOperator}
                       onChange={(e) => setSelectedOperator(e.target.value as FilterOperator)}
-                      className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                      className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                     >
                       {selectedConfig?.type === 'select' ? (
                         <>
@@ -272,14 +272,14 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
 
                   {/* Value Input */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-[#8e8e9f] uppercase tracking-wider mb-1">
+                    <label className="block text-[11px] font-semibold text-muted-foreground dark:text-[#8e8e9f] uppercase tracking-wider mb-1">
                       Filter Value
                     </label>
                     {selectedConfig?.type === 'select' && selectedConfig.options ? (
                       <select
                         value={filterValue}
                         onChange={(e) => setFilterValue(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                        className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                       >
                         {selectedConfig.options.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -292,7 +292,7 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                         type="date"
                         value={filterValue}
                         onChange={(e) => setFilterValue(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                        className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                         required
                       />
                     ) : selectedConfig?.type === 'number' ? (
@@ -302,7 +302,7 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                         value={filterValue}
                         placeholder={selectedConfig.placeholder || 'Enter numeric amount...'}
                         onChange={(e) => setFilterValue(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                        className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                         required
                       />
                     ) : (
@@ -311,7 +311,7 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                         value={filterValue}
                         placeholder={selectedConfig?.placeholder || `Enter search text for ${selectedConfig?.label}...`}
                         onChange={(e) => setFilterValue(e.target.value)}
-                        className="w-full px-3 py-2 bg-[#121216] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:border-[#7042f4]"
+                        className="w-full px-3 py-2 bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.08] rounded-xl text-foreground dark:text-white focus:outline-none focus:border-primary"
                         required
                       />
                     )}
@@ -322,13 +322,13 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsPopoverOpen(false)}
-                      className="px-3 py-1.5 rounded-xl text-xs text-[#8e8e9f] hover:text-white"
+                      className="px-3 py-1.5 rounded-xl text-xs text-muted-foreground hover:text-foreground dark:text-[#8e8e9f] dark:hover:text-white"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex items-center gap-1 px-4 py-1.5 rounded-xl bg-[#7042f4] hover:bg-[#5f32e6] text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+                      className="flex items-center gap-1 px-4 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-md transition-all cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Apply Filter
@@ -346,8 +346,8 @@ export const FieldFilterBar: React.FC<FieldFilterBarProps> = ({
               onClick={onToggleColumnFilters}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 showColumnFilters
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40 shadow-xs'
-                  : 'bg-[#121216] text-[#a0a0b0] hover:text-white border-white/[0.08]'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-xs'
+                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border dark:bg-[#121216] dark:text-[#a0a0b0] dark:hover:text-white dark:border-white/[0.08]'
               }`}
               title="Toggle inline filters directly under table column headers"
             >

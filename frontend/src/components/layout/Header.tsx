@@ -88,31 +88,31 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="h-16 bg-[#121216]/90 backdrop-blur-xl border-b border-white/[0.06] px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 transition-all">
+    <header className="h-16 bg-card/90 dark:bg-[#121216]/90 backdrop-blur-xl border-b border-border dark:border-white/[0.06] px-4 sm:px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 transition-all">
       {/* Left side: Hamburger & Breadcrumbs */}
       <div className="flex items-center space-x-3 min-w-0">
         <button
           onClick={onToggleSidebar}
-          className="p-2 -ml-2 rounded-xl text-white/70 hover:text-white hover:bg-white/[0.06] md:hidden transition-colors active:scale-95"
+          className="p-2 -ml-2 rounded-xl text-foreground/70 dark:text-white/70 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-white/[0.06] md:hidden transition-colors active:scale-95"
           aria-label="Toggle navigation menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <nav className="flex items-center space-x-1.5 text-xs sm:text-sm text-[#808090] font-sans select-none truncate">
+        <nav className="flex items-center space-x-1.5 text-xs sm:text-sm text-muted-foreground dark:text-[#808090] font-sans select-none truncate">
           {breadcrumbs.map((crumb, index) => {
             const isLast = index === breadcrumbs.length - 1;
             return (
               <React.Fragment key={crumb.path}>
-                {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-white/20 shrink-0" />}
+                {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 dark:text-white/20 shrink-0" />}
                 {isLast ? (
-                  <span className="font-bold text-white truncate max-w-[150px] sm:max-w-[250px] px-2.5 py-1 bg-white/[0.05] border border-white/[0.06] rounded-lg">
+                  <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-[250px] px-2.5 py-1 bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.06] rounded-lg shadow-xs">
                     {crumb.name}
                   </span>
                 ) : (
                   <Link
                     to={crumb.path}
-                    className="hover:text-white hover:bg-white/[0.04] px-2 py-1 rounded-lg transition-colors truncate font-medium"
+                    className="hover:text-foreground dark:hover:text-white hover:bg-muted/40 dark:hover:bg-white/[0.04] px-2 py-1 rounded-lg transition-colors truncate font-medium"
                   >
                     {crumb.name}
                   </Link>
@@ -129,33 +129,33 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
         <button
           data-search-trigger="true"
           onClick={onSearchClick}
-          className="flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-full bg-[#18181f] hover:bg-[#202028] text-[#808090] hover:text-white border border-white/[0.08] hover:border-white/20 text-xs transition-all active:scale-[0.98] w-40 sm:w-60 md:w-72 lg:w-80 group shadow-xs select-none"
+          className="flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-full bg-white hover:bg-slate-50 dark:bg-[#18181f] dark:hover:bg-[#202028] text-slate-600 hover:text-slate-900 dark:text-[#808090] dark:hover:text-white border border-slate-200 dark:border-white/[0.08] dark:hover:border-white/20 text-xs transition-all active:scale-[0.98] w-40 sm:w-60 md:w-72 lg:w-80 group shadow-xs select-none"
           aria-label="Search pages and modules"
           title="Press ⌘K or Ctrl+K to search"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Search className="w-3.5 h-3.5 text-[#808090] group-hover:text-white transition-colors shrink-0" />
-            <span className="truncate text-xs text-[#707080] group-hover:text-[#9090a0]">
+            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-[#808090] group-hover:text-slate-700 dark:group-hover:text-white transition-colors shrink-0" />
+            <span className="truncate text-xs text-slate-500 group-hover:text-slate-800 dark:text-[#707080] dark:group-hover:text-[#9090a0]">
               Search accounting records, products, invoices...
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] text-[#808090] font-mono group-hover:text-white group-hover:border-white/20 transition-all">
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.08] text-[10px] text-slate-500 dark:text-[#808090] font-mono group-hover:text-slate-700 dark:group-hover:text-white transition-all">
               ⌘K
             </kbd>
           </div>
         </button>
 
         {/* Quick Demo Role Switcher */}
-        <div className="hidden lg:flex items-center gap-1 bg-[#18181f] p-1 rounded-full border border-white/[0.06] text-xs shadow-xs">
-          <span className="text-[10px] uppercase font-mono font-bold text-[#808090] pl-2 pr-1">Actor:</span>
+        <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-[#18181f] p-1 rounded-full border border-slate-200 dark:border-white/[0.06] text-xs shadow-xs">
+          <span className="text-[10px] uppercase font-mono font-bold text-muted-foreground dark:text-[#808090] pl-2 pr-1">Actor:</span>
           <button
             type="button"
             onClick={() => handleQuickSwitchRole('admin@example.com', 'Admin (Business Owner)')}
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === UserRole.ADMIN
                 ? 'bg-[#7042f4] text-white shadow-xs'
-                : 'text-[#808090] hover:text-white'
+                : 'text-muted-foreground hover:text-foreground dark:text-[#808090] dark:hover:text-white'
             }`}
             title="Admin (Business Owner) - Full system rights"
           >
@@ -167,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === UserRole.MANAGER
                 ? 'bg-amber-500 text-black shadow-xs'
-                : 'text-[#808090] hover:text-white'
+                : 'text-muted-foreground hover:text-foreground dark:text-[#808090] dark:hover:text-white'
             }`}
             title="Invoicing User (Accountant) - Master data, transactions, reports"
           >
@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase transition-all cursor-pointer ${
               user?.role === UserRole.USER
                 ? 'bg-emerald-500 text-black shadow-xs'
-                : 'text-[#808090] hover:text-white'
+                : 'text-muted-foreground hover:text-foreground dark:text-[#808090] dark:hover:text-white'
             }`}
             title="Contact User - View invoices/bills and register payments"
           >
@@ -189,8 +189,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
 
         {/* Realtime Live Socket Indicator */}
         <div
-          className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border border-white/[0.06] bg-[#1c1c23] transition-colors ${
-            isConnected ? 'text-emerald-400' : 'text-rose-400'
+          className={`flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold border border-border dark:border-white/[0.06] bg-muted/50 dark:bg-[#1c1c23] transition-colors ${
+            isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
           }`}
           title={isConnected ? 'WebSocket Realtime Connected' : 'WebSocket Disconnected'}
         >
@@ -212,27 +212,27 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
         {/* User Profile Avatar Dropdown */}
         <Dropdown placement="bottom-end">
           <DropdownTrigger>
-            <button className="relative w-9 h-9 rounded-full overflow-hidden border border-white/10 bg-gradient-to-tr from-[#7042f4] to-[#c084fc] flex items-center justify-center text-white font-bold text-xs shadow-sm hover:ring-2 hover:ring-[#7042f4]/50 transition-all cursor-pointer">
+            <button className="relative w-9 h-9 rounded-full overflow-hidden border border-border dark:border-white/10 bg-gradient-to-tr from-[#7042f4] to-[#c084fc] flex items-center justify-center text-white font-bold text-xs shadow-sm hover:ring-2 hover:ring-[#7042f4]/50 transition-all cursor-pointer">
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </button>
           </DropdownTrigger>
           <DropdownMenu
             aria-label="User Actions"
             variant="flat"
-            className="w-64 p-2 bg-[#18181f] border border-white/[0.08] rounded-2xl shadow-2xl text-foreground"
+            className="w-64 p-2 bg-card dark:bg-[#18181f] border border-border dark:border-white/[0.08] rounded-2xl shadow-2xl text-foreground"
           >
             <DropdownItem key="profile-header" className="h-14 gap-2 cursor-default" textValue="Profile Info">
               <div className="flex flex-col">
-                <p className="font-bold text-xs text-white">{user?.name || 'Authorized User'}</p>
-                <p className="text-[11px] text-[#808090] truncate">{user?.email || 'user@example.com'}</p>
+                <p className="font-bold text-xs text-foreground dark:text-white">{user?.name || 'Authorized User'}</p>
+                <p className="text-[11px] text-muted-foreground dark:text-[#808090] truncate">{user?.email || 'user@example.com'}</p>
                 <div className="mt-1">
                   <span
                     className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
                       user?.role === UserRole.ADMIN
-                        ? 'bg-[#7042f4]/20 text-[#c084fc] border-[#7042f4]/30'
+                        ? 'bg-[#7042f4]/20 text-[#7042f4] dark:text-[#c084fc] border-[#7042f4]/30'
                         : user?.role === UserRole.MANAGER
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
                     }`}
                   >
                     {user?.role ? `${user.role} clearance` : 'Guest'}
@@ -242,9 +242,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
             </DropdownItem>
             <DropdownItem
               key="settings"
-              startContent={<User className="w-4 h-4 text-[#808090]" />}
+              startContent={<User className="w-4 h-4 text-muted-foreground dark:text-[#808090]" />}
               onPress={() => navigate('/profile')}
-              className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+              className="rounded-xl text-xs py-2 hover:bg-muted/60 dark:hover:bg-white/[0.05]"
             >
               Profile & Clearance
             </DropdownItem>
@@ -253,7 +253,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
                 key="admin"
                 startContent={<Shield className="w-4 h-4 text-[#7042f4]" />}
                 onPress={() => navigate('/admin')}
-                className="rounded-xl text-xs py-2 hover:bg-white/[0.05]"
+                className="rounded-xl text-xs py-2 hover:bg-muted/60 dark:hover:bg-white/[0.05]"
               >
                 Admin Control Room
               </DropdownItem>
@@ -266,7 +266,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onSearchClick }
                 await logout();
                 navigate('/login');
               }}
-              className="rounded-xl text-xs py-2 text-rose-400 hover:bg-rose-500/10"
+              className="rounded-xl text-xs py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10"
             >
               Sign Out
             </DropdownItem>

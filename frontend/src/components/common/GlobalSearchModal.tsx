@@ -578,16 +578,16 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       backdrop="blur"
       hideCloseButton
       classNames={{
-        base: 'bg-[#16161c] border border-white/[0.1] rounded-[24px] shadow-[0_25px_80px_rgba(0,0,0,0.85)] overflow-hidden mt-12 sm:mt-20 mx-4 max-w-2xl',
-        backdrop: 'bg-black/75 backdrop-blur-md z-[100]',
+        base: 'bg-card dark:bg-[#16161c] border border-border dark:border-white/[0.1] rounded-[24px] shadow-[0_25px_80px_rgba(0,0,0,0.15)] dark:shadow-[0_25px_80px_rgba(0,0,0,0.85)] overflow-hidden mt-12 sm:mt-20 mx-4 max-w-2xl text-foreground',
+        backdrop: 'bg-black/50 dark:bg-black/75 backdrop-blur-md z-[100]',
         wrapper: 'z-[101]',
       }}
     >
       <ModalContent>
         <ModalBody className="p-0 gap-0">
           {/* 1. Header Search Input Bar */}
-          <div className="flex items-center px-4 sm:px-6 py-4 border-b border-white/[0.08] bg-[#1a1a23] gap-3">
-            <Search className="w-5 h-5 text-[#808090] shrink-0" />
+          <div className="flex items-center px-4 sm:px-6 py-4 border-b border-border dark:border-white/[0.08] bg-muted/40 dark:bg-[#1a1a23] gap-3">
+            <Search className="w-5 h-5 text-muted-foreground dark:text-[#808090] shrink-0" />
             <input
               ref={inputRef}
               type="text"
@@ -598,7 +598,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               }}
               onKeyDown={handleInputKeyDown}
               placeholder="Search pages, modules, functionality, or quick actions..."
-              className="bg-transparent border-none outline-none text-white text-sm sm:text-base placeholder:text-[#606070] w-full font-sans leading-normal"
+              className="bg-transparent border-none outline-none text-foreground dark:text-white text-sm sm:text-base placeholder:text-muted-foreground dark:placeholder:text-[#606070] w-full font-sans leading-normal"
               autoComplete="off"
               spellCheck="false"
             />
@@ -609,19 +609,19 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   setSelectedIndex(0);
                   inputRef.current?.focus();
                 }}
-                className="p-1 rounded-lg text-[#808090] hover:text-white hover:bg-white/[0.06] transition-colors"
+                className="p-1 rounded-lg text-muted-foreground hover:text-foreground dark:text-[#808090] dark:hover:text-white hover:bg-muted dark:hover:bg-white/[0.06] transition-colors"
                 title="Clear query"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
-            <kbd className="hidden sm:inline-block px-2 py-0.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10.5px] text-[#808090] font-mono select-none">
+            <kbd className="hidden sm:inline-block px-2 py-0.5 rounded-lg bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10.5px] text-muted-foreground dark:text-[#808090] font-mono select-none">
               ESC
             </kbd>
           </div>
 
           {/* 2. Filter Category Pills */}
-          <div className="flex items-center gap-1.5 px-4 sm:px-6 py-2.5 border-b border-white/[0.06] bg-[#141418] overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 px-4 sm:px-6 py-2.5 border-b border-border dark:border-white/[0.06] bg-card dark:bg-[#141418] overflow-x-auto no-scrollbar">
             {['All', 'Pages', 'Modules', 'Functionality'].map((cat) => (
               <button
                 key={cat}
@@ -631,8 +631,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-semibold transition-all select-none whitespace-nowrap ${
                   selectedCategory === cat
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-[#808090] hover:text-white hover:bg-white/[0.05]'
+                    ? 'bg-primary text-primary-foreground dark:bg-white dark:text-black shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted dark:text-[#808090] dark:hover:text-white dark:hover:bg-white/[0.05]'
                 }`}
               >
                 {cat}
@@ -648,9 +648,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             {groupedItems.length > 0 ? (
               groupedItems.map((group) => (
                 <div key={group.category} className="space-y-1">
-                  <div className="px-3 py-1 text-[10.5px] font-bold text-[#707080] uppercase tracking-widest font-sans flex items-center justify-between">
+                  <div className="px-3 py-1 text-[10.5px] font-bold text-muted-foreground dark:text-[#707080] uppercase tracking-widest font-sans flex items-center justify-between">
                     <span>{group.category}</span>
-                    <span className="text-[10px] font-mono text-[#606070]">{group.items.length}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/80 dark:text-[#606070]">{group.items.length}</span>
                   </div>
 
                   {group.items.map((item) => {
@@ -666,8 +666,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         onClick={() => handleSelect(item)}
                         className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 border ${
                           isSelected
-                            ? 'bg-white/[0.08] border-white/[0.12] text-white shadow-sm'
-                            : 'border-transparent text-[#9090a0] hover:bg-white/[0.03]'
+                            ? 'bg-muted dark:bg-white/[0.08] border-border dark:border-white/[0.12] text-foreground dark:text-white shadow-sm'
+                            : 'border-transparent text-muted-foreground hover:bg-muted/50 dark:hover:bg-white/[0.03]'
                         }`}
                       >
                         <div className="flex items-center space-x-3.5 min-w-0 flex-1">
@@ -675,7 +675,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                               isSelected
                                 ? 'bg-[#7042f4] text-white shadow-[0_0_12px_rgba(112,66,244,0.4)]'
-                                : 'bg-white/[0.05] text-[#808090] group-hover:text-white group-hover:bg-white/[0.08]'
+                                : 'bg-muted dark:bg-white/[0.05] text-muted-foreground dark:text-[#808090] group-hover:text-foreground dark:group-hover:text-white group-hover:bg-muted-foreground/10 dark:group-hover:bg-white/[0.08]'
                             }`}
                           >
                             <Icon className="w-4 h-4" />
@@ -685,7 +685,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             <div className="flex items-center gap-2">
                               <span
                                 className={`text-xs sm:text-sm font-semibold truncate ${
-                                  isSelected ? 'text-white' : 'text-white/90 group-hover:text-white'
+                                  isSelected ? 'text-foreground dark:text-white' : 'text-foreground/90 dark:text-white/90 group-hover:text-foreground dark:group-hover:text-white'
                                 }`}
                               >
                                 {item.name}
@@ -694,17 +694,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                                 <span
                                   className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold tracking-wider uppercase leading-none ${
                                     item.badge === 'Admin'
-                                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/25'
+                                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25'
                                       : item.badge === 'Action'
-                                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
-                                      : 'bg-white/[0.06] text-[#808090]'
+                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25'
+                                      : 'bg-muted dark:bg-white/[0.06] text-muted-foreground dark:text-[#808090]'
                                   }`}
                                 >
                                   {item.badge}
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#707080] truncate mt-0.5 group-hover:text-[#9090a0]">
+                            <p className="text-[11px] text-muted-foreground dark:text-[#707080] truncate mt-0.5 group-hover:text-foreground dark:group-hover:text-[#9090a0]">
                               {item.description}
                             </p>
                           </div>
@@ -713,12 +713,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         {/* Action / Enter Indicator */}
                         <div className="flex items-center gap-2 pl-3 shrink-0">
                           {item.shortcut && (
-                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] text-[#808090] font-mono">
+                            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10px] text-muted-foreground dark:text-[#808090] font-mono">
                               {item.shortcut}
                             </kbd>
                           )}
                           {isSelected && (
-                            <div className="flex items-center gap-1 text-[11px] font-semibold text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/30 px-2 py-0.5 rounded-lg">
+                            <div className="flex items-center gap-1 text-[11px] font-semibold text-[#7042f4] dark:text-[#c084fc] bg-[#7042f4]/15 border border-[#7042f4]/30 px-2 py-0.5 rounded-lg">
                               <span>Jump</span>
                               <CornerDownLeft className="w-3 h-3" />
                             </div>
@@ -731,12 +731,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               ))
             ) : (
               <div className="py-12 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mx-auto text-[#606070]">
+                <div className="w-12 h-12 rounded-2xl bg-muted dark:bg-white/[0.04] border border-border dark:border-white/[0.06] flex items-center justify-center mx-auto text-muted-foreground dark:text-[#606070]">
                   <Search className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-white">No results found</h4>
-                  <p className="text-xs text-[#707080] mt-1 max-w-sm mx-auto">
+                  <h4 className="text-sm font-semibold text-foreground dark:text-white">No results found</h4>
+                  <p className="text-xs text-muted-foreground dark:text-[#707080] mt-1 max-w-sm mx-auto">
                     No matching routes, modules, or actions found for &ldquo;{query}&rdquo;.
                   </p>
                 </div>
@@ -745,7 +745,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     <button
                       key={hint}
                       onClick={() => setQuery(hint)}
-                      className="px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-[11px] text-[#808090] hover:text-white transition-all"
+                      className="px-2.5 py-1 rounded-lg bg-muted/60 dark:bg-white/[0.04] hover:bg-muted dark:hover:bg-white/[0.08] border border-border dark:border-white/[0.06] text-[11px] text-muted-foreground dark:text-[#808090] hover:text-foreground dark:hover:text-white transition-all"
                     >
                       {hint}
                     </button>
@@ -756,24 +756,24 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           </div>
 
           {/* 4. Keyboard Shortcuts Footer */}
-          <div className="border-t border-white/[0.06] px-4 sm:px-6 py-3 flex items-center justify-between text-[11px] text-[#707080] bg-[#141418] select-none">
+          <div className="border-t border-border dark:border-white/[0.06] px-4 sm:px-6 py-3 flex items-center justify-between text-[11px] text-muted-foreground dark:text-[#707080] bg-card dark:bg-[#141418] select-none">
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] font-mono text-[#808090]">↑</kbd>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] font-mono text-[#808090]">↓</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10px] font-mono text-muted-foreground dark:text-[#808090]">↑</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10px] font-mono text-muted-foreground dark:text-[#808090]">↓</kbd>
                 <span className="ml-0.5 hidden sm:inline">Navigate</span>
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] font-mono text-[#808090]">↵</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10px] font-mono text-muted-foreground dark:text-[#808090]">↵</kbd>
                 <span className="ml-0.5 hidden sm:inline">Select</span>
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/[0.08] text-[10px] font-mono text-[#808090]">ESC</kbd>
+                <kbd className="px-1.5 py-0.5 rounded bg-background dark:bg-white/[0.06] border border-border dark:border-white/[0.08] text-[10px] font-mono text-muted-foreground dark:text-[#808090]">ESC</kbd>
                 <span className="ml-0.5 hidden sm:inline">Dismiss</span>
               </span>
             </div>
 
-            <div className="text-[10.5px] font-mono text-[#606070]">
+            <div className="text-[10.5px] font-mono text-muted-foreground/80 dark:text-[#606070]">
               {flattenedFilteredItems.length} options
             </div>
           </div>

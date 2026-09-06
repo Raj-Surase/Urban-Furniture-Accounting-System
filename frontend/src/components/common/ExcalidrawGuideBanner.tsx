@@ -39,21 +39,21 @@ export const ExcalidrawGuideBanner: React.FC<ExcalidrawGuideBannerProps> = ({
   const effectiveRule = excalidrawRule || description;
 
   return (
-    <div className="bg-[#181820]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-sm transition-all mb-4">
+    <div className="bg-card dark:bg-[#181820]/90 border border-border dark:border-white/[0.08] rounded-2xl overflow-hidden shadow-xs transition-all mb-4">
       {/* Top Banner Clickable Header */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-[#7042f4]/15 border border-[#7042f4]/30 text-[#c084fc]">
+          <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary dark:text-[#c084fc]">
             <BookOpen className="w-3.5 h-3.5" />
           </div>
           <div>
-            <span className="text-xs font-bold text-white flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-bold text-foreground dark:text-white flex items-center gap-1.5 flex-wrap">
               <span>{title}</span>
-              <span className="text-[10px] font-normal text-[#8a8a9a]">• Excalidraw & Accounting Guide</span>
+              <span className="text-[10px] font-normal text-muted-foreground dark:text-[#8a8a9a]">• Excalidraw & Accounting Guide</span>
             </span>
           </div>
         </div>
@@ -64,17 +64,17 @@ export const ExcalidrawGuideBanner: React.FC<ExcalidrawGuideBannerProps> = ({
               {badges.slice(0, 2).map((b, idx) => (
                 <span
                   key={idx}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/[0.04] text-[#a0a0b0] border border-white/[0.06]"
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted/60 dark:bg-white/[0.04] text-muted-foreground dark:text-[#a0a0b0] border border-border dark:border-white/[0.06]"
                 >
                   {b}
                 </span>
               ))}
             </div>
           )}
-          <span className="text-[11px] text-[#7042f4] font-semibold hidden sm:inline">
+          <span className="text-[11px] text-primary font-semibold hidden sm:inline">
             {isOpen ? 'Collapse Guide' : 'Learn Workflow & Rules'}
           </span>
-          <div className="text-[#8a8a9a]">
+          <div className="text-muted-foreground dark:text-[#8a8a9a]">
             {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
         </div>
@@ -88,28 +88,28 @@ export const ExcalidrawGuideBanner: React.FC<ExcalidrawGuideBannerProps> = ({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="border-t border-white/[0.06] px-4 py-4 space-y-4 text-xs"
+            className="border-t border-border dark:border-white/[0.06] px-4 py-4 space-y-4 text-xs"
           >
             {/* Concept & Excalidraw Rule */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-xl bg-[#121216] border border-white/[0.04] space-y-1.5">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1">
+              <div className="p-3.5 rounded-xl bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.04] space-y-1.5">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                   <HelpCircle className="w-3 h-3" />
                   Documentation Concept
                 </span>
-                <p className="text-neutral-300 leading-relaxed">{concept}</p>
+                <p className="text-foreground/90 dark:text-neutral-300 leading-relaxed">{concept}</p>
                 {description && description !== effectiveRule && (
-                  <p className="text-[11px] text-neutral-400 mt-1 leading-relaxed">{description}</p>
+                  <p className="text-[11px] text-muted-foreground dark:text-neutral-400 mt-1 leading-relaxed">{description}</p>
                 )}
               </div>
 
               {effectiveRule && (
-                <div className="p-3.5 rounded-xl bg-[#121216] border border-white/[0.04] space-y-1.5">
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                <div className="p-3.5 rounded-xl bg-muted/40 dark:bg-[#121216] border border-border dark:border-white/[0.04] space-y-1.5">
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <Scale className="w-3 h-3" />
                     Excalidraw Accounting Rule
                   </span>
-                  <p className="text-neutral-300 leading-relaxed">{effectiveRule}</p>
+                  <p className="text-foreground/90 dark:text-neutral-300 leading-relaxed">{effectiveRule}</p>
                 </div>
               )}
             </div>
@@ -117,27 +117,27 @@ export const ExcalidrawGuideBanner: React.FC<ExcalidrawGuideBannerProps> = ({
             {/* Accounting Entry Breakdown Table if provided */}
             {accountingRules.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#a0a0b0] block flex items-center gap-1">
-                  <Scale className="w-3 h-3 text-[#c084fc]" />
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground dark:text-[#a0a0b0] block flex items-center gap-1">
+                  <Scale className="w-3 h-3 text-primary dark:text-[#c084fc]" />
                   Double-Entry Ledger Impact (Debit = Credit)
                 </span>
-                <div className="border border-white/[0.06] rounded-xl overflow-hidden bg-[#121216]">
+                <div className="border border-border dark:border-white/[0.06] rounded-xl overflow-hidden bg-card dark:bg-[#121216]">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-white/[0.02] text-[#8a8a9a] border-b border-white/[0.06] text-[10px] uppercase font-semibold">
+                    <thead className="bg-slate-50 dark:bg-white/[0.02] text-muted-foreground dark:text-[#8a8a9a] border-b border-border dark:border-white/[0.06] text-[10px] uppercase font-semibold">
                       <tr>
                         <th className="py-2 px-3 w-20">Type</th>
                         <th className="py-2 px-3">Account</th>
                         <th className="py-2 px-3 text-right">Impact Description</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.04]">
+                    <tbody className="divide-y divide-border/60 dark:divide-white/[0.04]">
                       {accountingRules.map((rule, idx) => (
-                        <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                        <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
                           <td className="py-2 px-3">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                 rule.type.toLowerCase().includes('debit')
-                                  ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                                  ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30'
                                   : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                               }`}
                             >

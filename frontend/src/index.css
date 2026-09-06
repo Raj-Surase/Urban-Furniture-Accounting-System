@@ -26,56 +26,59 @@
 /* Clean Matte Design System - Reference: Urban Furniture Accounting System */
 
 @layer base {
-  :root {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 98%;
+  :root,
+  .light {
+    --background: 220 15% 97%;
+    --foreground: 220 25% 8%;
 
-    --card: 0 0% 11%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
 
-    --popover: 0 0% 11%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 220 8% 94%;
+    --popover-foreground: 220 25% 12%;
 
-    --primary: 232 85% 65%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 232 85% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 8% 88%;
+    --secondary-foreground: 220 25% 15%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 215 16% 36%;
 
-    --accent: 281 54% 18%;
-    --accent-foreground: 281 54% 85%;
+    --accent: 220 14% 92%;
+    --accent-foreground: 220 25% 15%;
 
     --destructive: 0 65% 55%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 220 5% 98%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 15%;
-    --ring: 232 85% 65%;
+    --border: 220 13% 89%;
+    --input: 220 10% 92%;
+    --ring: 232 85% 60%;
 
     --radius: 1rem;
 
-    /* Hero UI Multi-Stage Depth Shadows */
-    --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 6px 18px -2px rgba(0, 0, 0, 0.35);
-    --shadow-medium: 0 6px 20px -4px rgba(0, 0, 0, 0.5), 0 12px 36px -6px rgba(0, 0, 0, 0.45);
-    --shadow-strong: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 24px 48px -8px rgba(0, 0, 0, 0.55);
-    --shadow-card: 0 4px 16px -2px rgba(0, 0, 0, 0.45), 0 1px 3px 0 rgba(0, 0, 0, 0.35);
-    --shadow-card-hover: 0 14px 34px -4px rgba(0, 0, 0, 0.65), 0 6px 16px -2px rgba(0, 0, 0, 0.45);
-    --shadow-dropdown: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
-    --shadow-modal: 0 24px 54px -8px rgba(0, 0, 0, 0.8), 0 10px 24px -4px rgba(0, 0, 0, 0.6);
-    --primary-glow: rgba(93, 110, 248, 0.35);
-    --card-border: rgba(255, 255, 255, 0.08);
+    /* Hero UI Depth Shadows for Light Mode - Studio Grade Subtle Layers */
+    --shadow-soft: 0 1px 3px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+    --shadow-medium: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+    --shadow-strong: 0 12px 28px -4px rgba(15, 23, 42, 0.08), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+    --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 4px 14px -2px rgba(15, 23, 42, 0.04);
+    --shadow-card-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.08), 0 3px 8px -2px rgba(15, 23, 42, 0.04);
+    --shadow-dropdown: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+    --shadow-modal: 0 20px 40px -8px rgba(15, 23, 42, 0.12), 0 8px 20px -4px rgba(15, 23, 42, 0.06);
+    --shadow-obsidian-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 6px 18px -2px rgba(15, 23, 42, 0.05);
+    --shadow-obsidian-hover: 0 8px 26px -4px rgba(15, 23, 42, 0.08), 0 3px 10px -2px rgba(15, 23, 42, 0.04);
+    --primary-glow: rgba(79, 70, 229, 0.15);
+    --card-border: rgba(15, 23, 42, 0.08);
 
-    --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 232 85% 65%;
+    --sidebar-background: 220 20% 98%;
+    --sidebar-foreground: 220 20% 25%;
+    --sidebar-primary: 222 47% 11%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 14%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 232 85% 65%;
+    --sidebar-accent: 220 14% 93%;
+    --sidebar-accent-foreground: 220 25% 10%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-ring: 232 85% 60%;
   }
 
   .dark {
@@ -107,6 +110,8 @@
     --input: 0 0% 15%;
     --ring: 232 85% 65%;
 
+    --radius: 1rem;
+
     /* Hero UI Depth Shadows for Dark Mode */
     --shadow-soft: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 6px 18px -2px rgba(0, 0, 0, 0.35);
     --shadow-medium: 0 6px 20px -4px rgba(0, 0, 0, 0.5), 0 12px 36px -6px rgba(0, 0, 0, 0.45);
@@ -115,6 +120,8 @@
     --shadow-card-hover: 0 14px 34px -4px rgba(0, 0, 0, 0.65), 0 6px 16px -2px rgba(0, 0, 0, 0.45);
     --shadow-dropdown: 0 10px 30px -5px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
     --shadow-modal: 0 24px 54px -8px rgba(0, 0, 0, 0.8), 0 10px 24px -4px rgba(0, 0, 0, 0.6);
+    --shadow-obsidian-card: 0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+    --shadow-obsidian-hover: 0 16px 40px -6px rgba(0, 0, 0, 0.65), 0 4px 12px -2px rgba(0, 0, 0, 0.45);
     --primary-glow: rgba(93, 110, 248, 0.35);
     --card-border: rgba(255, 255, 255, 0.08);
 
@@ -128,56 +135,6 @@
     --sidebar-ring: 232 85% 65%;
   }
 
-  .light {
-    --background: 220 15% 97%;
-    --foreground: 220 25% 8%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 12%;
-
-    --popover: 220 8% 94%;
-    --popover-foreground: 220 25% 12%;
-
-    --primary: 232 85% 60%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 220 8% 88%;
-    --secondary-foreground: 220 25% 15%;
-
-    --muted: 220 8% 90%;
-    --muted-foreground: 220 15% 45%;
-
-    --accent: 200 40% 85%;
-    --accent-foreground: 220 25% 15%;
-
-    --destructive: 0 65% 55%;
-    --destructive-foreground: 220 5% 98%;
-
-    --border: 220 12% 85%;
-    --input: 220 10% 92%;
-    --ring: 232 85% 60%;
-
-    /* Hero UI Depth Shadows for Light Mode */
-    --shadow-soft: 0 2px 8px -1px rgba(0, 0, 0, 0.05), 0 4px 16px -2px rgba(0, 0, 0, 0.04);
-    --shadow-medium: 0 6px 20px -3px rgba(0, 0, 0, 0.07), 0 12px 28px -4px rgba(0, 0, 0, 0.05);
-    --shadow-strong: 0 14px 32px -4px rgba(0, 0, 0, 0.1), 0 24px 48px -6px rgba(0, 0, 0, 0.07);
-    --shadow-card: 0 2px 10px -2px rgba(0, 0, 0, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.04);
-    --shadow-card-hover: 0 12px 30px -4px rgba(0, 0, 0, 0.1), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
-    --shadow-dropdown: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -1px rgba(0, 0, 0, 0.04);
-    --shadow-modal: 0 20px 48px -8px rgba(0, 0, 0, 0.15), 0 8px 24px -4px rgba(0, 0, 0, 0.08);
-    --primary-glow: rgba(79, 70, 229, 0.25);
-    --card-border: rgba(0, 0, 0, 0.07);
-
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 232 85% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 232 85% 60%;
-  }
-
   * {
     border-color: hsl(var(--border));
   }
@@ -189,17 +146,14 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    background: radial-gradient(circle at 50% -15%, rgba(112, 66, 244, 0.06), transparent 55%),
+                #f4f5f9;
+    background-attachment: fixed;
   }
 
   .dark body {
     background: radial-gradient(circle at 50% 0%, rgba(112, 66, 244, 0.12), transparent 50%),
                 #121216;
-    background-attachment: fixed;
-  }
-
-  .light body {
-    background: radial-gradient(circle at 50% -15%, rgba(112, 66, 244, 0.06), transparent 55%),
-                #f4f5f9;
     background-attachment: fixed;
   }
 }
@@ -263,6 +217,311 @@
   .hero-press:active {
     transform: scale(0.975);
   }
+
+}
+
+/* =========================================================================
+   Light Theme Adaptations for Clean Obsidian & Dark Utility Overrides
+   Ensures full UI consistency when switching between Light and Dark themes
+   ========================================================================= */
+.light .obsidian-panel {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.light .obsidian-card {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-card);
+  color: hsl(var(--foreground));
+}
+.light .obsidian-card:hover {
+  border-color: hsl(var(--border));
+  box-shadow: var(--shadow-card-hover);
+}
+.light .obsidian-pill {
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.light .obsidian-pill:hover {
+  background-color: hsl(var(--secondary));
+  border-color: hsl(var(--border));
+}
+
+/* Canvas backgrounds */
+.light [class*="bg-[#121216]"],
+.light [class*="bg-[#0b0b0e]"],
+.light [class*="bg-[#0b0b0f]"],
+.light [class*="bg-[#121217]"],
+.light [class*="bg-[#121218]"],
+.light [class*="bg-[#131317]"],
+.light [class*="bg-[#141414]"],
+.light [class*="bg-[#15151a]"],
+.light [class*="bg-[#15151b]"] {
+  background-color: hsl(var(--background));
+}
+
+/* Card and panel containers */
+.light [class*="bg-[#141418]"],
+.light [class*="bg-[#141419]"],
+.light [class*="bg-[#16161c]"],
+.light [class*="bg-[#161620]"],
+.light [class*="bg-[#17171e]"],
+.light [class*="bg-[#18181f]"],
+.light [class*="bg-[#181820]"],
+.light [class*="bg-[#181822]"],
+.light [class*="bg-[#1a1a22]"],
+.light [class*="bg-[#1a1a23]"],
+.light [class*="bg-[#1a1a24]"] {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+/* Pills, secondary containers, and badges */
+.light [class*="bg-[#1c1c23]"],
+.light [class*="bg-[#1c1c24]"],
+.light [class*="bg-[#1e1e28]"],
+.light [class*="bg-[#1e1e2a]"],
+.light [class*="bg-[#202028]"],
+.light [class*="bg-[#202029]"],
+.light [class*="bg-[#20202a]"],
+.light [class*="bg-[#22222b]"],
+.light [class*="bg-[#24242e]"],
+.light [class*="bg-[#252530]"],
+.light [class*="bg-[#252533]"],
+.light [class*="bg-[#262632]"],
+.light [class*="bg-[#27273a]"],
+.light [class*="bg-[#282833]"],
+.light [class*="bg-[#2a2a35]"],
+.light [class*="bg-[#2a2a3a]"],
+.light [class*="bg-[#2e2e3a]"],
+.light [class*="bg-[#33333f]"] {
+  background-color: hsl(var(--muted));
+  border-color: hsl(var(--border));
+}
+
+/* Named obsidian color utilities */
+.light .bg-obsidian,
+.light .bg-obsidian-card {
+  background-color: hsl(var(--card));
+}
+.light .bg-obsidian-canvas {
+  background-color: hsl(var(--background));
+}
+.light .bg-obsidian-pill,
+.light .bg-obsidian-subtle {
+  background-color: hsl(var(--muted));
+}
+
+/* Shadows adaptation */
+.light .shadow-obsidian-card {
+  box-shadow: var(--shadow-obsidian-card) !important;
+}
+.light .shadow-obsidian-hover:hover {
+  box-shadow: var(--shadow-obsidian-hover) !important;
+}
+.light .shadow-2xl {
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04) !important;
+}
+.light .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.03) !important;
+}
+
+/* Opacity background adaptations */
+.light [class*="bg-white/"],
+.light .bg-white\/5,
+.light .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.035);
+}
+
+.light [class*="hover:bg-white/"]:hover,
+.light .hover\:bg-white\/5:hover,
+.light .hover\:bg-white\/10:hover {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+/* Borders adaptation */
+.light [class*="border-white/"],
+.light .border-white\/10,
+.light .border-white\/20,
+.light .border-white\/\[0\.04\],
+.light .border-white\/\[0\.05\],
+.light .border-white\/\[0\.06\],
+.light .border-white\/\[0\.08\],
+.light .border-white\/\[0\.1\],
+.light .border-white\/\[0\.12\],
+.light .border-white\/\[0\.15\] {
+  border-color: hsl(var(--border));
+}
+
+/* =========================================================================
+   Typography & Contrast Scale for Light Mode
+   Ensures WCAG AAA readability for headers, entity names, amounts, and dates
+   ========================================================================= */
+
+/* Primary dark foreground: entity names, titles, headers, bold text */
+.light h1.text-white,
+.light h2.text-white,
+.light h3.text-white,
+.light h4.text-white,
+.light h5.text-white,
+.light h6.text-white,
+.light th.text-white,
+.light td.text-white,
+.light tr.text-white,
+.light label.text-white,
+.light p.text-white:not([class*="bg-"]):not([class*="badge"]),
+.light div.text-white:not([class*="bg-"]):not([class*="badge"]),
+.light span.text-white:not([class*="bg-"]):not([class*="badge"]),
+.light .text-neutral-100,
+.light .text-neutral-200,
+.light .text-zinc-100,
+.light .text-zinc-200,
+.light .text-gray-100,
+.light .text-gray-200,
+.light .text-slate-100,
+.light .text-slate-200,
+.light [class*="text-white/95"],
+.light [class*="text-white/90"],
+.light [class*="text-white/85"],
+.light [class*="text-white/80"] {
+  color: #0f172a;
+}
+
+/* Secondary dark foreground: taxable amounts, totals, main table cell data */
+.light .text-neutral-300,
+.light .text-zinc-300,
+.light .text-gray-300,
+.light .text-slate-300,
+.light [class*="text-white/75"],
+.light [class*="text-white/70"] {
+  color: #1e293b;
+}
+
+/* Tertiary foreground: column headers, date labels, secondary metadata */
+.light .text-neutral-400,
+.light .text-zinc-400,
+.light .text-gray-400,
+.light .text-slate-400,
+.light [class*="text-[#808090]"],
+.light [class*="text-[#8a8a9a]"],
+.light [class*="text-[#8e8e9f]"],
+.light [class*="text-[#9090a0]"],
+.light [class*="text-white/60"] {
+  color: #475569;
+}
+
+/* Quaternary foreground: secondary metadata, due dates, GSTIN captions, placeholders */
+.light .text-neutral-500,
+.light .text-zinc-500,
+.light .text-gray-500,
+.light .text-slate-500,
+.light [class*="text-[#707080]"],
+.light [class*="text-[#757588]"],
+.light [class*="text-[#6d6d7e]"],
+.light [class*="text-[#606070]"],
+.light [class*="text-white/50"],
+.light [class*="text-white/40"] {
+  color: #64748b;
+}
+
+/* Form inputs in light mode */
+.light input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+.light select,
+.light textarea {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  color: #0f172a;
+}
+
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
+  border-color: hsl(var(--ring));
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* =========================================================================
+   Table Styling in Light Mode - Linear & Stripe Inspired
+   ========================================================================= */
+.light table {
+  color: #1e293b;
+}
+.light table thead tr {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+.light table th {
+  background-color: transparent !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  border-color: #e2e8f0 !important;
+}
+.light table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s ease;
+}
+.light table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+.light table td {
+  border-color: #f1f5f9;
+}
+
+/* =========================================================================
+   Status Badges & Indicator Pills in Light Mode
+   Clean pastel backgrounds with deep high-contrast text
+   ========================================================================= */
+.light span[class*="bg-emerald-500/"],
+.light div[class*="bg-emerald-500/"]:not([role="dialog"]) {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+.light span[class*="bg-blue-500/"],
+.light div[class*="bg-blue-500/"]:not([role="dialog"]) {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+.light span[class*="bg-indigo-500/"],
+.light div[class*="bg-indigo-500/"]:not([role="dialog"]) {
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
+  color: #4338ca !important;
+}
+.light span[class*="bg-amber-500/"],
+.light div[class*="bg-amber-500/"]:not([role="dialog"]) {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+.light span[class*="bg-rose-500/"],
+.light div[class*="bg-rose-500/"]:not([role="dialog"]) {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #be123c !important;
+}
+.light span[class*="bg-[#7042f4]/"],
+.light span[class*="bg-purple-500/"],
+.light div[class*="bg-[#7042f4]/"]:not([role="dialog"]),
+.light div[class*="bg-purple-500/"]:not([role="dialog"]) {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+  color: #6b21a8 !important;
+}
+.light span[class*="bg-cyan-400/"],
+.light span[class*="bg-cyan-500/"],
+.light div[class*="bg-cyan-400/"]:not([role="dialog"]),
+.light div[class*="bg-cyan-500/"]:not([role="dialog"]) {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  color: #0e7490 !important;
 }
 
 /* Thin modern scrollbar */
